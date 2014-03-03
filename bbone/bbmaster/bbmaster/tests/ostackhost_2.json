@@ -1,0 +1,31 @@
+{
+    "pf9-ostackhost": {
+        "version": "1.0.0-1",
+        "running": true,
+        "url": "http://leb-ctos-devel/pf9/pf9-ostackhost-1.0.0-1.x86_64.rpm",
+        "config": {
+            "nova": {
+                "DEFAULT": {
+                    "rabbit_host": "50.18.194.110",
+                    "my_ip": "10.0.0.20",
+                    "ec2_dmz_host": "192.168.0.1",
+                    "glance_api_servers": "50.18.194.110",
+                    "rabbit_password": "nova",
+                    "xvpvncproxy_base_url": "http://10.0.0.20:6081/console",
+                    "s3_host": "10.0.0.20",
+                    "flat_interface": "eth3",
+                    "novncproxy_base_url": "http://10.0.0.20:6080/vnc_auto.html"
+                },
+                "spice": {
+                    "html5proxy_base_url": "http://10.0.0.20:6082/spice_auto.html"
+                }
+            },
+            "api-paste": {
+                "filter:authtoken": {
+                    "admin_password": "change_me",
+                    "auth_host": "192.168.0.1"
+                }
+            }
+        }
+    }
+}

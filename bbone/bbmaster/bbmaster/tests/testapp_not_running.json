@@ -1,0 +1,17 @@
+{
+    "pf9-testapp": {
+        "version": "1.0-1",
+        "running": false,
+        "url": "http://leb-ctos-devel/pf9/pf9-testapp-1.0-1.noarch.rpm",
+        "config": {
+            "primary": {
+                "x":"3",
+                "y":"2"
+            },
+            "backup": {
+                "x":"3",
+                "y":"5"
+            }
+        }
+    }
+}

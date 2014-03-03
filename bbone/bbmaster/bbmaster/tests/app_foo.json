@@ -1,0 +1,17 @@
+{
+    "app_foo": {
+        "version": "1.8",
+        "running": true,
+        "url": "http://www.foo.com/app_foo-1.8.rpm",
+        "config": {
+            "default": {
+                "x":3,
+                "y":2
+            },
+            "backup": {
+                "x":3,
+                "y":5
+            }
+        }
+    }
+}

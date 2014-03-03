@@ -1,0 +1,351 @@
+from unittest import TestCase
+from webtest import TestApp
+from bbmaster.tests import FunctionalTest
+
+import ConfigParser
+import copy
+import json
+import logging as log
+import os
+import pika
+import re
+import tempfile
+import time
+import threading
+import uuid
+
+from pecan.testing import load_test_app
+from pecan import set_config
+
+from bbcommon import constants
+from bbcommon import vhost
+from bbcommon.amqp import io_loop
+
+
+
+host_id = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
+amqp_host = 'rabbitmq.platform9.sys'
+config = ConfigParser.ConfigParser()
+config.add_section('amqp')
+config.set('amqp', 'host', amqp_host)
+config.set('amqp', 'username', 'guest')
+config.set('amqp', 'password', 'nova')
+config.set('amqp', 'virtual_host', vhost.generate_amqp_vhost())
+config.add_section('hostagent')
+config.set('hostagent', 'connection_retry_period', '5')
+config.set('hostagent', 'heartbeat_period', '3600')
+config.set('hostagent', 'log_level_name', 'INFO')
+config.set('hostagent', 'app_cache_dir', '/tmp/appcache')
+config.set('hostagent', 'USE_MOCK', '1')
+log.basicConfig(level=getattr(log, 'INFO'))
+amqp_endpoint = "http://%s:15672/api" % amqp_host
+
+initial_status = {
+    'opcode': 'status',
+    'data': {
+        'host_id': host_id,
+        'status': 'ok',
+        'info': {},
+        'apps': {
+            "app_bar": {
+                "version": "1.3",
+                "running": True,
+                "url": "http://www.foo.com/app_foo-1.8.rpm",
+                "config": {
+                    "default": {
+                        "y":3,
+                        "f":2
+                    },
+                    "backup": {
+                        "w":3,
+                        "z":5
+                    }
+                }
+            },
+            "app_foo": {
+                "version": "1.8",
+                "running": False,
+                "url": "http://www.foo.com/app_foo-1.8.rpm",
+                "config": {
+                    "default": {
+                        "x":3,
+                        "y":2
+                    },
+                    "backup": {
+                        "x":3,
+                        "y":5
+                    }
+                }
+            }
+        }
+    }
+}
+
+bad_initial_status = {
+    'opcode': 'status',
+    'data': {
+        'status': 'ok',
+        'info': {},
+        'apps': {}
+    }
+}
+
+test_data = {
+    "app_bar": {
+        "version": "1.3",
+        "running": False,
+        "url": "http://www.foo.com/app_foo-1.8.rpm",
+        "config": {
+            "default": {
+                "y":3,
+                "f":2
+                },
+            "backup": {
+                "w":3,
+                "z":5
+                }
+            }
+        }
+    }
+
+
+def setup_module():
+    vhost.prep_amqp_broker(config, log, amqp_endpoint)
+
+def teardown_module():
+    vhost.clean_amqp_broker(config, log, amqp_endpoint)
+
+
+def _setup_slave(init_msg, host_topic):
+    """
+    Starts out slave to work with the master as part of the tests. Uses the
+    initial status param as the data it advertises to the master on startup.
+    """
+    username = config.get('amqp', 'username')
+    password = config.get('amqp', 'password')
+    credentials = pika.PlainCredentials(username=username, password=password)
+    state = {}
+
+    def send_msg(msg):
+        log.info("[%s] Mock slave sending message: %s",
+                    threading.currentThread().getName(), msg)
+        channel = state['channel']
+        log.info('state: %s', state)
+        channel.basic_publish(exchange=constants.BBONE_EXCHANGE,
+                              routing_key=constants.MASTER_TOPIC,
+                              body=json.dumps(msg))
+
+    def before_consuming():
+        send_msg(init_msg)
+
+
+    def mock_consume_msg(ch, method, properties, body):
+        log.info('[%s] Mock slave received message %s',
+                threading.currentThread().getName(), body)
+        out_msg = copy.deepcopy(init_msg)
+        in_msg = json.loads(body)
+        if in_msg['opcode'] == 'ping':
+            # Return init_msg
+            pass
+        else:
+            out_msg['data']['apps'] = in_msg['data']
+        send_msg(out_msg)
+
+
+    recv_keys = [constants.BROADCAST_TOPIC, host_topic]
+
+    log.info("Starting IO loop slave...")
+    io_loop(host=config.get('amqp', 'host'),
+            credentials=credentials,
+            exch_name=constants.BBONE_EXCHANGE,
+            recv_keys=recv_keys,
+            state=state,
+            before_consuming_cb=before_consuming,
+            consume_cb=mock_consume_msg,
+            virtual_host=config.get('amqp', 'virtual_host'))
+
+
+def validate_with_retry(validator, retries, sleep_interval, *validator_args):
+    """
+    Validates the provided validator method, retrying it the specified
+    number of times. Returns True if the validator succeeds within the number of
+    retries specified.
+    """
+    tries = 1
+    while tries < retries:
+        if not validator(*validator_args):
+            time.sleep(sleep_interval)
+            tries += 1
+        else:
+            break
+
+    return tries < retries
+
+def validate_host_present(provider, host_id):
+    body = provider.get_host_ids()
+    return host_id in body
+
+class TestBbMaster(FunctionalTest):
+    """
+    Test backbone master
+    """
+
+    def setUp(self):
+        self.temp_amqp_conf = tempfile.NamedTemporaryFile(delete=False)
+        config.write(self.temp_amqp_conf)
+        self.temp_amqp_conf.close()
+        os.environ['AMQP_CONFIG_FILE'] = self.temp_amqp_conf.name
+
+        self.app = load_test_app(os.path.join(
+            os.path.dirname(__file__),
+            'master_config.py'
+        ))
+
+
+    def tearDown(self):
+        os.unlink(self.temp_amqp_conf.name)
+        set_config({}, overwrite=True)
+
+
+    def test_master(self):
+        log.info('Starting test %s:%s', self.__class__, __name__)
+        # We want the provider to come up only after the setUp step above has
+        # built the config file. So, import it here.
+        from bbmaster.bbone_provider_pf9_pika import provider
+
+        thread_id = 'test_master'
+        test_host_id = '%s-%s' % (host_id, thread_id)
+        init_msg = copy.deepcopy(initial_status)
+        init_msg['data']['host_id'] = test_host_id
+        t = threading.Thread(name=thread_id, target=_setup_slave,
+                args=(init_msg, test_host_id))
+        t.daemon = True
+        t.start()
+
+        # TEST SUMMARY
+        # Ensure the slave registered with the master and published its status
+        validation_result = validate_with_retry(validate_host_present, 20, 3,
+                                                provider, test_host_id)
+        assert validation_result
+
+        host_info = provider.get_hosts([test_host_id])
+        log.info('Discovered host info: %s', host_info)
+        assert host_info[0]['apps'] == init_msg['data']['apps']
+
+        # TEST SUMMARY
+        # Set the configuration for a host. Ensure the desired apps for the
+        # master are updated and then even the slave reports updated status
+
+        provider.set_host_apps(test_host_id, test_data)
+        # Check that the master has registered the desired configuration first,
+        # and then check that the actual configuration converged with it.
+        assert test_data == provider.desired_apps[test_host_id]
+
+        def validate_host_apps(host_id, expected_host_data):
+            cur_data = provider.get_hosts([host_id])
+            return expected_host_data == cur_data[0]['apps']
+
+        assert validate_with_retry(validate_host_apps, 20, 3, test_host_id, test_data)
+
+        # TEST SUMMARY
+        # Set the same configuration as that currently on the host. Ensure that
+        # the desired apps state remains same as before.
+        cur_data = provider.get_hosts([test_host_id])
+        previous_state = cur_data[0]['apps']
+
+        provider.set_host_apps(test_host_id, test_data)
+        log.info('Desired apps state: %s ' % provider.desired_apps)
+        assert previous_state == provider.desired_apps[test_host_id]
+
+
+
+class TestBBMasterBadStatus (FunctionalTest):
+
+    def setUp(self):
+        self.temp_amqp_conf = tempfile.NamedTemporaryFile(delete=False)
+        config.write(self.temp_amqp_conf)
+        self.temp_amqp_conf.close()
+        os.environ['AMQP_CONFIG_FILE'] = self.temp_amqp_conf.name
+
+        self.app = load_test_app(os.path.join(
+            os.path.dirname(__file__),
+            'master_config.py'
+        ))
+
+    def tearDown(self):
+        os.unlink(self.temp_amqp_conf.name)
+        set_config({}, overwrite=True)
+
+    def test_master_bad_status(self):
+        log.info('Starting test %s:%s', self.__class__, __name__)
+        # We want the provider to come up only after the setUp step above has
+        # built the config file. So, import it here.
+        from bbmaster.bbone_provider_pf9_pika import provider
+        t = threading.Thread(name='test_master_bad_status', target=_setup_slave,
+                args=(bad_initial_status, host_id))
+        t.daemon = True
+        t.start()
+
+        # TEST SUMMARY
+        # Ensure the slave has sent a bad status which the master has rejected.
+        # Also check the there is no data associated with that host
+        validate_res = validate_with_retry(validate_host_present, 5, 3,
+                                           provider, host_id)
+        assert not validate_res
+
+        host_info = provider.get_hosts([host_id])
+        assert not host_info
+
+
+class TestBBMasterBadSetOp(FunctionalTest):
+
+    def setUp(self):
+        self.temp_amqp_conf = tempfile.NamedTemporaryFile(delete=False)
+        config.write(self.temp_amqp_conf)
+        self.temp_amqp_conf.close()
+        os.environ['AMQP_CONFIG_FILE'] = self.temp_amqp_conf.name
+
+        self.app = load_test_app(os.path.join(
+            os.path.dirname(__file__),
+            'master_config.py'
+        ))
+
+    def tearDown(self):
+        os.unlink(self.temp_amqp_conf.name)
+        set_config({}, overwrite=True)
+
+    def test_master_bad_set_op(self):
+        log.info('Starting test %s:%s', self.__class__, __name__)
+        # We want the provider to come up only after the setUp step above has
+        # built the config file. So, import it here.
+        from bbmaster.bbone_provider_pf9_pika import provider
+        thread_id = 'test_master_bad_set_op'
+        test_host_id = '%s-%s' % (host_id, thread_id)
+        init_msg = copy.deepcopy(initial_status)
+        init_msg['data']['host_id'] = test_host_id
+        t = threading.Thread(name='test_master_bad_set_op', target=_setup_slave,
+                args=(init_msg, test_host_id))
+        t.daemon = True
+        t.start()
+
+        # TEST SUMMARY
+        # Ensure the slave registered with the master and published its status
+        assert validate_with_retry(validate_host_present, 20, 3,
+                                   provider, test_host_id)
+
+        host_info = provider.get_hosts([test_host_id])
+        log.info('Discovered host info: %s', host_info)
+        assert host_info[0]['apps'] == init_msg['data']['apps']
+        prev_apps = host_info[0]['apps']
+
+        # TEST SUMMARY
+        # Set an invalid configuration for a host. Ensure that the master
+        # doesn't honor this configuration.
+        provider.set_host_apps(test_host_id, [])
+        log.info('Desired apps in master: %s ' % provider.desired_apps)
+        assert provider.desired_apps[test_host_id] == None
+
+        host_apps = provider.get_hosts([test_host_id])[0]['apps']
+        assert prev_apps == host_apps
+
+

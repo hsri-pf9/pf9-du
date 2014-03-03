@@ -1,0 +1,48 @@
+{
+    "mock_resources" : {
+        "rsc_1": {
+            "id":"rsc_1",
+             "info": {
+                "hostname": "leb-centos-1.platform9.sys",
+                "os_family": "Linux",
+                "arch": "x86_64",
+                "os_info": "centos 6.4 Final"
+            },
+            "state":"inactive",
+            "roles":[]
+        },
+
+        "rsc_2": {
+            "id":"rsc_2",
+             "info": {
+                "hostname": "leb-centos-2.platform9.sys",
+                "os_family": "Linux",
+                "arch": "i386",
+                "os_info": "centos 6.4 Final"
+            },
+            "state":"inactive",
+            "roles":[]
+        },
+
+        "rsc_3": {
+            "id":"rsc_3",
+             "info": {
+                "hostname": "leb-centos-3.platform9.sys",
+                "os_family": "Linux",
+                "arch": "x86_64",
+                "os_info": "centos 6.4 Final"
+            },
+            "state":"inactive",
+            "roles":[]
+        }
+    },
+
+
+    "mock_roles" : {
+        "pf9-ostackhost": {
+            "id":"pf9-ostackhost",
+            "name":"pf9-ostackhost",
+            "description":"xyz"
+        }
+    }
+}

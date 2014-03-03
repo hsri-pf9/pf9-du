@@ -1,0 +1,4 @@
+#!/opt/pf9/hostagent/bin/python
+
+# Start the backbone slave
+import bbslave.main
