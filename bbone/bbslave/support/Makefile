@@ -38,7 +38,7 @@ PF9APP_DIR :=$(SRC_ROOT)/bbone/pf9app
 BBLIBCOMMON_DIR :=$(SRC_ROOT)/bbone/lib
 CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
 
-$(BUILD_DIR): | $(VENV_DIR)
+$(BUILD_DIR):
 	mkdir -p $@
 
 $(OPT_PF9_DIR):
@@ -46,7 +46,7 @@ $(OPT_PF9_DIR):
 	sudo chown $(MYSELF) $@
 
 # Site packages required: bbslave needs 'yum' which is not available on PyPi
-$(VENV_DIR): | $(OPT_PF9_DIR)
+$(VENV_DIR): | $(OPT_PF9_DIR) $(BUILD_DIR)
 	virtualenv --system-site-packages $@
 
 $(HOSTAGENT_TARBALL_EXPANDEDDIR):
@@ -58,7 +58,7 @@ $(HOSTAGENT_TARBALL_SRCDIR):
 	mkdir -p $@
 	cp -r $(BBSLAVE_DIR)/etc $@/
 
-install-bbslave: | $(BUILD_DIR)
+install-bbslave: | $(BUILD_DIR) $(VENV_DIR)
 	cd $(CONFIGUTILS_DIR);\
 	$(VENV_INSTALL_CMD)
 	cd $(PF9APP_DIR);\
@@ -91,5 +91,42 @@ hostagent-rpm: $(HOSTAGENT_RPM)
 
 hostagent-tarball: $(HOSTAGENT_TARBALL)
 
+# These additional modules need to be setup in order for our tests to run
+TEST_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${SRC_ROOT}/bbone/bbmaster ${PF9APP_DIR} ${CONFIGUTILS_DIR}
+TEST_VENV = ${BUILD_DIR}/hostagent_venv
+TEST_VENV_DEVELOP_CMD=${TEST_VENV}/bin/python setup.py develop
+COVERAGE_ZIP = ${SRC_ROOT}/coverage.zip
+DISTUTILS_DEBUG = 1
+
+${TEST_VENV}: ${BUILD_DIR}
+	virtualenv ${TEST_VENV}
+
+pre-reqs : ${TEST_VENV}
+	for pkg in ${TEST_SETUP_DEPS}; do \
+		cd $${pkg};\
+		${TEST_VENV_DEVELOP_CMD};\
+	done;\
+	cd ${BBSLAVE_DIR};\
+	${TEST_VENV_DEVELOP_CMD};
+
+unit-test-setup: pre-reqs
+	# Setup up nose and coverage in addition to pre-reqs
+	source ${TEST_VENV}/bin/activate;\
+	pip install nose;\
+	pip install coverage;\
+	deactivate
+
+unit-test: unit-test-setup
+	cd ${BBSLAVE_DIR};\
+	${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
+			--cover-package=bbslave --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/test_slave.py;\
+	cd ${BUILD_DIR}/coverage;\
+	zip -q ${COVERAGE_ZIP} *;
+
+
 clean:
 	sudo rm -rf $(BUILD_DIR)
+	if [ -f ${COVERAGE_ZIP} ]; \
+	then \
+		rm ${COVERAGE_ZIP}; \
+	fi;
