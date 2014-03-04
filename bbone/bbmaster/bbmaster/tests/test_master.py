@@ -107,7 +107,6 @@ def setup_module():
 def teardown_module():
     vhost.clean_amqp_broker(config, log, amqp_endpoint)
 
-
 def _setup_slave(init_msg, host_topic):
     """
     Starts out slave to work with the master as part of the tests. Uses the
