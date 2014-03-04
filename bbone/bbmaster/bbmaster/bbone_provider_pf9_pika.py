@@ -29,10 +29,9 @@ class bbone_provider_pf9(bbone_provider_memory):
         super(bbone_provider_pf9, self).__init__()
         self.lock = threading.Lock()
         self.config = ConfigParser()
-        amqp_conf = environ.get('AMQP_CONFIG_FILE', constants.AMQP_CONFIG_FILE)
         bbmaster_conf = environ.get('BBMASTER_CONFIG_FILE',
                                     constants.BBMASTER_CONFIG_FILE)
-        self.config.read([amqp_conf, bbmaster_conf])
+        self.config.read(bbmaster_conf)
         log_level_name = self.config.get('bbmaster', 'log_level_name')
         self.log = logging.getLogger('bbmaster')
         self.log.setLevel(getattr(logging, log_level_name))
@@ -123,7 +122,7 @@ class bbone_provider_pf9(bbone_provider_memory):
         ssl_options = get_ssl_options(self.config)
         while True:
             try:
-                self.log.info("Setting up master io loop")
+                self.log.info("Setting up master io loop, vhost=%s" % virt_host)
                 io_loop(host=self.config.get('amqp', 'host'),
                         credentials=credentials,
                         exch_name=constants.BBONE_EXCHANGE,

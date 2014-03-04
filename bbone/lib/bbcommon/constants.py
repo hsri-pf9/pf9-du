@@ -9,4 +9,3 @@ MASTER_TOPIC = 'master'
 
 HOSTAGENT_CONFIG_FILE = '/etc/pf9/hostagent.conf'
 BBMASTER_CONFIG_FILE = '/etc/pf9/bbmaster.conf'
-AMQP_CONFIG_FILE = '/etc/pf9/amqp.conf'

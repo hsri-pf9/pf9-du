@@ -20,24 +20,16 @@ from pecan import set_config
 from bbcommon import constants
 from bbcommon import vhost
 from bbcommon.amqp import io_loop
-
-
+from os.path import join, realpath, dirname
 
 host_id = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
-amqp_host = 'rabbitmq.platform9.sys'
+bbmaster_dir = realpath(join(dirname(__file__), '../..'))
+bbmaster_conf = join(bbmaster_dir, 'etc/bbmaster_test.conf')
 config = ConfigParser.ConfigParser()
-config.add_section('amqp')
-config.set('amqp', 'host', amqp_host)
-config.set('amqp', 'username', 'guest')
-config.set('amqp', 'password', 'nova')
+config.read(bbmaster_conf)
 config.set('amqp', 'virtual_host', vhost.generate_amqp_vhost())
-config.add_section('hostagent')
-config.set('hostagent', 'connection_retry_period', '5')
-config.set('hostagent', 'heartbeat_period', '3600')
-config.set('hostagent', 'log_level_name', 'INFO')
-config.set('hostagent', 'app_cache_dir', '/tmp/appcache')
-config.set('hostagent', 'USE_MOCK', '1')
 log.basicConfig(level=getattr(log, 'INFO'))
+amqp_host = config.get('amqp', 'host')
 amqp_endpoint = "http://%s:15672/api" % amqp_host
 
 initial_status = {
@@ -191,10 +183,10 @@ class TestBbMaster(FunctionalTest):
     """
 
     def setUp(self):
-        self.temp_amqp_conf = tempfile.NamedTemporaryFile(delete=False)
-        config.write(self.temp_amqp_conf)
-        self.temp_amqp_conf.close()
-        os.environ['AMQP_CONFIG_FILE'] = self.temp_amqp_conf.name
+        self.temp_conf = tempfile.NamedTemporaryFile(delete=False)
+        config.write(self.temp_conf)
+        self.temp_conf.close()
+        os.environ['BBMASTER_CONFIG_FILE'] = self.temp_conf.name
 
         self.app = load_test_app(os.path.join(
             os.path.dirname(__file__),
@@ -203,7 +195,7 @@ class TestBbMaster(FunctionalTest):
 
 
     def tearDown(self):
-        os.unlink(self.temp_amqp_conf.name)
+        os.unlink(self.temp_conf.name)
         set_config({}, overwrite=True)
 
 
@@ -262,10 +254,10 @@ class TestBbMaster(FunctionalTest):
 class TestBBMasterBadStatus (FunctionalTest):
 
     def setUp(self):
-        self.temp_amqp_conf = tempfile.NamedTemporaryFile(delete=False)
-        config.write(self.temp_amqp_conf)
-        self.temp_amqp_conf.close()
-        os.environ['AMQP_CONFIG_FILE'] = self.temp_amqp_conf.name
+        self.temp_conf = tempfile.NamedTemporaryFile(delete=False)
+        config.write(self.temp_conf)
+        self.temp_conf.close()
+        os.environ['BBMASTER_CONFIG_FILE'] = self.temp_conf.name
 
         self.app = load_test_app(os.path.join(
             os.path.dirname(__file__),
@@ -273,7 +265,7 @@ class TestBBMasterBadStatus (FunctionalTest):
         ))
 
     def tearDown(self):
-        os.unlink(self.temp_amqp_conf.name)
+        os.unlink(self.temp_conf.name)
         set_config({}, overwrite=True)
 
     def test_master_bad_status(self):
@@ -300,10 +292,10 @@ class TestBBMasterBadStatus (FunctionalTest):
 class TestBBMasterBadSetOp(FunctionalTest):
 
     def setUp(self):
-        self.temp_amqp_conf = tempfile.NamedTemporaryFile(delete=False)
-        config.write(self.temp_amqp_conf)
-        self.temp_amqp_conf.close()
-        os.environ['AMQP_CONFIG_FILE'] = self.temp_amqp_conf.name
+        self.temp_conf = tempfile.NamedTemporaryFile(delete=False)
+        config.write(self.temp_conf)
+        self.temp_conf.close()
+        os.environ['BBMASTER_CONFIG_FILE'] = self.temp_conf.name
 
         self.app = load_test_app(os.path.join(
             os.path.dirname(__file__),
@@ -311,7 +303,7 @@ class TestBBMasterBadSetOp(FunctionalTest):
         ))
 
     def tearDown(self):
-        os.unlink(self.temp_amqp_conf.name)
+        os.unlink(self.temp_conf.name)
         set_config({}, overwrite=True)
 
     def test_master_bad_set_op(self):

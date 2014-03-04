@@ -15,7 +15,7 @@ SPEC_FILE_DIR=`mktemp -d -t pf9-XXX`
 mv $TARBALL_EXPANDED_LOCATION/hostagent.spec $SPEC_FILE_DIR/hostagent.spec
 mv $TARBALL_EXPANDED_LOCATION/hostagent-rpmbuild.sh $SPEC_FILE_DIR/hostagent-rpmbuild.sh
 
-sed -i -e "s/CHANGE_TO_YOUR_BROKER_IP/$HOST_IP/" $TARBALL_EXPANDED_LOCATION/etc/pf9/amqp.conf
+sed -i -e "s/CHANGE_TO_YOUR_BROKER_IP/$HOST_IP/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 
 
 rpmbuild -bb --define "_topdir $RPMBUILD_DIR" --define "_src_dir $TARBALL_EXPANDED_LOCATION"  --define "_version $VERSION"  $SPEC_FILE_DIR/hostagent.spec

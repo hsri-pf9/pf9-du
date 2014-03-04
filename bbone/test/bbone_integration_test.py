@@ -11,7 +11,8 @@ __author__ = 'leb'
 import unittest
 import ConfigParser
 from bbcommon import vhost
-from os import path, unlink
+from os import unlink
+from os.path import join, realpath, dirname
 from os import environ as env
 import subprocess
 import sys
@@ -61,35 +62,45 @@ test_data_1 = {
 class BBoneIntegrationTest(unittest.TestCase):
 
     def setUp(self):
-        use_ssl = 'BBONE_TEST_USE_SSL' in env
-        ssl_suffix = '_ssl' if use_ssl else ''
-        master_conf_relpath = 'bbmaster/etc/bbmaster_test%s.conf' % ssl_suffix
-        amqp_conf_relpath = 'bbslave/etc/pf9/amqp_test%s.conf' % ssl_suffix
-        slave_conf_relpath = 'bbslave/etc/pf9/hostagent_test%s.conf' % ssl_suffix
-        bbone_dir = path.realpath(path.join(path.dirname(__file__), '..'))
-        master_conf = path.join(bbone_dir, master_conf_relpath)
-        pecan_conf = path.join(bbone_dir, 'bbmaster/config.py')
-        amqp_conf = path.join(bbone_dir, amqp_conf_relpath)
-        slave_conf = path.join(bbone_dir, slave_conf_relpath)
-        slave_script = path.join(bbone_dir, 'bbslave/bbslave/main.py')
+        bbone_dir = realpath(join(dirname(__file__), '..'))
+        master_conf = join(bbone_dir, 'bbmaster/etc/bbmaster_test.conf')
+        pecan_conf = join(bbone_dir, 'bbmaster/config.py')
+        slave_conf = join(bbone_dir, 'bbslave/etc/pf9/hostagent_test.conf')
+        slave_script = join(bbone_dir, 'bbslave/bbslave/main.py')
+        ca_certs = join(bbone_dir, 'etc/pf9/certs/testca/cacert.pem')
+        slave_key = join(bbone_dir, 'etc/pf9/certs/hostagent/key.pem')
+        slave_cert = join(bbone_dir, 'etc/pf9/certs/hostagent/cert.pem')
+        master_key = join(bbone_dir, 'etc/pf9/certs/bbmaster/key.pem')
+        master_cert = join(bbone_dir, 'etc/pf9/certs/bbmaster/cert.pem')
 
         self.config = ConfigParser.ConfigParser()
-        self.config.read([amqp_conf])
+        self.config.read([slave_conf, master_conf])
         amqp_host = self.config.get('amqp', 'host')
         self.amqp_endpoint = "http://%s:15672/api" % amqp_host
         self.config.set('amqp', 'virtual_host', vhost.generate_amqp_vhost())
-
-        # Prepare a vhost, save to config, then write to temp file
         vhost.prep_amqp_broker(self.config, logging, self.amqp_endpoint)
-        self.temp_amqp_conf = tempfile.NamedTemporaryFile(delete=False)
-        self.config.write(self.temp_amqp_conf)
-        self.temp_amqp_conf.close()
+        
+        use_ssl = 'BBONE_TEST_USE_SSL' in env
+        if use_ssl:
+            self.config.add_section('ssl')
+            self.config.set('ssl', 'ca_certs', ca_certs)
+            self.config.set('ssl', 'certfile', slave_cert)
+            self.config.set('ssl', 'keyfile', slave_key)
+        self.tmp_slave_conf = tempfile.NamedTemporaryFile(delete=False)
+        self.config.write(self.tmp_slave_conf)
+        self.tmp_slave_conf.close()
+
+        if use_ssl:
+            self.config.set('ssl', 'certfile', master_cert)
+            self.config.set('ssl', 'keyfile', master_key)
+        self.tmp_master_conf = tempfile.NamedTemporaryFile(delete=False)
+        self.config.write(self.tmp_master_conf)
+        self.tmp_master_conf.close()
 
         self.slaves = []
         num_slaves = int(env.get('BBONE_TEST_NUM_SLAVES', '5'))
-        env['AMQP_CONFIG_FILE'] = self.temp_amqp_conf.name
-        env['HOSTAGENT_CONFIG_FILE'] = slave_conf
-        env['BBMASTER_CONFIG_FILE'] = master_conf
+        env['HOSTAGENT_CONFIG_FILE'] = self.tmp_slave_conf.name
+        env['BBMASTER_CONFIG_FILE'] = self.tmp_master_conf.name
         for i in range(num_slaves):
             env['HOSTAGENT_HOST_ID'] = self._host_id(i)
             self.slaves.append(subprocess.Popen([sys.executable,
@@ -111,7 +122,8 @@ class BBoneIntegrationTest(unittest.TestCase):
             if slave.returncode is None:
                 slave.kill()
         vhost.clean_amqp_broker(self.config, logging, self.amqp_endpoint)
-        unlink(self.temp_amqp_conf.name)
+        unlink(self.tmp_slave_conf.name)
+        unlink(self.tmp_master_conf.name)
 
     def _wait_until(self, callback, *args):
         """
