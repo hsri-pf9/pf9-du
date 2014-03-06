@@ -9,11 +9,12 @@ This module is mock implementation of resource manager provider interface
 
 from resmgr_provider import ResMgrProvider, RState
 from exceptions import RoleNotFound, ResourceNotFound
+import logging
 import json
 
 class ResMgrMemProvider(ResMgrProvider):
 
-    def __init__(self):
+    def __init__(self, conf_file):
         """ Mock memory based provider """
         self.res = None
         self.roles = None
@@ -24,8 +25,8 @@ class ResMgrMemProvider(ResMgrProvider):
             try:
                 d = json.load(json_file)
                 self._load_data(d['mock_resources'], d['mock_roles'])
-            except (ValueError, KeyError, TypeError):
-                self.log.error('Malformed data: %s', json_data)
+            except (ValueError, KeyError, TypeError) as e:
+                logging.error('Malformed data: %s', json_file)
 
     def _load_data(self, res, roles):
         if not res or not roles:
@@ -43,8 +44,13 @@ class ResMgrMemProvider(ResMgrProvider):
             self.res = res
             self.roles = roles
 
+    def get_all_roles(self):
+        return self._get_roles()
 
-    def get_roles(self, id_list=[]):
+    def get_role(self, role_id):
+        return self._get_roles([role_id])
+
+    def _get_roles(self, id_list=[]):
         #prereq
         self._refresh_data()
 
@@ -59,7 +65,13 @@ class ResMgrMemProvider(ResMgrProvider):
         ## TODO: error handling
         return sub_roles
 
-    def get_resources(self, id_list=[]):
+    def get_all_resources(self):
+        return self._get_resources()
+
+    def get_resource(self, resource_id):
+        return self._get_resources([resource_id])
+
+    def _get_resources(self, id_list=[]):
         #prereq
         self._refresh_data()
 
@@ -88,10 +100,9 @@ class ResMgrMemProvider(ResMgrProvider):
 
         res, role = self._get_res_roles(res_id, role_id)
 
-        """
-        TODO: Right now, this mapping is one to one to keep status
-        consistent. Revisit
-        """
+
+        #TODO:Right now, this mapping is one to one to keep status consistent.
+        # Revisit
         if res['state'] != RState.inactive:
             return
 
@@ -116,3 +127,7 @@ class ResMgrMemProvider(ResMgrProvider):
 
         if not res['roles']:
             res['state'] = RState.inactive
+
+
+def get_provider(config_file):
+    return ResMgrMemProvider(config_file)

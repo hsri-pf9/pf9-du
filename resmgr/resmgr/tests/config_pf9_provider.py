@@ -26,7 +26,7 @@ app = {
 
 
 resmgr = {
-    'config_file': os.path.join(os.getcwd(), 'resmgr/etc/resmgr.conf'),
-    'provider': 'resmgr_provider_mem'
+    'config_file': os.path.join(os.getcwd(), 'resmgr/tests/resmgr.conf'),
+    'provider': 'resmgr_provider_pf9'
 }
 

@@ -5,7 +5,7 @@ import os
 from pecan import set_config
 from pecan.testing import load_test_app
 
-from bbmaster import bbone_provider_memory
+from bbmaster import bbone_provider_mock
 
 import mock_data
 
@@ -17,7 +17,7 @@ class TestRootController(FunctionalTest):
             os.path.dirname(__file__),
             'controller_config.py'
         ))
-        bbone_provider_memory.provider.load_test_data(mock_data.data)
+        bbone_provider_mock.provider.load_test_data(mock_data.data)
 
 
     def tearDown(self):

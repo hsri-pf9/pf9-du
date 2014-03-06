@@ -6,7 +6,6 @@ This module is a mock implementation of the backbone provider interface.
 """
 
 from bbone_provider import bbone_provider
-import copy
 
 class bbone_provider_memory(bbone_provider):
     """Mock provider class. Works off mock data loaded in memory"""
@@ -14,9 +13,6 @@ class bbone_provider_memory(bbone_provider):
     def __init__(self):
         self.hosts = {}
         self.desired_apps = {}
-
-    def load_test_data(self, test_data):
-        self.hosts = test_data
 
     def get_host_ids(self):
         """
@@ -42,4 +38,3 @@ class bbone_provider_memory(bbone_provider):
             }
         self.desired_apps[id] = apps_config
 
-provider = bbone_provider_memory()

@@ -12,7 +12,7 @@ class ResMgrException(Exception):
         self.msg = msg
 
     def __repr__(self):
-        return msg
+        return self.msg
 
 
 class RoleNotFound(ResMgrException):

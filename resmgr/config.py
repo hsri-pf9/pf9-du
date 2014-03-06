@@ -37,3 +37,8 @@ logging = {
     }
 }
 
+
+resmgr ={
+    'config_file': '/etc/pf9/resmgr.conf',
+    'provider': 'resmgr_provider_pf9'
+}

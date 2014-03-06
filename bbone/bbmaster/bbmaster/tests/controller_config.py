@@ -18,7 +18,7 @@ app = {
 }
 
 pf9 = {
-    'bbone_provider': 'bbone_provider_memory'
+    'bbone_provider': 'bbone_provider_mock'
 }
 
 # Custom Configurations must be in Python dictionary format::

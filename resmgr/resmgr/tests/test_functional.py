@@ -28,15 +28,14 @@ class TestResMgr(FunctionalTest):
 
     def test_get_roles(self):
         roles = self._get_roles()
-        assert roles.keys()
+        assert type(roles) is list
+        assert len(roles)
 
     def test_get_single_role(self):
         roles = self._get_roles()
 
-        role_ids = roles.keys()
-
-        for role_id in role_ids:
-            role = self._get_single_role(role_id)
+        for item in roles:
+            role = self._get_single_role(item['id'])
             assert role is not None
 
     def test_non_existing_data(self):
@@ -54,7 +53,7 @@ class TestResMgr(FunctionalTest):
         assert len(res)
 
     def test_associate(self):
-        roles = self._get_roles().keys()
+        roles = [r['id'] for r in self._get_roles()]
         res = self._get_resources()
 
         for (k1, k2) in zip(res, roles):

@@ -14,8 +14,8 @@ setup(
     author_email='',
     install_requires=[
         "pecan",
-        "bbcommon",
-        "configutils"
+        "sqlalchemy",
+        'requests'
     ],
     test_suite='resmgr',
     zip_safe=False,
