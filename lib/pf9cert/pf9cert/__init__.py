@@ -121,7 +121,8 @@ def create_certificate(customer_id, service_id, days=365):
               'svc/cert.pem -notext -batch -extensions server_ca_extensions '\
               '-days %d' % days, 'certificate')]:
             if subprocess.call(cmd.split(), cwd=cwd) is not 0:
-                raise Exception('Failed to generate %s for service' % desc)
+                raise Exception('Failed to generate %s for service %s for customer %s'
+                                % (desc, service_id, customer_id))
 
         with open(join(svc_dir, 'cert.pem')) as file:
             cert = file.read()

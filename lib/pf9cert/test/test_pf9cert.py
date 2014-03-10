@@ -10,7 +10,16 @@ from datetime import datetime as dt
 class TestPf9Cert(TestCase):
 
     def test_root_ca(self):
-        id = 'acme'
+        self._do_root_ca('acme')
+
+    def test_root_ca_with_spaces(self):
+        try:
+            self._do_root_ca('acme inc')
+        except:
+            return
+        raise Exception('Short company names containing spaces should not work')
+
+    def _do_root_ca(self, id):
         days = 100
         tuple1 = pf9cert.create_root_CA(id, 'Acme, Inc.', days)
         for (private_key, cert) in [tuple1, pf9cert.get_CA(id)]:
