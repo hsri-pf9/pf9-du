@@ -96,12 +96,14 @@ def remove_CA(customer_id):
 
 # Operations related to a child certificate creation
 
-def create_certificate(customer_id, service_id, days=365):
+def create_certificate(customer_id, service_id, days=365, for_server=False):
     """
     Creates a customer-specific, signed certificate for a pf9 service
     :param str customer_id: Id of customer whose root CA will be used for signing
     :param str service_id: common name of the service (like pf9-gateway, pf9-agent etc)
     :param int days: The expiration time expressed in days from now
+    :param bool for_server: Whether this is for the server end of a connection. If true,
+        keyUsage is set to keyEncipherment, else it is set to digitalSignature.
     :return: (private_key, certificate) as PEM-formatted strings
     :rtype: tuple
     """
@@ -113,13 +115,14 @@ def create_certificate(customer_id, service_id, days=365):
             file.write(ca_cert)
         svc_dir = join(root_dir, 'svc')
 
+        ext_prefix = 'server' if for_server else 'client'
         for (cwd, cmd, desc) in [
             (svc_dir, 'openssl genrsa -out key.pem 2048', 'key'),
             (svc_dir, 'openssl req -new -key key.pem -out req.pem -outform PEM '\
               '-subj /CN=%s/O=services/ -nodes' % service_id, 'request'),
             (root_dir, 'openssl ca -config openssl.cnf -in svc/req.pem -out '\
-              'svc/cert.pem -notext -batch -extensions server_ca_extensions '\
-              '-days %d' % days, 'certificate')]:
+              'svc/cert.pem -notext -batch -extensions %s_ca_extensions '\
+              '-days %d' % (ext_prefix, days), 'certificate')]:
             if subprocess.call(cmd.split(), cwd=cwd) is not 0:
                 raise Exception('Failed to generate %s for service %s for customer %s'
                                 % (desc, service_id, customer_id))

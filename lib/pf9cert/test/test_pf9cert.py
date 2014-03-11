@@ -6,6 +6,11 @@ from unittest import TestCase
 import pf9cert
 from OpenSSL import crypto
 from datetime import datetime as dt
+import struct
+
+KEY_USAGE_CERT_SIGN = 0x6010203
+KEY_USAGE_DIGITAL_SIGNATURE = 0x80070203
+KEY_USAGE_KEY_ENCIPHERMENT = 0x20050203
 
 class TestPf9Cert(TestCase):
 
@@ -29,6 +34,7 @@ class TestPf9Cert(TestCase):
             not_after = dt.strptime(not_after,"%Y%m%d%H%M%SZ")
             days_left = (not_after - dt.now()).days
             assert days_left == days or days_left == (days - 1)
+            self._verify_key_usage(c, KEY_USAGE_CERT_SIGN)
         pf9cert.remove_CA(id)
         try:
             pf9cert.get_CA(id)
@@ -38,10 +44,10 @@ class TestPf9Cert(TestCase):
 
     def test_signing(self):
         id = 'foo'
-        svc = 'broker'
+        svc = 'hostagent'
         days = 50
         (ca_key, ca_cert) = pf9cert.create_root_CA(id, 'Foo, Inc.', days)
-        tuple1 = pf9cert.create_certificate(id, svc, days)
+        tuple1 = pf9cert.create_certificate(id, svc, days, for_server=False)
         for (svc_key, svc_cert) in [tuple1, pf9cert.get_certificate(id, svc)]:
             c = crypto.load_certificate(crypto.FILETYPE_PEM, svc_cert)
             assert c.get_subject().commonName == svc
@@ -50,9 +56,32 @@ class TestPf9Cert(TestCase):
             not_after = dt.strptime(not_after,"%Y%m%d%H%M%SZ")
             days_left = (not_after - dt.now()).days
             assert days_left == days or days_left == (days - 1)
+            self._verify_key_usage(c, KEY_USAGE_DIGITAL_SIGNATURE)
         pf9cert.remove_certificate(id, svc)
         try:
             pf9cert.get_certificate(id, svc)
             assert False
         except:
             pass
+
+        # Test server side certificate
+        svc = 'broker'
+        (key, cert) = pf9cert.create_certificate(id, svc, days, for_server=True)
+        c = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
+        self._verify_key_usage(c, KEY_USAGE_KEY_ENCIPHERMENT)
+
+    def _verify_key_usage(self, c, key_usage):
+        num_extensions = c.get_extension_count()
+        assert num_extensions
+        for i in range(num_extensions):
+            ext = c.get_extension(i)
+            short_name = ext.get_short_name()
+            data = ext.get_data()
+            print 'Found extension %s with length %d' % (short_name, len(data))
+            if short_name == 'keyUsage':
+                assert len(data) == 4
+                word = struct.unpack('I', data)[0]
+                print 'keyUsage: %s' % hex(word)
+                assert word == key_usage
+                return
+        raise Exception('KeyUsage extension not found')
