@@ -42,8 +42,7 @@ $(BUILD_DIR):
 	mkdir -p $@
 
 $(OPT_PF9_DIR):
-	sudo mkdir -p $@
-	sudo chown $(MYSELF) $@
+	mkdir -p $@
 
 # Site packages required: bbslave needs 'yum' which is not available on PyPi
 $(VENV_DIR): | $(OPT_PF9_DIR) $(BUILD_DIR)
@@ -125,8 +124,5 @@ unit-test: unit-test-setup
 
 
 clean:
-	sudo rm -rf $(BUILD_DIR)
-	if [ -f ${COVERAGE_ZIP} ]; \
-	then \
-		rm ${COVERAGE_ZIP}; \
-	fi;
+	rm -rf $(BUILD_DIR)
+	rm -rf ${COVERAGE_ZIP}
