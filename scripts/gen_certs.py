@@ -14,8 +14,6 @@ from os.path import join, exists
 from os import makedirs
 import sys
 
-debug = True
-
 if len(sys.argv) != 5:
     print 'Usage: python gen_certs.py <BASEDIR> <CUSTOMER_SHORT_NAME> <CUSTOMER_FULL_NAME> <EXPIRATION_DAYS>'
     print 'Example: python gen_certs.py /etc/pf9/certs foobar "Foo Bar, Inc." 100'
@@ -23,10 +21,10 @@ if len(sys.argv) != 5:
 
 def write_key_and_cert(base_dir, svcname, key, cert):
     data = [('key.pem', key), ('cert.pem', cert)]
+    dir = join(base_dir, svcname)
+    if not exists(dir):
+        makedirs(dir)
     for (name, buf) in data:
-        dir = join(base_dir, svcname)
-        if not exists(dir):
-            makedirs(dir)
         fpath = join(dir, name)
         with open(fpath, 'w') as file:
             file.write(buf)
