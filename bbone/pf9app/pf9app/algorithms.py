@@ -68,16 +68,17 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
                 new_app.set_config(new_app_config)
                 new_app.set_run_state(new_app_spec['running'])
             changes += 1
-        elif not is_dict_subset(new_app_config, app.get_config()):
-            # The app's set_config script is responsible for restarting
-            # or reloading the app service after the change if app is running.
-            if not probe_only:
-                app.set_config(new_app_config)
-            changes += 1
-        elif app.running != new_app_spec['running']:
-            if not probe_only:
-                app.set_run_state(new_app_spec['running'])
-            changes += 1
+        else:
+            if not is_dict_subset(new_app_config, app.get_config()):
+                # The app's set_config script is responsible for restarting
+                # or reloading the app service after the change if app is running.
+                if not probe_only:
+                    app.set_config(new_app_config)
+                changes += 1
+            if app.running != new_app_spec['running']:
+                if not probe_only:
+                    app.set_run_state(new_app_spec['running'])
+                changes += 1
     for app_name in new_app_names:
         new_app_spec = new_config[app_name]
         new_app_config = new_app_spec['config']

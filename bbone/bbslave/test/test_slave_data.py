@@ -258,6 +258,27 @@ test_data_config = [
             }
         }
     },
+    {   # Change run state and config simultaneously (IAAS-206)
+        'opcode': 'set_config',
+        'expect_converging': True,
+        'desired_config': {
+            'foo': {
+                'version': '3.0',
+                'url': 'http://zz.com/foo-1.0.rpm',
+                'running': False,
+                'config': {
+                    'default': {
+                        'x':32,
+                        'y':33
+                    },
+                    'backup': {
+                        'x':34,
+                        'y':36
+                    }
+                }
+            }
+        }
+    },
     {
         'opcode': 'set_config',
         'expect_converging': True,
@@ -339,25 +360,3 @@ test_data_ping = [
         }
     }
 ]
-
-"""
-# This is a failing case. Validate first if it is an actual usecase
-    {   # Change everything, except for version
-        'expect_converging': True,
-        'foo': {
-            'version': '2.0',
-            'url': 'http://zz.com/foo-1.0.rpm',
-            'running': True,
-            'config': {
-                'default': {
-                    'x':21,
-                    'y':22
-                },
-                'backup': {
-                    'x':23,
-                    'y':25
-                }
-            }
-        }
-    },"""
-
