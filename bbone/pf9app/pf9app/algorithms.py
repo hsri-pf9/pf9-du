@@ -64,7 +64,9 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
                 new_app.download()
                 app.uninstall()
                 new_app.install()
-                assert new_app.version == new_app_spec['version']
+                # It is possible for the actual version to differ from expected
+                # if, for example, the wrong package URL was specified.
+                # assert new_app.version == new_app_spec['version']
                 new_app.set_config(new_app_config)
                 new_app.set_run_state(new_app_spec['running'])
             changes += 1

@@ -43,6 +43,7 @@ log.basicConfig(level=getattr(log, 'INFO'))
 # to modify outer variables that are not globals.
 cur_desired_state = None
 expecting_converging_state = False
+expecting_errors = False
 
 def _exercise_testroutine(test_data):
     """
@@ -62,7 +63,7 @@ def _exercise_testroutine(test_data):
         return
 
     def consume_msg(ch, method, properties, body):
-        global cur_desired_state, expecting_converging_state
+        global cur_desired_state, expecting_converging_state, expecting_errors
         log.info('Received: %s', body)
         body = json.loads(body)
         assert body['opcode'] == 'status'
@@ -72,9 +73,10 @@ def _exercise_testroutine(test_data):
             expecting_converging_state = False
             return
 
-        assert body['data']['status'] == 'ok'
+        expected_status = 'errors' if expecting_errors else 'ok'
+        assert body['data']['status'] == expected_status
 
-        if cur_desired_state is not None:
+        if (cur_desired_state is not None) and (not expecting_errors):
             assert is_satisfied_by(cur_desired_state, body['data']['apps'])
 
         if not len(test_data):
@@ -87,6 +89,7 @@ def _exercise_testroutine(test_data):
 
         cur_test = test_data.pop(0)
         expecting_converging_state = cur_test['expect_converging']
+        expecting_errors = cur_test.get('expect_errors', False)
         opcode = cur_test['opcode']
         cur_desired_state = cur_test['desired_config']
 

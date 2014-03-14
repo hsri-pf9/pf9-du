@@ -5,7 +5,7 @@ __author__ = 'leb'
 
 import pf9app.exceptions
 from pf9app.app import App, RemoteApp
-from pf9app.app_cache import AppCache
+import re
 import copy
 import logging
 
@@ -64,6 +64,14 @@ class MockRemoteApp(MockInstalledApp, RemoteApp):
         :param AppCache app_cache: app cache
         :return:
         """
+
+        # If the url is of the form http://..../pkgname-xx.yy.rpm then
+        # we interpret xx.yy as the version. This allows us to simulate
+        # cases where the specified version and the actual version differ.
+        m = re.match('.*/\w*-(\d+\.\d+)\.rpm', url)
+        if m:
+            version = m.groups()[0]
+
         MockInstalledApp.__init__(self,
                                   name=name,
                                   version=version,

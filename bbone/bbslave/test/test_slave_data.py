@@ -35,7 +35,7 @@ test_data_install = [
             # Introduce 2nd app bar, change foo version
             'foo': {
                 'version': '1.5',
-                'url': 'http://zz.com/foo-1.0.rpm',
+                'url': 'http://zz.com/foo-1.5.rpm',
                 'running': True,
                 'config': {
                     'default': {
@@ -177,7 +177,7 @@ test_data_config = [
             # Change version.
             'foo': {
                 'version': '2.0',
-                'url': 'http://zz.com/foo-1.0.rpm',
+                'url': 'http://zz.com/foo-2.0.rpm',
                 'running': False,
                 'config': {
                     'default': {
@@ -199,7 +199,7 @@ test_data_config = [
             # No change in any setting
             'foo': {
                 'version': '2.0',
-                'url': 'http://zz.com/foo-1.0.rpm',
+                'url': 'http://zz.com/foo-2.0.rpm',
                 'running': False,
                 'config': {
                     'default': {
@@ -221,7 +221,7 @@ test_data_config = [
             # Change config
             'foo': {
                 'version': '2.0',
-                'url': 'http://zz.com/foo-1.0.rpm',
+                'url': 'http://zz.com/foo-2.0.rpm',
                 'running': False,
                 'config': {
                     'default': {
@@ -243,7 +243,7 @@ test_data_config = [
             # Change everything, including version
             'foo': {
                 'version': '3.0',
-                'url': 'http://zz.com/foo-1.0.rpm',
+                'url': 'http://zz.com/foo-3.0.rpm',
                 'running': True,
                 'config': {
                     'default': {
@@ -264,7 +264,7 @@ test_data_config = [
         'desired_config': {
             'foo': {
                 'version': '3.0',
-                'url': 'http://zz.com/foo-1.0.rpm',
+                'url': 'http://zz.com/foo-3.0.rpm',
                 'running': False,
                 'config': {
                     'default': {
@@ -284,6 +284,21 @@ test_data_config = [
         'expect_converging': True,
         'desired_config': {
             # Remove everything
+        }
+    },
+    {   # An impossible configuration, due to the actual package version
+        # not matching the specified version (IAAS-175)
+        'opcode': 'set_config',
+        'expect_converging': True,
+        'expect_errors': True,
+        'desired_config': {
+            'bar': {
+                'version': '2.1',
+                'url': 'http://zz.com/bar-2.2.rpm',
+                'running': False,
+                'config': {
+                }
+            }
         }
     }
 ]
