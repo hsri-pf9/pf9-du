@@ -37,8 +37,11 @@ logging = {
     }
 }
 
-
 resmgr ={
     'config_file': '/etc/pf9/resmgr.conf',
-    'provider': 'resmgr_provider_pf9'
+    'provider': 'resmgr_provider_pf9',
+
+    # Enforce keystone RBAC policies. Optional, defaults to True.
+    # May be overridden in paste ini config.
+    'enforce_policy' : False
 }

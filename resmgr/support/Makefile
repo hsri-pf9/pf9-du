@@ -73,18 +73,26 @@ pre-reqs: ${VENV}
 	cd ${RESMGR_DIR};\
 	${VENV_CMD};
 
+	# the keystone client has to be installed with pip. Installing with setuptools exposes
+	# https://bitbucket.org/pypa/setuptools/issue/73/typeerror-dist-must-be-a-distribution
+	source ${VENV}/bin/activate; \
+	pip install python-keystoneclient; \
+	deactivate
+
+
 unit-test-setup: pre-reqs
 	# Setup up nose and coverage in addition to pre-reqs
 	source ${TEST_VENV}/bin/activate;\
 	pip install nose;\
 	pip install coverage;\
+	pip install httpretty; \
 	deactivate
 
 unit-test: unit-test-setup
 	cd ${RESMGR_DIR};\
 	${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
 			--cover-package=resmgr --cover-package=bbcommon --verbosity=2 --with-xunit \
-			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app resmgr/tests/test_functional.py; \
+			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app; \
 	cd ${BUILD_DIR}/coverage;\
 	zip -q ${COVERAGE_ZIP} *;
 

@@ -1,4 +1,4 @@
-# Copyright 2014 Platform9 Systems Inc.
+# Copyright (c) 2014 Platform9 Systems Inc.
 # All Rights reserved
 
 
@@ -17,6 +17,7 @@ from pecan import abort, expose
 from pecan.rest import RestController
 from resmgr.resmgr_provider_pf9 import ResMgrPf9Provider
 from resmgr.exceptions import RoleNotFound, ResourceNotFound
+from enforce_policy import enforce
 
 _resmgr_conf_file = pecan.conf.resmgr['config_file']
 _provider_name = pecan.conf.resmgr['provider']
@@ -61,6 +62,7 @@ class RolesController(RestController):
 class HostRolesController(RestController):
     """Controller for hosts' roles related requests"""
 
+    @enforce(required = ['hostadmin'])
     @expose('json')
     def put(self, id, roleId):
         """
@@ -74,6 +76,7 @@ class HostRolesController(RestController):
         except (RoleNotFound, ResourceNotFound):
             abort(404)
 
+    @enforce(required = ['hostadmin'])
     @expose('json')
     def delete(self, id, roleId):
         """

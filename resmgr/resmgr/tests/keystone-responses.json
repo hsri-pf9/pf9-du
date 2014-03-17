@@ -1,0 +1,58 @@
+{"good" : {
+    "access": {
+        "metadata": {
+            "is_admin": 0,
+            "roles": [
+                "9fe2ff9ee4384b1894a90878d3e92bab",
+                "aec206d1c58e4563ad6580f6921177d3"
+            ]
+        },
+        "serviceCatalog": [
+            {
+                "endpoints": [
+                    {
+                        "adminURL": "http://localhost:8083",
+                        "id": "07ca897cd3f6445abd337e425e5c607d",
+                        "internalURL": "http://localhost:8083",
+                        "publicURL": "http://localhost:8083",
+                        "region": "west"
+                    }
+                ],
+                "endpoints_links": [],
+                "name": "resmgr",
+                "type": "resmgr"
+            }
+        ],
+        "token": {
+            "expires": "2014-03-19T21:41:11Z",
+            "id": "ddd5bd9917724cf78efa1f196dcf081c",
+            "issued_at": "2014-03-18T21:41:11.099348",
+            "tenant": {
+                "description": "initech tenant",
+                "enabled": true,
+                "id": "d6f25b630564460c95090f959a22ec22",
+                "name": "initech"
+            }
+        },
+        "user": {
+            "id": "c67849e6818844f5a6850a6683f9fd6a",
+            "name": "joe",
+            "roles": [
+                {
+                    "name": "_member_"
+                }
+            ],
+            "roles_links": [],
+            "username": "joe"
+        }
+    }
+},
+
+"bad" : {
+    "error": {
+        "code": 404,
+        "message": "Could not find token, ddd5bd9917724cf78efa1f196dcf081c.",
+        "title": "Not Found"
+    }
+}}
+

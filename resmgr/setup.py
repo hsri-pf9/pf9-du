@@ -13,6 +13,8 @@ setup(
     author='',
     author_email='',
     install_requires=[
+        "Paste",
+        "PasteDeploy",
         "pecan",
         "sqlalchemy",
         'requests'
@@ -22,3 +24,7 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=['ez_setup'])
 )
+
+# FIXME: Because of
+# https://bitbucket.org/pypa/setuptools/issue/73/typeerror-dist-must-be-a-distribution
+# python-keystone client has to be installed with a separate 'pip install'.
