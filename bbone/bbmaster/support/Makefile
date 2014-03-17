@@ -57,6 +57,8 @@ ${BBMASTER_SRC_STAGE}: pre-reqs
 	cp ${BBMASTER_DIR}/etc/bbmaster.conf ${BBMASTER_SRC_STAGE}/etc/pf9
 	cp ${BBMASTER_DIR}/config.py ${BBMASTER_SRC_STAGE}/etc/pf9/bbmaster_config.py
 	cp -r ${BBMASTER_DIR}/etc/init.d ${BBMASTER_SRC_STAGE}/etc
+	mkdir -p ${PF9_OPT_DIR}/du-customize
+	cp ${BBMASTER_DIR}/support/60-customize-bbmaster ${PF9_OPT_DIR}/du-customize
 
 ${BBMASTER_SRC_TARBALL}: ${BBMASTER_SRC_STAGE}
 	cd ${BUILD_DIR}/srcstage;\

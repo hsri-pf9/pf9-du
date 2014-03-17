@@ -56,6 +56,8 @@ ${RESMGR_SRC_STAGE}: pre-reqs
 	cp ${RESMGR_DIR}/etc/resmgr.conf ${RESMGR_SRC_STAGE}/etc/pf9
 	cp ${RESMGR_DIR}/config.py ${RESMGR_SRC_STAGE}/etc/pf9/resmgr_config.py
 	cp -r ${RESMGR_DIR}/etc/init.d ${RESMGR_SRC_STAGE}/etc
+	mkdir -p ${PF9_OPT_DIR}/du-customize
+	cp ${RESMGR_DIR}/support/50-customize-resmgr ${PF9_OPT_DIR}/du-customize
 
 ${RESMGR_SRC_TARBALL}: ${RESMGR_SRC_STAGE}
 	cd ${BUILD_DIR}/srcstage;\

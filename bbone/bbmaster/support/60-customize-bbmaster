@@ -1,0 +1,17 @@
+#!/bin/sh
+# Copyright (c) 2014 Platform9 Systems Inc.
+
+# This script owns the customization of the Backbone master
+
+# Failfast
+# Fail on first error
+set -e
+# Fail on uninitialized variables
+set -u
+
+echo "Backbone master customization called"
+
+sudo sed -i "s/CHANGE_TO_YOUR_BROKER_IP/127.0.0.1/g" /etc/pf9/bbmaster.conf
+
+#Start the service
+sudo service pf9-bbmaster start

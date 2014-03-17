@@ -1,0 +1,70 @@
+#!/usr/bin/python
+
+# Copyright (c) 2014 Platform9 Systems Inc.
+# All Rights Reserved.
+
+import ConfigParser
+import os
+import subprocess
+import sys
+
+RESMGR_CONF = '/etc/pf9/resmgr.conf'
+NOVA_CONF = '/etc/nova/nova.conf'
+
+def _run_command(command):
+    """
+    Run a command
+    :param str command: Command to be executed.
+    :return: a tuple representing (code, stdout, stderr), where code is the
+             return code of the command, stdout is the standard output of the
+             command and stderr is the stderr of the command
+    :rtype: tuple
+    """
+    proc = subprocess.Popen(command, shell=True,
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    out, err = proc.communicate()
+    code = proc.returncode
+
+    return code, out, err
+
+
+def get_connect_string_from_nova():
+    """
+    Read the nova conf file to get the nova DB connect string. Replace the DB
+    instance with the test db instance
+    """
+    cparser = ConfigParser.ConfigParser()
+    cparser.read(NOVA_CONF)
+    nova_connect_str = cparser.get('DEFAULT', 'sql_connection')
+    resmgr_connect_str = '%s/test' % nova_connect_str[:nova_connect_str.rfind('/')]
+    return resmgr_connect_str
+
+def main():
+    """Main routine"""
+    if 'RDS_CONNECT_STRING' in os.environ:
+        sql_connect_string = os.environ['RDS_CONNECT_STRING']
+    else:
+        # TODO: This else block should go away once we are fully integrated with
+        # RDS instances.
+        sql_connect_string = get_connect_string_from_nova()
+
+    cparser = ConfigParser.ConfigParser()
+    cparser.read(RESMGR_CONF)
+    cparser.set('database', 'sqlconnectURI', sql_connect_string)
+    with open(RESMGR_CONF, 'w') as cfile:
+        cparser.write(cfile)
+
+    start_svc_cmd = 'sudo service pf9-resmgr start'
+    code, out, err = _run_command(start_svc_cmd)
+
+    sys.exit(code)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except:
+        # Return non-zero code if there was an exception
+        sys.exit(1)
+
