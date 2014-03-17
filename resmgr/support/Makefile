@@ -1,0 +1,96 @@
+#! vim noexpandtab
+# Copyright (C) 2013 Platform 9 Systems, Inc.
+#
+
+include ../../common-defs.mk
+
+PARENT_DIR := $(abspath $(SRC_ROOT)/..)
+
+SRC_DIR := $(SRC_ROOT)/resmgr
+BUILD_DIR := $(BUILD_ROOT)/resmgr
+
+RESMGR_DIR :=$(SRC_DIR)
+BBLIBCOMMON_DIR :=$(SRC_ROOT)/bbone/lib
+CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
+
+VERSION ?= 1.0.0
+RESMGR_RPM :=$(BUILD_DIR)/pf9-resmgr-$(VERSION).rpm
+RPM_DIR := $(BUILD_DIR)/rpmbuild
+RESMGR_SRC_RPM := $(RPM_DIR)/pf9-resmgr-$(VERSION)-1.src.rpm
+
+
+RESMGR_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-resmgr-${VERSION}
+RESMGR_SRC_TARBALL = ${BUILD_DIR}/pf9-resmgr-${VERSION}.tgz
+PF9_OPT_DIR = ${RESMGR_SRC_STAGE}/opt/pf9
+PROD_VENV = ${PF9_OPT_DIR}/resmgr
+# These are additional modules needed to setup for production purposes
+PROD_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${CONFIGUTILS_DIR}
+PROD_VENV_INSTALL_CMD=${PROD_VENV}/bin/python setup.py install
+# These additional modules need to be setup in order for our tests to run
+TEST_SETUP_DEPS = ${PROD_SETUP_DEPS}
+TEST_VENV = ${BUILD_DIR}/test_venv
+TEST_VENV_DEVELOP_CMD=${TEST_VENV}/bin/python setup.py develop
+
+ifeq ($(MAKECMDGOALS),rpm)
+	VENV=${PROD_VENV}
+	SETUP_DEPS=${PROD_SETUP_DEPS}
+	VENV_CMD=${PROD_VENV_INSTALL_CMD}
+else
+	VENV=${TEST_VENV}
+	SETUP_DEPS=${TEST_SETUP_DEPS}
+	VENV_CMD=${TEST_VENV_DEVELOP_CMD}
+endif
+
+#TODO: Coverage zip should probably be done as part of teamcity build steps.
+COVERAGE_ZIP = ${SRC_ROOT}/coverage.zip
+
+${BUILD_DIR}:
+	mkdir -p $@
+
+${VENV}: ${BUILD_DIR}
+	mkdir -p $@
+	virtualenv ${VENV}
+
+${RESMGR_SRC_STAGE}: pre-reqs
+	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9
+	cp ${RESMGR_DIR}/etc/resmgr.conf ${RESMGR_SRC_STAGE}/etc/pf9
+	cp ${RESMGR_DIR}/config.py ${RESMGR_SRC_STAGE}/etc/pf9/resmgr_config.py
+	cp -r ${RESMGR_DIR}/etc/init.d ${RESMGR_SRC_STAGE}/etc
+
+${RESMGR_SRC_TARBALL}: ${RESMGR_SRC_STAGE}
+	cd ${BUILD_DIR}/srcstage;\
+	tar -czf ${RESMGR_SRC_TARBALL} *
+
+${RESMGR_RPM}: ${RESMGR_SRC_TARBALL}
+	mock --buildsrpm --sources ${BUILD_DIR} --spec resmgr-rpm.spec --resultdir ${RPM_DIR}
+	mock --rebuild --resultdir ${RPM_DIR} ${RESMGR_SRC_RPM}
+
+pre-reqs: ${VENV}
+	for pkg in ${SETUP_DEPS}; do \
+		cd $${pkg};\
+		${VENV_CMD};\
+		done;\
+	cd ${RESMGR_DIR};\
+	${VENV_CMD};
+
+unit-test-setup: pre-reqs
+	# Setup up nose and coverage in addition to pre-reqs
+	source ${TEST_VENV}/bin/activate;\
+	pip install nose;\
+	pip install coverage;\
+	deactivate
+
+unit-test: unit-test-setup
+	cd ${RESMGR_DIR};\
+	${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
+			--cover-package=resmgr --cover-package=bbcommon --verbosity=2 --with-xunit \
+			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app resmgr/tests/test_functional.py; \
+	cd ${BUILD_DIR}/coverage;\
+	zip -q ${COVERAGE_ZIP} *;
+
+rpm: ${RESMGR_RPM}
+
+
+clean:
+	rm -rf $(BUILD_DIR)
+	rm -rf ${COVERAGE_ZIP}
