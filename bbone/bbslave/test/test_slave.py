@@ -21,6 +21,8 @@ import logging as log
 import threading
 from bbslave.slave import reconnect_loop
 import test_slave_data
+import os
+import shutil
 
 amqp_host = "rabbitmq.platform9.sys"
 amqp_endpoint = "http://%s:15672/api" % amqp_host
@@ -33,17 +35,29 @@ config.set('amqp', 'password', 'nova')
 config.set('amqp', 'virtual_host', vhost.generate_amqp_vhost())
 config.add_section('hostagent')
 config.set('hostagent', 'connection_retry_period', '5')
-config.set('hostagent', 'heartbeat_period', '3600')
+
+# The heartbeat period has to be long enough for the slave to generate
+# a 'failed' message for the failure case after all other tests, but
+# short enough to make the overall unit test complete in a reasonable
+# amount of time. Also, max_converge_attempts must be 2 for this test.
+# FIXME: the test is timing and system load sensitive. Find a better way if flaky!
+config.set('hostagent', 'heartbeat_period', '15')
+config.set('hostagent', 'max_converge_attempts', '2')
+
 config.set('hostagent', 'log_level_name', 'INFO')
 config.set('hostagent', 'app_cache_dir', '/tmp/appcache')
 config.set('hostagent', 'USE_MOCK', '1')
+CACHED_DESIRED_CONFIG_BASEDIR='/tmp/hostagent_test'
+config.set('hostagent', 'desired_config_basedir_path', CACHED_DESIRED_CONFIG_BASEDIR)
+if os.path.exists(CACHED_DESIRED_CONFIG_BASEDIR):
+    shutil.rmtree(CACHED_DESIRED_CONFIG_BASEDIR)
 log.basicConfig(level=getattr(log, 'INFO'))
 
 # These have to be global. Python 2.x makes it hard for nested functions
 # to modify outer variables that are not globals.
 cur_desired_state = None
 expecting_converging_state = False
-expecting_errors = False
+retry_countdown = 0
 
 def _exercise_testroutine(test_data):
     """
@@ -63,7 +77,7 @@ def _exercise_testroutine(test_data):
         return
 
     def consume_msg(ch, method, properties, body):
-        global cur_desired_state, expecting_converging_state, expecting_errors
+        global cur_desired_state, expecting_converging_state, retry_countdown
         log.info('Received: %s', body)
         body = json.loads(body)
         assert body['opcode'] == 'status'
@@ -71,13 +85,26 @@ def _exercise_testroutine(test_data):
         if expecting_converging_state:
             assert body['data']['status'] == 'converging'
             expecting_converging_state = False
+            assert ('desired_apps' in body['data'] and
+                    cur_desired_state is not None and
+                    is_satisfied_by(cur_desired_state, body['data']['desired_apps']))
             return
 
-        expected_status = 'errors' if expecting_errors else 'ok'
-        assert body['data']['status'] == expected_status
-
-        if (cur_desired_state is not None) and (not expecting_errors):
-            assert is_satisfied_by(cur_desired_state, body['data']['apps'])
+        if retry_countdown:
+            assert ('desired_apps' in body['data'] and
+                    cur_desired_state is not None and
+                    is_satisfied_by(cur_desired_state, body['data']['desired_apps']))
+            retry_countdown -= 1
+            if retry_countdown:
+                assert body['data']['status'] == 'retrying'
+                expecting_converging_state = True
+                return
+            assert body['data']['status'] == 'failed'
+        else:
+            assert body['data']['status'] == 'ok'
+            assert 'desired_apps' not in body['data']
+            if cur_desired_state is not None:
+                assert is_satisfied_by(cur_desired_state, body['data']['apps'])
 
         if not len(test_data):
             log.info('Done.')
@@ -89,7 +116,7 @@ def _exercise_testroutine(test_data):
 
         cur_test = test_data.pop(0)
         expecting_converging_state = cur_test['expect_converging']
-        expecting_errors = cur_test.get('expect_errors', False)
+        retry_countdown = cur_test.get('retry_countdown', 0)
         opcode = cur_test['opcode']
         cur_desired_state = cur_test['desired_config']
 

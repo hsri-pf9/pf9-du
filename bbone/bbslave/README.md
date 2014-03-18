@@ -102,5 +102,7 @@ alphabetically sorted network interface. A generated uuid stored
 on the file system was also considered, but would break if the
 host were cloned.
 
-Current valid values for 'status' are 'ok', 'converging', and 'errors'.
-
+Current valid values for 'status' are 'ok', 'converging', 'retrying' and
+'failed'. A slave reports 'retrying' if the previous convergence operation
+has failed, in which case it will retry on the next heartbeat. The status becomes
+'failed' when a maximum number of unsuccessful retries has been reached.

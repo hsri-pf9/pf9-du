@@ -150,10 +150,25 @@ class bbone_provider_pf9(bbone_provider_memory):
             self.pending_msgs.append((routing_key, body))
 
     def _converge_host_if_necessary(self, host_state, desired_apps):
-        # TODO: validate desired_apps
-        if host_state['status'] != 'converging' and \
-            not is_satisfied_by(desired_apps, host_state['apps']):
-                body = {'opcode': 'set_config', 'data': desired_apps}
-                self._send_msg(host_state['host_id'], body)
+        """
+        Sends a host a set_config message if one of these conditions is true:
+        1) Host is in ok state, but with an undesired current configuration.
+        2) Host is in converging, retrying or failed state while attempting to
+           converge towards an undesired configuration.
+        The current assumption is if a host is in a failed state after trying
+        to converge towards the desired configuration, an extraordinary action
+        possibly involving human intervention is required to get it out of that
+        state. This action could be, for example, resetting a the desired
+        configuration to a different value, e.g. the empty configuration {}.
+        :param dict host_state: The host's last known configuration
+        :param dict desired_apps: The desired apps configuration for the host
+        """
+        status = host_state['status']
+        converging_to = host_state.get('desired_apps')
+        if (status == 'ok' and not is_satisfied_by(desired_apps, host_state['apps'])) \
+             or (status != 'ok' and converging_to is not None and not
+                    is_satisfied_by(desired_apps, converging_to)):
+            body = {'opcode': 'set_config', 'data': desired_apps}
+            self._send_msg(host_state['host_id'], body)
 
 provider = bbone_provider_pf9()

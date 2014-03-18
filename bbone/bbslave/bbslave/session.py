@@ -16,12 +16,56 @@ from pf9app.algorithms import process_apps
 from pf9app.exceptions import Pf9Exception
 from sysinfo import get_sysinfo, get_host_id
 from bbcommon.utils import is_satisfied_by, get_ssl_options
+from os.path import exists, join
+from os import makedirs, unlink
 
 # Cached value of desired configuration.
-# TODO: Move to file.
-_desired_config = None
 _sys_info = get_sysinfo()
 _host_id = get_host_id()
+_desired_config_basedir_path = None
+_converge_attempts = 0
+
+def _set_desired_config_basedir_path(config):
+    """
+    Initializes the path of the base directory that will contain the
+    a cached copy of the desired apps configuration.
+    :param ConfigParser config: configuration object
+    """
+    global _desired_config_basedir_path
+    dir_path = config.get('hostagent', 'desired_config_basedir_path') if \
+        config.has_option('hostagent', 'desired_config_basedir_path') else \
+        '/var/opt/pf9/hostagent'
+    dir_path = join(dir_path, _host_id)
+    if not exists(dir_path):
+        makedirs(dir_path)
+    _desired_config_basedir_path = join(dir_path, 'desired_apps.json')
+
+def load_desired_config():
+    """
+    Returns the deserialized JSON of the persisted desired apps
+    configuration file, or None if it doesn't exist.
+    """
+    if not exists(_desired_config_basedir_path):
+        return None
+    with open(_desired_config_basedir_path, 'r') as file:
+        return json.load(file)
+
+def save_desired_config(log, desired_config):
+    """
+    Persists the desired apps configuration to a file.
+    :param Logger log: The logger
+    :param dict desired_config: The desired apps configuration dictionary
+    """
+    if desired_config is None:
+        if exists(_desired_config_basedir_path):
+            unlink(_desired_config_basedir_path)
+    else:
+        try:
+            json_str = json.dumps(desired_config, indent=4)
+            with open(_desired_config_basedir_path, 'w') as file:
+                file.write(json_str)
+        except Exception as e:
+            log.error('Failed to save desired configuration: %s', e)
 
 def start(config, log, app_db, app_cache, remote_app_class):
     """
@@ -33,7 +77,9 @@ def start(config, log, app_db, app_cache, remote_app_class):
     :param RemoteApp remote_app_class: remote application class
     """
 
+    max_converge_attempts = int(config.get('hostagent', 'max_converge_attempts'))
     heartbeat_period = int(config.get('hostagent', 'heartbeat_period'))
+    _set_desired_config_basedir_path(config)
 
     # This dictionary holds AMQP variables set by the various nested functions.
     # We need a dictionary because python 2.x lacks the 'nonlocal' keyword
@@ -60,10 +106,10 @@ def start(config, log, app_db, app_cache, remote_app_class):
             }
         return config
 
-    def send_status(status, config):
+    def send_status(status, config, desired_config=None):
         """
         Sends a message to the master.
-        :param str status: Status: 'ok', 'converging', 'errors'
+        :param str status: Status: 'ok', 'converging', 'retrying', 'failed'
         :param dict config: Current application configuration
         """
         msg = {
@@ -75,6 +121,8 @@ def start(config, log, app_db, app_cache, remote_app_class):
                 'apps': config
             }
         }
+        if desired_config is not None:
+            msg['data']['desired_apps'] = desired_config
         channel = state['channel']
         channel.basic_publish(exchange=constants.BBONE_EXCHANGE,
                               routing_key=constants.MASTER_TOPIC,
@@ -95,7 +143,8 @@ def start(config, log, app_db, app_cache, remote_app_class):
         Handles an incoming message, which can be an internal heartbeat.
         :param dict msg: message deserialized from JSON
         """
-        global _desired_config
+        global _converge_attempts
+        desired_config = load_desired_config()
         try:
             if msg['opcode'] not in ('ping', 'heartbeat', 'set_config'):
                 log.error('Invalid opcode: %s', msg['opcode'])
@@ -103,49 +152,64 @@ def start(config, log, app_db, app_cache, remote_app_class):
             current_config = get_current_config()
             if msg['opcode'] == 'set_config':
                 desired_config = msg['data']
+                _converge_attempts = 0
             else:
                 if msg['opcode'] == 'ping':
                     log.info('Received ping message')
-                desired_config = current_config if _desired_config is None \
-                    else _desired_config
+                if desired_config is None:
+                    desired_config = current_config
             converged = valid_and_converged(desired_config)
         except (TypeError, KeyError):
             log.error('Malformed message or app config: %s', msg)
             return
 
-        # ok to commit to _desired_config now
-        _desired_config = desired_config
+        # ok to commit to disk now
+        save_desired_config(log, desired_config)
         assert converged == is_satisfied_by(desired_config, current_config)
         if converged:
             log.info('Already converged. Idling...')
             send_status('ok', current_config)
             return
+
+        if _converge_attempts >= max_converge_attempts:
+            log.info('In failed state until next set_config message...')
+            send_status('failed', current_config, desired_config)
+            return
+
         log.info('--- Converging ---')
-        send_status('converging', current_config)
+        send_status('converging', current_config, desired_config)
+        _converge_attempts += 1
         try:
             process_apps(app_db, app_cache, remote_app_class,
-                         _desired_config, log=log)
+                         desired_config, log=log)
         except Pf9Exception as e:
             log.error('Exception during apps processing: %s', type(e))
         current_config = get_current_config()
 
-        converged = valid_and_converged(_desired_config)
+        converged = valid_and_converged(desired_config)
         if converged:
-            assert is_satisfied_by(_desired_config, current_config)
+            assert is_satisfied_by(desired_config, current_config)
             status = 'ok'
             # TODO: update AMQP subscriptions to include app-specific topics
             log.info('Converge succeeded')
+            desired_config = None
         else:
-            status = 'errors'
+            # TODO: increase heartbeat period when retrying, up to a limit
+            if _converge_attempts >= max_converge_attempts:
+                log.error('Entering failed state after %d converge attempts',
+                          _converge_attempts)
+                status = 'failed'
+            else:
+                status = 'retrying'
             log.info('Converge failed')
-        send_status(status, current_config)
+        send_status(status, current_config, desired_config)
 
     def consume_msg(ch, method, properties, body):
         handle_msg(json.loads(body))
 
     def heartbeat(*args, **kwargs):
         connection = state['connection']
-        handle_msg({ 'opcode': 'heartbeat' })
+        handle_msg({'opcode': 'heartbeat'})
         connection.add_timeout(heartbeat_period, heartbeat)
 
     credentials = pika.PlainCredentials(username=config.get('amqp', 'username'),

@@ -290,10 +290,24 @@ test_data_config = [
         # not matching the specified version (IAAS-175)
         'opcode': 'set_config',
         'expect_converging': True,
-        'expect_errors': True,
+        'retry_countdown': 2,
         'desired_config': {
             'bar': {
                 'version': '2.1',
+                'url': 'http://zz.com/bar-2.2.rpm',
+                'running': False,
+                'config': {
+                }
+            }
+        }
+    },
+    {   # After detecting failed state, recover by specifying the correct configuration
+        # (expect_converging is False because slave already in desired state)
+        'opcode': 'set_config',
+        'expect_converging': False,
+        'desired_config': {
+            'bar': {
+                'version': '2.2',
                 'url': 'http://zz.com/bar-2.2.rpm',
                 'running': False,
                 'config': {

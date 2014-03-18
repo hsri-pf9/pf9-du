@@ -21,9 +21,12 @@ server. Example: [ "sah8a7a", "da79das" ]
 
 Returns a description for the host with the provided host id.
 The 'info' field contains information about the host's hardware and OS.
-Valid values for 'status' are 'ok', 'converging', 'errors', and 'missing'.
+Valid values for 'status' are 'ok', 'converging', 'retrying', 'failed',
+and 'missing'.
 The 'apps' field describes the currently installed pf9 applications and
-their configuration.
+their configuration. The 'desired_apps' field only exists for the 'converging',
+'retrying' and 'failed' states, and describes the pf9 application state that
+the host is attempting to converge towards.
 
 Example:
 
@@ -52,6 +55,9 @@ Example:
                 }
             }
         },
+        'desired_apps' : {
+            ...
+        }
     }
 
 ### GET /v1/hosts/ ###
