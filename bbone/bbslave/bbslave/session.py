@@ -212,8 +212,8 @@ def start(config, log, app_db, app_cache, remote_app_class):
         handle_msg({'opcode': 'heartbeat'})
         connection.add_timeout(heartbeat_period, heartbeat)
 
-    credentials = pika.PlainCredentials(username=config.get('amqp', 'username'),
-                                        password=config.get('amqp', 'password'))
+    credentials = pika.PlainCredentials(username='guest',
+                                        password='m1llenn1umFalc0n')
     recv_keys = [constants.BROADCAST_TOPIC, _host_id]
     vhost = None
     try:

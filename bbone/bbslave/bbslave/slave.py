@@ -37,9 +37,9 @@ def reconnect_loop(config):
                                                            maxBytes=log_file_size,
                                                            backupCount=log_rotate_count)
 
-    log_handler.setLevel(getattr(logging, log_level_name))
     log_handler.setFormatter(log_format)
     log.addHandler(log_handler)
+    log.setLevel(getattr(logging, log_level_name))
     use_mock = config.has_option('hostagent', 'USE_MOCK')
     if use_mock:
         from pf9app.mock_app_db import MockAppDb as AppDb

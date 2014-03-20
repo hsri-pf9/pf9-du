@@ -31,7 +31,7 @@ tar -xzf $HOSTAGENT_TARBALL -C $HOSTAGENT_TARBALL_EXPANDEDDIR
 # Copy certificates
 mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs
 cp -r /etc/pf9/certs/hostagent $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/
-chmod 400 $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/hostagent/key.pem
+chmod 440 $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/hostagent/key.pem
 mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
 cp /etc/pf9/certs/ca/cert.pem $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
 

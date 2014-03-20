@@ -119,7 +119,7 @@ class RolesMgr(object):
             param_vals = {
                 'du_host': global_cfg.get("DEFAULT", "DU_FQDN"),
                 'interface': "eth0",
-                'ostack_password': "nova",
+                'ostack_password': "m1llenn1umFalc0n",
                 'version': '1.0.0-1'
             }
             config_str = role_config % param_vals

@@ -113,10 +113,8 @@ class bbone_provider_pf9(bbone_provider_memory):
             state['connection'].add_timeout(self.send_pending_msgs_period,
                                             send_pending_msgs)
 
-        username = self.config.get('amqp', 'username')
-        password = self.config.get('amqp', 'password')
-        credentials = pika.PlainCredentials(username=username,
-                                            password=password)
+        credentials = pika.PlainCredentials(username='guest',
+                                            password='m1llenn1umFalc0n')
         virt_host = self.config.get('amqp', 'virtual_host') if \
                  self.config.has_option('amqp', 'virtual_host') else None
         ssl_options = get_ssl_options(self.config)
