@@ -42,7 +42,7 @@ class TestAuthApi(unittest.TestCase) :
 
     def setUp(self):
         paste_ini = os.path.abspath(
-                os.path.join(self.this_dir, '..', '..', 'resmgr-paste.ini'))
+                os.path.join(self.this_dir, 'resmgr-paste.ini'))
 
         # create the app with the paste config. This should enable auth
         # enforcement, even though config.py specifies enforce = false

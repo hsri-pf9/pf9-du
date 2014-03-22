@@ -34,14 +34,28 @@ rm -rf ${RPM_BUILD_ROOT}
 
 %files
 %defattr(-,root,root,-)
-/opt/pf9
-/etc/pf9
-/etc/init.d/pf9-resmgr
-
+%dir /opt/pf9
+/opt/pf9/resmgr
+/opt/pf9/du-customize
+%dir /etc/pf9
+%config /etc/pf9/resmgr.conf
+%config /etc/pf9/resmgr-paste.ini
+%config /etc/pf9/resmgr_config.py
+/etc/rc.d/init.d/
+%dir /var/log/pf9
 
 %post
+# assume that keystone is already in place with the admin key
+pattern="^[ \t]*admin_token[ \t]*=[ \t]*.*";
+adminkeyline=`grep "$pattern" /etc/keystone/keystone.conf`;
+sed -i.orig "s/$pattern/$adminkeyline/g" /etc/pf9/resmgr-paste.ini
+/sbin/chkconfig --add pf9-resmgr
 
 %preun
+if [ $1 = 0 ]; then # package is being erased, not upgraded
+    /sbin/service pf9-resmgr stop > /dev/null 2>&1
+    /sbin/chkconfig --del pf9-resmgr
+fi
 
 %postun
 

@@ -16,6 +16,7 @@ setup(
         "Paste",
         "PasteDeploy",
         "pecan",
+        "python-daemon",
         "sqlalchemy",
         'requests'
     ],

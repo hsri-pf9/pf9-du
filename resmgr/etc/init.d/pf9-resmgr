@@ -1,5 +1,9 @@
-#! /bin/sh
-#
+#!/bin/bash
+# Copyright (c) 2014 Platform9 Systems Inc.
+# All Rights reserved
+
+# /etc/init.d/pf9-resmgr
+
 ### BEGIN INIT INFO
 # Provides: pf9-resmgr
 # Required-Start: $network
@@ -9,92 +13,42 @@
 # Description: The platform9 resource manager
 ### END INIT INFO
 
-# read & export proxy information
-. /etc/environment
+name=pf9-resmgr
+root=/opt/pf9/resmgr
+cmd="$root/bin/python $root/bin/resmgr-daemon.py"
+pidfile=/var/run/pf9/resmgr.pid
 
-prog="pf9-resmgr"
-svcname="pf9-resmgr"
-
-SERVER_BIN="/opt/pf9/resmgr/bin/$prog"
-
-SERVER_OPTS=""
-
-SERVER_LOGFILE=/var/log/pf9-resmgr.log
-
-# Source function library.
-. /etc/init.d/functions
-
-
-RETVAL=0
-uid=`id | cut -d\( -f1 | cut -d= -f2`
-
-start() {
-
-	[ -f $SERVER_BIN ] || exit 5
-
-	# Make sure the pf9-hostagent is not already running.
-	if status $prog > /dev/null ; then
-		exit 0
-	fi
-
-	# Only root can start the service
-	[ $uid -ne 0 ] && exit 4
-
-	echo -n $"Starting $svcname: "
-        touch "$SERVER_LOGFILE"
-        $SERVER_BIN $SERVER_OPTS >> $SERVER_LOGFILE 2>&1 &
-	RETVAL=$?
-	echo
-	if [ $RETVAL -eq 0 ] ; then
-		touch /var/lock/subsys/$svcname
-		[ ! -f /var/run/pf9-resmgr.pid ] &&
-			/sbin/pidof $prog > /var/run/pf9-resmgr.pid
-	fi
-	return $RETVAL
-}
-
-stop() {
-	echo -n $"Stopping $svcname: "
-	killproc $prog
-	RETVAL=$?
-	echo
-	[ $RETVAL -eq 0 ] && {
-		rm -f /var/lock/subsys/$svcname
-		rm -f /var/run/pf9-resmgr*
-	}
-	return $RETVAL
-}
-
-# See how we were called.
 case "$1" in
   start)
-	start
-	RETVAL=$?
-	;;
+    echo "Starting $name"
+    $cmd start
+    ;;
   stop)
-	stop
-	RETVAL=$?
-	;;
+    echo "Stopping $name"
+    $cmd stop
+    ;;
+  restart)
+    echo "Restarting $name"
+    $cmd restart
+    ;;
   status)
-	status $prog
-	RETVAL=$?
-	;;
-  restart | reload| force-reload)
-	stop
-	start
-	RETVAL=$?
-	;;
-  condrestart | try-restart)
-	if [ -f /var/lock/subsys/$svcname ]; then
-		stop
-		start -w
-		RETVAL=$?
-	fi
-	;;
+    if [ ! -e $pidfile ]; then
+        echo "$name service is not running"
+        exit 1
+    elif ! kill -0 `cat $pidfile` >> /dev/null 2>&1; then
+        rm -f $pidfile
+        echo "$name service is not running"
+        exit 1
+    else
+        echo "$name service is running"
+        exit 0
+    fi
+    ;;
   *)
-	echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart|try-restart}"
-	RETVAL=2
-	;;
+    echo "Usage: /etc/init.d/pf9-resmgr {start|stop|restart|status}"
+    exit 1
+    ;;
 esac
 
-exit $RETVAL
+exit 0
+

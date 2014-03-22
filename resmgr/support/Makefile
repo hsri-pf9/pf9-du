@@ -52,11 +52,23 @@ ${VENV}: ${BUILD_DIR}
 	virtualenv ${VENV}
 
 ${RESMGR_SRC_STAGE}: pre-reqs
-	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9
-	cp ${RESMGR_DIR}/etc/resmgr.conf ${RESMGR_SRC_STAGE}/etc/pf9
-	cp ${RESMGR_DIR}/config.py ${RESMGR_SRC_STAGE}/etc/pf9/resmgr_config.py
-	cp -r ${RESMGR_DIR}/etc/init.d ${RESMGR_SRC_STAGE}/etc
-	mkdir -p ${PF9_OPT_DIR}/du-customize
+	source ${VENV}/bin/activate;\
+	pip install MySQL-python; \
+	deactivate
+
+	mkdir -p ${RESMGR_SRC_STAGE}/var/log/pf9; \
+	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9; \
+	cp ${RESMGR_DIR}/etc/pf9/resmgr.conf ${RESMGR_SRC_STAGE}/etc/pf9/; \
+	cp ${RESMGR_DIR}/etc/pf9/resmgr_config.py ${RESMGR_SRC_STAGE}/etc/pf9/; \
+	cp ${RESMGR_DIR}/etc/pf9/resmgr-paste.ini ${RESMGR_SRC_STAGE}/etc/pf9/
+
+	mkdir -p ${VENV}/bin; \
+	cp ${RESMGR_DIR}/bin/resmgr-daemon.py ${VENV}/bin/
+
+	mkdir -p ${RESMGR_SRC_STAGE}/etc/rc.d/init.d; \
+	cp -r ${RESMGR_DIR}/etc/init.d/pf9-resmgr ${RESMGR_SRC_STAGE}/etc/rc.d/init.d/
+
+	mkdir -p ${PF9_OPT_DIR}/du-customize; \
 	cp ${RESMGR_DIR}/support/50-customize-resmgr ${PF9_OPT_DIR}/du-customize
 
 ${RESMGR_SRC_TARBALL}: ${RESMGR_SRC_STAGE}

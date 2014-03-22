@@ -62,7 +62,7 @@ class RolesController(RestController):
 class HostRolesController(RestController):
     """Controller for hosts' roles related requests"""
 
-    @enforce(required = ['hostadmin'])
+    @enforce(required = ['admin'])
     @expose('json')
     def put(self, id, roleId):
         """
@@ -76,7 +76,7 @@ class HostRolesController(RestController):
         except (RoleNotFound, ResourceNotFound):
             abort(404)
 
-    @enforce(required = ['hostadmin'])
+    @enforce(required = ['admin'])
     @expose('json')
     def delete(self, id, roleId):
         """
