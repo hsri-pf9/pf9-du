@@ -28,6 +28,8 @@ VENV_DIR := $(OPT_PF9_DIR)/hostagent
 
 HOSTAGENT_TARBALL_EXPANDEDDIR := $(BUILD_DIR)/hostagent-tarball-expanded
 HOSTAGENT_TARBALL := $(BUILD_DIR)/pf9-hostagent.tar.gz
+RPM_DIR := $(BUILD_DIR)/rpmbuild
+HOSTAGENT_TARBALL_SRC_RPM := $(RPM_DIR)/pf9-hostagent-tarball-$(VERSION)-1.src.rpm
 
 HOSTAGENT_ROOT := $(RPM_TAR_ROOT)/rpmsrc
 
@@ -89,6 +91,11 @@ $(HOSTAGENT_RPM): hostagent-expand-tarball
 hostagent-rpm: $(HOSTAGENT_RPM)
 
 hostagent-tarball: $(HOSTAGENT_TARBALL)
+
+hostagent-tarball-rpm: hostagent-tarball
+	cp ${SRC_DIR}/support/45-customize-hostagent-rpm ${BUILD_DIR}
+	mock --buildsrpm --sources ${BUILD_DIR} --spec hostagent-tarball-rpm.spec --resultdir ${RPM_DIR}
+	mock --rebuild --resultdir ${RPM_DIR} ${HOSTAGENT_TARBALL_SRC_RPM}
 
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${SRC_ROOT}/bbone/bbmaster ${PF9APP_DIR} ${CONFIGUTILS_DIR}

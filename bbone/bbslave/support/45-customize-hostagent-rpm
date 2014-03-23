@@ -1,0 +1,64 @@
+#!/bin/sh
+# Copyright (c) 2014 Platform9 Systems Inc.
+
+# This script creates the host-agent rpm by expanding the tar file
+# followed by a call to embedded rpm build file
+# The RPM can be acccessed by the following URLS:
+# hostagent: http://<ip>/hostagent/pf9-hostagent-1.0.0-1.x86_64.rpm
+
+
+set -v
+set -u
+set -e
+
+# TODO: Figure out how to take care of the version
+VERSION="1.0.0"
+
+CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOT_DIR=$CURR_DIR/../
+HOSTAGENT_TARBALL=$ROOT_DIR/hostagent-tarball/pf9-hostagent.tar.gz
+RPMBUILD_DIR=$ROOT_DIR/hostagent-tarball/rpm-build
+
+HOST_AGENT_RPM=$RPMBUILD_DIR/RPMS/x86_64/pf9-hostagent-1.0.0-1.x86_64.rpm
+HOST_AGENT_DIR=$ROOT_DIR/static/hostagent
+
+# Create a temporary directory to expand the tarball
+HOSTAGENT_TARBALL_EXPANDEDDIR=`mktemp -d -t pf9-XXX`
+
+# Expand the tarball
+tar -xzf $HOSTAGENT_TARBALL -C $HOSTAGENT_TARBALL_EXPANDEDDIR
+
+# Copy certificates
+mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs
+cp -r /etc/pf9/certs/hostagent $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/
+chmod 400 $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/hostagent/key.pem
+mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
+cp /etc/pf9/certs/ca/cert.pem $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
+
+#clean the RPMBUILD dir
+rm -fr $RPMBUILD_DIR
+mkdir $RPMBUILD_DIR
+
+# Create the RPM
+$HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-rpmbuild.sh $RPMBUILD_DIR $HOSTAGENT_TARBALL_EXPANDEDDIR $VERSION $DU_FQDN
+
+# Copy the rpm over to a well known location
+mkdir -p $HOST_AGENT_DIR
+cp $HOST_AGENT_RPM $HOST_AGENT_DIR
+
+# Finally configure local httpd to serve the hostagent file
+# Hacky!!
+
+HOST_AGENT_ALIAS_STRING="Alias /hostagent $HOST_AGENT_DIR"
+
+if grep -q "$HOST_AGENT_ALIAS_STRING" /etc/httpd/conf.d/horizon.conf
+then
+    echo "HTTPD is already configured with Alias for host agent"
+else
+    sudo sed -i "/Alias \/media \/opt\/stack\/horizon\/openstack_dashboard\/static/a \ \ \ \ $HOST_AGENT_ALIAS_STRING" /etc/httpd/conf.d/horizon.conf
+fi
+
+sudo service httpd restart
+
+rm -fr $HOSTAGENT_TARBALL_EXPANDEDDIR
+rm -fr $RPMBUILD_DIR
