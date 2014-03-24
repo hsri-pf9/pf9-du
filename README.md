@@ -6,4 +6,3 @@ They currently include:
 
 * Backbone (host management)
 * Resource Manager
-
