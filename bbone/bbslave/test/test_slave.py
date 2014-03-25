@@ -47,6 +47,7 @@ config.set('hostagent', 'max_converge_attempts', '2')
 config.set('hostagent', 'log_level_name', 'INFO')
 config.set('hostagent', 'app_cache_dir', '/tmp/appcache')
 config.set('hostagent', 'USE_MOCK', '1')
+config.set('hostagent', 'console_logging', '1')
 CACHED_DESIRED_CONFIG_BASEDIR='/tmp/hostagent_test'
 config.set('hostagent', 'desired_config_basedir_path', CACHED_DESIRED_CONFIG_BASEDIR)
 if os.path.exists(CACHED_DESIRED_CONFIG_BASEDIR):

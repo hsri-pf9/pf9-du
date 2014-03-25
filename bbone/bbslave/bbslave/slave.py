@@ -9,7 +9,7 @@ __author__ = 'leb'
 
 from pika.exceptions import AMQPConnectionError
 import session
-import logging
+import logging, logging.handlers
 from ConfigParser import ConfigParser
 import time
 import datetime
@@ -21,9 +21,25 @@ def reconnect_loop(config):
     :param ConfigParser config: configuration object
     """
     retry_period = int(config.get('hostagent', 'connection_retry_period'))
-    log_level_name = config.get('hostagent', 'log_level_name')
-    logging.basicConfig(level=getattr(logging, log_level_name))
+    # Setup logger
     log = logging.getLogger('hostagent')
+    log_handler = None
+    log_level_name = config.get('hostagent', 'log_level_name')
+    log_format = logging.Formatter('%(asctime)s - %(filename)s'
+                                   ' %(levelname)s - %(message)s')
+    if config.has_option('hostagent', 'console_logging'):
+        log_handler = logging.StreamHandler()
+    else:
+        log_rotate_count = config.getint('hostagent', 'log_rotate_max_count')
+        log_file_size = config.getint('hostagent', 'log_rotate_max_size')
+        log_name = config.get('hostagent', 'log_file_name')
+        log_handler = logging.handlers.RotatingFileHandler(log_name,
+                                                           maxBytes=log_file_size,
+                                                           backupCount=log_rotate_count)
+
+    log_handler.setLevel(getattr(logging, log_level_name))
+    log_handler.setFormatter(log_format)
+    log.addHandler(log_handler)
     use_mock = config.has_option('hostagent', 'USE_MOCK')
     if use_mock:
         from pf9app.mock_app_db import MockAppDb as AppDb

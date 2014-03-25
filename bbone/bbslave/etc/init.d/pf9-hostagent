@@ -19,7 +19,7 @@ SERVER_BIN="/opt/pf9/hostagent/bin/$prog"
 
 SERVER_OPTS=""
 
-SERVER_LOGFILE=/var/log/pf9-hostagent.log
+SERVER_LOGFILE=/var/log/pf9-hostagent-daemon.log
 
 # Source function library.
 . /etc/init.d/functions
