@@ -18,6 +18,7 @@ VERSION ?= 1.0.0
 BBMASTER_RPM :=$(BUILD_DIR)/pf9-bbmaster-$(VERSION).rpm
 RPM_DIR := $(BUILD_DIR)/rpmbuild
 BBMASTER_SRC_RPM := $(RPM_DIR)/pf9-bbmaster-$(VERSION)-1.src.rpm
+MOCK = /usr/bin/mock -r epel-6-x86_64
 
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${PROD_SETUP_DEPS} ${SRC_ROOT}/bbone/bbslave ${PF9APP_DIR}
@@ -66,8 +67,8 @@ ${BBMASTER_SRC_TARBALL}: ${BBMASTER_SRC_STAGE}
 
 ${BBMASTER_RPM}: ${BBMASTER_SRC_TARBALL}
 	echo "RPM build goes here"
-	mock --buildsrpm --sources ${BUILD_DIR} --spec bbmaster-rpm.spec --resultdir ${RPM_DIR}
-	mock --rebuild --resultdir ${RPM_DIR} ${BBMASTER_SRC_RPM}
+	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec bbmaster-rpm.spec --resultdir ${RPM_DIR}
+	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BBMASTER_SRC_RPM}
 
 pre-reqs : ${VENV}
 	for pkg in ${SETUP_DEPS}; do \
