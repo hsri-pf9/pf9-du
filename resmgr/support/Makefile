@@ -17,7 +17,7 @@ VERSION ?= 1.0.0
 RESMGR_RPM :=$(BUILD_DIR)/pf9-resmgr-$(VERSION).rpm
 RPM_DIR := $(BUILD_DIR)/rpmbuild
 RESMGR_SRC_RPM := $(RPM_DIR)/pf9-resmgr-$(VERSION)-1.src.rpm
-
+MOCK = /usr/bin/mock -r epel-6-x86_64
 
 RESMGR_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-resmgr-${VERSION}
 RESMGR_SRC_TARBALL = ${BUILD_DIR}/pf9-resmgr-${VERSION}.tgz
@@ -64,8 +64,8 @@ ${RESMGR_SRC_TARBALL}: ${RESMGR_SRC_STAGE}
 	tar -czf ${RESMGR_SRC_TARBALL} *
 
 ${RESMGR_RPM}: ${RESMGR_SRC_TARBALL}
-	mock --buildsrpm --sources ${BUILD_DIR} --spec resmgr-rpm.spec --resultdir ${RPM_DIR}
-	mock --rebuild --resultdir ${RPM_DIR} ${RESMGR_SRC_RPM}
+	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec resmgr-rpm.spec --resultdir ${RPM_DIR}
+	${MOCK} --rebuild --resultdir ${RPM_DIR} ${RESMGR_SRC_RPM}
 
 pre-reqs: ${VENV}
 	for pkg in ${SETUP_DEPS}; do \
