@@ -229,7 +229,7 @@ def start(config, log, app_db, app_cache, remote_app_class):
             exch_name=constants.BBONE_EXCHANGE,
             recv_keys=recv_keys,
             state=state,
-            before_consuming_cb=heartbeat,
+            before_processing_msgs_cb=heartbeat,
             consume_cb=consume_msg,
             virtual_host=vhost,
             ssl_options=ssl_options

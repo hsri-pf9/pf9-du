@@ -40,8 +40,6 @@ class bbone_provider_pf9(bbone_provider_memory):
         self.send_pending_msgs_period = int(self.config.get('bbmaster',
                                             'send_pending_msgs_period'))
         self.pending_msgs = []
-        # Announce our presence by pinging all slaves
-        self._send_msg(constants.BROADCAST_TOPIC, {'opcode': 'ping'})
         t = threading.Thread(target=self._io_thread)
         t.daemon = True
         t.start()
@@ -80,8 +78,6 @@ class bbone_provider_pf9(bbone_provider_memory):
         """
         Continually initiates connections to the broker, retrying upon failure.
         """
-        state = {}
-
         def consume_msg(ch, method, properties, body):
             self.log.info('Received: %s', body)
             try:
@@ -96,6 +92,10 @@ class bbone_provider_pf9(bbone_provider_memory):
                 self.hosts[id] = host_state
                 desired_apps = self.desired_apps.get(id)
             self._converge_host_if_necessary(host_state, desired_apps)
+
+        def ping_slaves():
+            self._send_msg(constants.BROADCAST_TOPIC, {'opcode': 'ping'})
+            send_pending_msgs()
 
         def send_pending_msgs():
             """
@@ -121,6 +121,7 @@ class bbone_provider_pf9(bbone_provider_memory):
                  self.config.has_option('amqp', 'virtual_host') else None
         ssl_options = get_ssl_options(self.config)
         while True:
+            state = {}
             try:
                 self.log.info("Setting up master io loop, vhost=%s" % virt_host)
                 io_loop(host=self.config.get('amqp', 'host'),
@@ -128,7 +129,7 @@ class bbone_provider_pf9(bbone_provider_memory):
                         exch_name=constants.BBONE_EXCHANGE,
                         recv_keys=[constants.MASTER_TOPIC],
                         state=state,
-                        before_consuming_cb=send_pending_msgs,
+                        before_processing_msgs_cb=ping_slaves,
                         consume_cb=consume_msg,
                         virtual_host=virt_host,
                         ssl_options=ssl_options

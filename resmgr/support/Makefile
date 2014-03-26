@@ -12,6 +12,7 @@ BUILD_DIR := $(BUILD_ROOT)/resmgr
 RESMGR_DIR :=$(SRC_DIR)
 BBLIBCOMMON_DIR :=$(SRC_ROOT)/bbone/lib
 CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
+CHANGEPUBLISHER_DIR :=$(SRC_ROOT)/lib/changepublisher
 
 VERSION ?= 1.0.0
 RESMGR_RPM :=$(BUILD_DIR)/pf9-resmgr-$(VERSION).rpm
@@ -24,7 +25,7 @@ RESMGR_SRC_TARBALL = ${BUILD_DIR}/pf9-resmgr-${VERSION}.tgz
 PF9_OPT_DIR = ${RESMGR_SRC_STAGE}/opt/pf9
 PROD_VENV = ${PF9_OPT_DIR}/resmgr
 # These are additional modules needed to setup for production purposes
-PROD_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${CONFIGUTILS_DIR}
+PROD_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${CONFIGUTILS_DIR} ${CHANGEPUBLISHER_DIR}
 PROD_VENV_INSTALL_CMD=${PROD_VENV}/bin/python setup.py install
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${PROD_SETUP_DEPS}

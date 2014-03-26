@@ -130,7 +130,7 @@ def _exercise_testroutine(test_data):
             exch_name=constants.BBONE_EXCHANGE,
             recv_keys=[constants.MASTER_TOPIC],
             state=state,
-            before_consuming_cb=before_consuming,
+            before_processing_msgs_cb=before_consuming,
             consume_cb=consume_msg,
             virtual_host=config.get('amqp', 'virtual_host'))
 

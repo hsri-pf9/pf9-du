@@ -151,7 +151,7 @@ def _setup_slave(init_msg, host_topic):
             exch_name=constants.BBONE_EXCHANGE,
             recv_keys=recv_keys,
             state=state,
-            before_consuming_cb=before_consuming,
+            before_processing_msgs_cb=before_consuming,
             consume_cb=mock_consume_msg,
             virtual_host=config.get('amqp', 'virtual_host'))
 

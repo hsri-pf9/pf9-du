@@ -5,22 +5,30 @@
 import pika
 from pika.credentials import PlainCredentials
 
-def io_loop(host, credentials, exch_name, recv_keys, state,
-            before_consuming_cb, consume_cb, virtual_host=None,
+def io_loop(host,
+            credentials,
+            exch_name,
+            state,
+            before_processing_msgs_cb,
+            exch_type='direct',
+            recv_keys=None,
+            consume_cb=None,
+            virtual_host=None,
             ssl_options=None):
     """
     Connects to AMQP broker and enters message processing loop
     :param str host: The broker host name or IP
     :param PlainCredentials credentials: The login credentials
     :param str exch_name: The exchange name
-    :param list recv_keys: List of receive routing keys
     :param dict state: A dictionary storing connection variables
-    :param function before_consuming_cb: A callback to call just before
-     consuming messages
-    :param function consume_cb: A callback for consuming messages
+    :param function before_processing_msgs_cb: A callback to call just before
+     sending or receiving messages.
+    :param str exch_type: The type of exchange (defaults to 'direct')
+    :param list recv_keys: List of receive routing keys (optional)
+    :param function consume_cb: A callback for consuming messages (optional)
     :param str virtual_host: Virtual host to be used in AMQP broker. Default is
-     None
-    :param dict ssl_options: SSL options if SSL is enabled
+     None (optional)
+    :param dict ssl_options: SSL options if SSL is enabled (optional)
     """
 
     def on_open(connection):
@@ -30,15 +38,19 @@ def io_loop(host, credentials, exch_name, recv_keys, state,
     def on_channel_open(channel):
         state['channel'] = channel
         channel.exchange_declare(exchange=exch_name,
-                             exchange_type='direct',
+                             exchange_type=exch_type,
                              callback=on_exchange_declare)
 
     def on_exchange_declare(method_frame):
+        if not recv_keys:
+            # Not consuming messages. Finish early.
+            before_processing_msgs_cb()
+            return
         state['channel'].queue_declare(callback=on_queue_declare,
                                        exclusive=True)
 
     def on_queue_declare(method_frame):
-        # This method would be called back mulitple times if there are multiple
+        # This method would be called back multiple times if there are multiple
         # receive keys to be setup, but capture the queue_name only when the
         # queue has been declared initially.
         if 'queue_name' not in state:
@@ -55,8 +67,8 @@ def io_loop(host, credentials, exch_name, recv_keys, state,
                            callback=cb_method)
 
     def on_queue_bind(method_frame):
-        if before_consuming_cb:
-            before_consuming_cb()
+        if before_processing_msgs_cb:
+            before_processing_msgs_cb()
         state['channel'].basic_consume(consumer_callback=consume_cb,
                                        queue=state['queue_name'],
                                        no_ack=True)

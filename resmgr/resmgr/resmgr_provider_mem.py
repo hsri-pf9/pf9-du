@@ -9,8 +9,11 @@ This module is mock implementation of resource manager provider interface
 
 from resmgr_provider import ResMgrProvider, RState
 from exceptions import RoleNotFound, ResourceNotFound
+import changepublisher
 import logging
 import json
+from ConfigParser import ConfigParser
+from os import environ
 
 class ResMgrMemProvider(ResMgrProvider):
 
@@ -18,7 +21,20 @@ class ResMgrMemProvider(ResMgrProvider):
         """ Mock memory based provider """
         self.res = None
         self.roles = None
+        self.publish_changes = False
+        if 'PUBLISH_CHANGES' in environ:
+            self._configure_change_publisher()
 
+    def _configure_change_publisher(self):
+        config = ConfigParser();
+        config.add_section('amqp')
+        config.set('amqp', 'host', 'rabbitmq')
+        config.set('amqp', 'username', 'guest')
+        config.set('amqp', 'password', 'nova')
+        log = logging
+        log.basicConfig(level=logging.INFO)
+        changepublisher.init(log, config)
+        self.publish_changes = True
 
     def _refresh_data(self):
         with open('resmgr/tests/mock_data.json') as json_file:
@@ -111,6 +127,8 @@ class ResMgrMemProvider(ResMgrProvider):
         res['roles'].append(role_id)
 
         res['state'] = RState.active
+        if self.publish_changes:
+            changepublisher.publish_change('change', 'host', res_id)
 
     def delete_role(self, res_id, role_id):
         #prereq
@@ -127,6 +145,8 @@ class ResMgrMemProvider(ResMgrProvider):
 
         if not res['roles']:
             res['state'] = RState.inactive
+        if self.publish_changes:
+            changepublisher.publish_change('change', 'host', res_id)
 
 
 def get_provider(config_file):
