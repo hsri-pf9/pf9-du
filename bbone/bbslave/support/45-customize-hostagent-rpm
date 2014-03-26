@@ -20,7 +20,7 @@ HOSTAGENT_TARBALL=$ROOT_DIR/hostagent-tarball/pf9-hostagent.tar.gz
 RPMBUILD_DIR=$ROOT_DIR/hostagent-tarball/rpm-build
 
 HOST_AGENT_RPM=$RPMBUILD_DIR/RPMS/x86_64/pf9-hostagent-1.0.0-1.x86_64.rpm
-HOST_AGENT_DIR=$ROOT_DIR/static/hostagent
+HOST_AGENT_DIR=$ROOT_DIR/hostagent
 
 # Create a temporary directory to expand the tarball
 HOSTAGENT_TARBALL_EXPANDEDDIR=`mktemp -d -t pf9-XXX`
@@ -45,20 +45,6 @@ $HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-rpmbuild.sh $RPMBUILD_DIR $HOSTAGENT_TA
 # Copy the rpm over to a well known location
 mkdir -p $HOST_AGENT_DIR
 cp $HOST_AGENT_RPM $HOST_AGENT_DIR
-
-# Finally configure local httpd to serve the hostagent file
-# Hacky!!
-
-HOST_AGENT_ALIAS_STRING="Alias /hostagent $HOST_AGENT_DIR"
-
-if grep -q "$HOST_AGENT_ALIAS_STRING" /etc/httpd/conf.d/horizon.conf
-then
-    echo "HTTPD is already configured with Alias for host agent"
-else
-    sudo sed -i "/Alias \/media \/opt\/stack\/horizon\/openstack_dashboard\/static/a \ \ \ \ $HOST_AGENT_ALIAS_STRING" /etc/httpd/conf.d/horizon.conf
-fi
-
-sudo service httpd restart
 
 rm -fr $HOSTAGENT_TARBALL_EXPANDEDDIR
 rm -fr $RPMBUILD_DIR

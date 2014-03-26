@@ -40,6 +40,8 @@ rm -rf ${RPM_BUILD_ROOT}
 
 
 %post
+# Ugly hack to get pf9-bbmaster hooked up to init.d scripts
+sudo /bin/ln -sf /opt/pf9/bbmaster/bin/python /opt/pf9/bbmaster/bin/pf9-bbmaster
 
 %preun
 

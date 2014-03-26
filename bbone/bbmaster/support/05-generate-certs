@@ -1,0 +1,14 @@
+#!/bin/sh
+# Copyright (c) 2014 Platform9 Systems Inc.
+
+# This script owns the generation of the certificates
+
+# Failfast
+# Fail on first error
+set -e
+# Fail on uninitialized variables
+set -u
+
+echo "Certificate generation called"
+
+./generate-certs ${CUSTOMER_SHORTNAME} ${CUSTOMER_FULLNAME}

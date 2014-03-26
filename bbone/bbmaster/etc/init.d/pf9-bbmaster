@@ -12,12 +12,12 @@
 # read & export proxy information
 . /etc/environment
 
-prog="pf9-bbmaster"
+prog="/opt/pf9/bbmaster/bin/pf9-bbmaster"
 svcname="pf9-bbmaster"
 
-SERVER_BIN="/opt/pf9/bbmaster/bin/$prog"
+SERVER_BIN="$prog"
 
-SERVER_OPTS=""
+SERVER_OPTS="/opt/pf9/bbmaster/bin/pecan serve /etc/pf9/bbmaster_config.py"
 
 SERVER_LOGFILE=/var/log/pf9-bbmaster.log
 
@@ -76,7 +76,7 @@ case "$1" in
 	RETVAL=$?
 	;;
   status)
-	status $prog
+	status -p /var/run/pf9-bbmaster.pid $prog
 	RETVAL=$?
 	;;
   restart | reload| force-reload)

@@ -59,12 +59,13 @@ def main():
     start_svc_cmd = 'sudo service pf9-resmgr start'
     code, out, err = _run_command(start_svc_cmd)
 
-    sys.exit(code)
+    return code
 
 if __name__ == "__main__":
     try:
-        main()
+        code = main()
     except:
         # Return non-zero code if there was an exception
         sys.exit(1)
 
+    sys.exit(code)

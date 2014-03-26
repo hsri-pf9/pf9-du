@@ -13,6 +13,10 @@ BBMASTER_DIR :=$(SRC_DIR)
 PF9APP_DIR :=$(SRC_ROOT)/bbone/pf9app
 BBLIBCOMMON_DIR :=$(SRC_ROOT)/bbone/lib
 CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
+#Hack
+#Putting pf9cert with bbmaster rpm for now. This needs to be fixed later
+PF9CERT_DIR := $(SRC_ROOT)/lib/pf9cert
+
 
 VERSION ?= 1.0.0
 BBMASTER_RPM :=$(BUILD_DIR)/pf9-bbmaster-$(VERSION).rpm
@@ -30,7 +34,7 @@ BBMASTER_SRC_TARBALL = ${BUILD_DIR}/pf9-bbmaster-${VERSION}.tgz
 PF9_OPT_DIR = ${BBMASTER_SRC_STAGE}/opt/pf9
 PROD_VENV = ${PF9_OPT_DIR}/bbmaster
 # These are additional modules needed to setup for production purposes
-PROD_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${CONFIGUTILS_DIR}
+PROD_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${CONFIGUTILS_DIR} ${PF9CERT_DIR}
 PROD_VENV_INSTALL_CMD=${PROD_VENV}/bin/python setup.py install
 
 ifeq ($(MAKECMDGOALS),rpm)
@@ -60,6 +64,8 @@ ${BBMASTER_SRC_STAGE}: pre-reqs
 	cp -r ${BBMASTER_DIR}/etc/init.d ${BBMASTER_SRC_STAGE}/etc
 	mkdir -p ${PF9_OPT_DIR}/du-customize
 	cp ${BBMASTER_DIR}/support/60-customize-bbmaster ${PF9_OPT_DIR}/du-customize
+	cp ${BBMASTER_DIR}/support/generate-certs ${PF9_OPT_DIR}/du-customize
+	cp ${BBMASTER_DIR}/support/05-generate-certs ${PF9_OPT_DIR}/du-customize
 
 ${BBMASTER_SRC_TARBALL}: ${BBMASTER_SRC_STAGE}
 	cd ${BUILD_DIR}/srcstage;\
