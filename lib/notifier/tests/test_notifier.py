@@ -9,7 +9,7 @@ import pika, pika.channel, pika.connection
 import threading
 from bbcommon import vhost
 from bbcommon.amqp import io_loop
-import changepublisher
+import notifier
 import time
 
 config = ConfigParser.ConfigParser()
@@ -78,7 +78,7 @@ def _setup_consumer(ev):
             consume_cb=consume_msg,
             virtual_host=config.get('amqp', 'virtual_host'))
 
-class TestChangePublisher(TestCase):
+class TestNotifier(TestCase):
     """
     Test change publisher
     """
@@ -98,15 +98,15 @@ class TestChangePublisher(TestCase):
                              args=(ev,))
         t.daemon = True
         t.start()
-        changepublisher.init(log, config)
+        notifier.init(log, config)
         # Wait for consumer to enter its IO loop, then give it one
         # more second to make sure it's ready to consume messages
         ev.wait(5)
         time.sleep(1)
         for change_type, obj_type, obj_id in _test_data:
-            changepublisher.publish_change(change_type,
-                                           obj_type,
-                                           obj_id)
+            notifier.publish_notification(change_type,
+                                          obj_type,
+                                          obj_id)
         t.join(10)
         assert not t.isAlive()
 

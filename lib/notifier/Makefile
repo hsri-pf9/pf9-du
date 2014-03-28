@@ -5,8 +5,8 @@ include ../../common-defs.mk
 
 PARENT_DIR := $(abspath $(SRC_ROOT)/..)
 
-SRC_DIR := $(SRC_ROOT)/lib/changepublisher
-BUILD_DIR := $(BUILD_ROOT)/changepublisher
+SRC_DIR := $(SRC_ROOT)/lib/notifier
+BUILD_DIR := $(BUILD_ROOT)/notifier
 
 $(BUILD_DIR):
 	mkdir -p $@
@@ -34,7 +34,7 @@ unit-test-setup: pre-reqs
 unit-test: unit-test-setup
 	cd ${SRC_DIR};\
 	${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
-			--cover-package=changepublisher --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml ;\
+			--cover-package=notifier --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml ;\
 	cd ${BUILD_DIR}/coverage;\
 	zip -q ${COVERAGE_ZIP} *;
 

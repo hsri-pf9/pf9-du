@@ -8,13 +8,13 @@ except ImportError:
 
 
 setup(
-    name='changepublisher',
+    name='notifier',
     version='0.1',
     description='',
     author='',
     author_email='',
     install_requires=['pika'],
-    test_suite='changepublisher',
+    test_suite='notifier',
     zip_safe=False,
     include_package_data=True,
     packages=find_packages(exclude=['ez_setup'])

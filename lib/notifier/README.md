@@ -1,4 +1,4 @@
-# Change Publisher Library #
+# Notifier Library #
 
 This library enables pf9 back-end services to publish object change messages
 to the `pf9-changes` exchange on an AMQP broker. Those messages can then
@@ -26,7 +26,7 @@ thereof.
 
 ## API ##
 
-    changepublisher.init(log, config)
+    notifier.init(log, config)
 
 Initializes the library with a log and configuration object.
 The configuration object must contain an `amqp` section with the following
@@ -37,9 +37,14 @@ options:
 - password
 - virtual_host (optional)
 
-It may optionally contain an `ssl` section with SSL connection parameters.
+It may optionally contain an `ssl` section with these options:
 
-    changepublisher.publish_change(change_type, obj_type, obj_id)
+- certfile
+- keyfile
+- ca_certs
+
+
+    notifier.publish_notification(change_type, obj_type, obj_id)
 
 Queues a change message with the specified parameters.
 The message is guaranteed to be delivered within one second.

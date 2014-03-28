@@ -75,7 +75,7 @@ def init(log, config):
     t.daemon = True
     t.start()
 
-def publish_change(change_type, obj_type, obj_id):
+def publish_notification(change_type, obj_type, obj_id):
     """
     Queues a change record for publishing to the message broker.
     :param str change_type: Change type: 'add', 'delete', 'change'
