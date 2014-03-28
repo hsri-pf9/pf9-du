@@ -28,7 +28,7 @@ class TestAuthApi(unittest.TestCase) :
         self.admin_response = deepcopy(responses['good'])
         self.admin_response['access']['token']['id'] = self.admin_token
         self.admin_response['access']['token']['expires'] = tomorrow.isoformat()
-        self.admin_response['access']['user']['roles'].append({'name' : 'hostadmin'})
+        self.admin_response['access']['user']['roles'].append({'name' : 'admin'})
 
         # autherticated with user
         self.user_token = 'usertoken'
