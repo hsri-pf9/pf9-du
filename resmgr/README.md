@@ -53,11 +53,23 @@ Example:
     {
         "id":"rsc_1",
         "state":"<inactive|activating|active>",
+        "info": {
+            "hostname": "leb-centos-1.platform9.sys",
+            "os_family": "Linux",
+            "arch": "x86_64",
+            "os_info": "centos 6.4 Final"
+        },
         "roles":["role_1", "role2"]
     },
     {
         "id":"rsc_2",
         "state":"<inactive|activating|active>",
+        "info": {
+            "hostname": "leb-centos-1.platform9.sys",
+            "os_family": "Linux",
+            "arch": "x86_64",
+            "os_info": "centos 6.4 Final"
+        },
         "roles":["role_2", "role5"]
     },
 ]

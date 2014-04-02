@@ -214,6 +214,30 @@ class HostInventoryMgr(object):
         for host_id in deleted_ids:
             self.db_handler.delete_host(host_id)
 
+
+    def _build_host_attributes(self, roles, host_details):
+        """
+        Internal utility method that builds a host dict object
+        :param list roles: list of all roles for the host
+        :param Host host_details: Host ORM object that contains the host
+        information
+        :return: dictionary of host attributes
+        :rtype: dict
+        """
+        host_attrs = {
+            'id': host_details.id,
+            'roles': roles,
+            'state': RState.active if roles else RState.inactive,
+            'info' : {
+                'hostname': host_details.hostname,
+                'os_family': host_details.hostosfamily,
+                'arch': host_details.hostarch,
+                'os_info': host_details.hostosinfo
+            }
+        }
+        return host_attrs
+
+
     def get_all_hosts(self):
         """
         Returns information about all known hosts.
@@ -227,15 +251,10 @@ class HostInventoryMgr(object):
             for role in host.roles:
                 cur_roles.append(role.rolename)
 
-            host_attrs = {
-                'id': host.id,
-                'roles': cur_roles,
-                'state': RState.active if cur_roles else RState.inactive
-            }
+            host_attrs = self._build_host_attributes(cur_roles, host)
             result[host.id] = host_attrs
 
         return result
-
 
     def get_host(self, host_id):
         """
@@ -251,17 +270,7 @@ class HostInventoryMgr(object):
             cur_roles.append(role.rolename)
 
         result = {
-            host.id: {
-                'id': host.id,
-                'roles': cur_roles,
-                'state': RState.active if cur_roles else RState.inactive,
-                'info' : {
-                    'hostname': host.hostname,
-                    'os_family': host.hostosfamily,
-                    'arch': host.hostarch,
-                    'os_info': host.hostosinfo
-                }
-            }
+            host.id: self._build_host_attributes(cur_roles, host)
         }
 
         return result
