@@ -10,6 +10,7 @@ AutoReqProv:    no
 
 Provides:       pf9-hostagent
 Provides:       pf9-bbslave
+Requires:       python-setuptools
 Requires:       sudo
 
 # Hack to suppress PR IAAS-110
