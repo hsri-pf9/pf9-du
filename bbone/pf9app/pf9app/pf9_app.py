@@ -7,11 +7,12 @@ import logging
 import json
 import os
 import subprocess
+import sys
 
 from exceptions import ServiceCtrlError, ConfigOperationError
 from app import App, RemoteApp
 
-CFGSCRIPTBASEDIR = "/opt/pf9/%s/config"
+CFGSCRIPTCMD = "%s /opt/pf9/%s/config"
 SERVICECMD = "/sbin/service %s %s"
 
 
@@ -100,7 +101,7 @@ class Pf9App(App):
         :return: Path to the config script
         :rtype: str
         """
-        return CFGSCRIPTBASEDIR % self.app_name
+        return CFGSCRIPTCMD % (sys.executable, self.app_name)
 
     def get_config(self):
         """
