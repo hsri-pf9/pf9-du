@@ -25,15 +25,15 @@ class RoleExists(ResMgrException):
         super(RoleExists, self).__init__('Role %s already associated with resource %s'
                                          %(roleKey, resKey))
 
-class ResourceNotFound(ResMgrException):
+class HostNotFound(ResMgrException):
     def __init__(self, val):
-        super(ResourceNotFound, self).__init__('Resource %s not found' % val)
+        super(HostNotFound, self).__init__('Host %s not found' % val)
 
 class BBMasterNotFound(ResMgrException):
     def __init__(self, val):
         super(BBMasterNotFound, self).__init__('Backbone master unreachable %s' % val)
 
-class ResConfigFailed(ResMgrException):
+class HostConfigFailed(ResMgrException):
     def __init__(self, reason):
-        super(ResConfigFailed, self).__init__('Role configuration failed: %s'% reason)
+        super(HostConfigFailed, self).__init__('Role configuration failed: %s'% reason)
 

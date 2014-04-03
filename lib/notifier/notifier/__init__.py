@@ -53,8 +53,10 @@ def _io_thread(log, config):
         publish_notification('heartbeat', 'none', 'none')
         state['connection'].add_timeout(_HEARTBEAT_PERIOD, _heartbeat)
 
-    username = config.get('amqp', 'username')
-    password = config.get('amqp', 'password')
+    username = config.get('amqp', 'username') \
+        if config.has_option('amqp', 'username') else 'guest'
+    password = config.get('amqp', 'password') \
+        if config.has_option('amqp', 'password') else 'm1llenn1umFalc0n'
     credentials = pika.PlainCredentials(username=username, password=password)
     host = config.get('amqp', 'host')
     virt_host = config.get('amqp', 'virtual_host') if \

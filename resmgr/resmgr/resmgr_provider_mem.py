@@ -8,7 +8,7 @@ This module is mock implementation of resource manager provider interface
 """
 
 from resmgr_provider import ResMgrProvider, RState
-from exceptions import RoleNotFound, ResourceNotFound
+from exceptions import RoleNotFound, HostNotFound
 import notifier
 import logging
 import json
@@ -19,14 +19,14 @@ class ResMgrMemProvider(ResMgrProvider):
 
     def __init__(self, conf_file):
         """ Mock memory based provider """
-        self.res = None
+        self.hosts = None
         self.roles = None
         self.publish_notifications = False
         if 'PUBLISH_CHANGES' in environ:
             self._configure_change_publisher()
 
     def _configure_change_publisher(self):
-        config = ConfigParser();
+        config = ConfigParser()
         config.add_section('amqp')
         config.set('amqp', 'host', 'rabbitmq')
         config.set('amqp', 'username', 'guest')
@@ -44,20 +44,20 @@ class ResMgrMemProvider(ResMgrProvider):
             except (ValueError, KeyError, TypeError) as e:
                 logging.error('Malformed data: %s', json_file)
 
-    def _load_data(self, res, roles):
-        if not res or not roles:
+    def _load_data(self, hosts, roles):
+        if not hosts or not roles:
             return
 
         # Simple check
-        if not self.res:
-            self.res = res
+        if not self.hosts:
+            self.hosts = hosts
             self.roles = roles
             return
 
         # If the dictonary keys changed from memory-loaded values, update
-        if set(self.res.keys()) != set(res.keys()) or \
+        if set(self.hosts.keys()) != set(hosts.keys()) or \
                 set(self.roles.keys()) != set(roles.keys()):
-            self.res = res
+            self.hosts = hosts
             self.roles = roles
 
     def get_all_roles(self):
@@ -81,73 +81,84 @@ class ResMgrMemProvider(ResMgrProvider):
         ## TODO: error handling
         return sub_roles
 
-    def get_all_resources(self):
-        return self._get_resources()
+    def get_all_hosts(self):
+        return self._get_hosts()
 
-    def get_resource(self, resource_id):
-        return self._get_resources([resource_id])
+    def get_host(self, host_id):
+        return self._get_hosts([host_id])
 
-    def _get_resources(self, id_list=[]):
+    def delete_host(self, host_id):
+        self._refresh_data()
+
+        if host_id not in self.hosts.keys():
+            raise HostNotFound(host_id)
+
+        if self.hosts[host_id]['state'] != RState.active:
+            return
+
+        del self.hosts[host_id]
+        return
+
+
+    def _get_hosts(self, id_list=[]):
         #prereq
         self._refresh_data()
 
         if not id_list:
-            return self.res
+            return self.hosts
 
-        sub_res = dict((key, val) for key, val in self.res.iteritems() \
-                           if key in id_list)
+        sub_hosts = dict((key, val) for key, val in self.hosts.iteritems()
+                         if key in id_list)
 
         ## TODO: error handling
-        return sub_res
+        return sub_hosts
 
-    def _get_res_roles(self, res_id, role_id):
+    def _get_host_roles(self, host_id, role_id):
 
-        if res_id not in self.res.keys():
-            raise ResourceNotFound(res_id)
+        if host_id not in self.hosts.keys():
+            raise HostNotFound(host_id)
 
         if role_id not in self.roles.keys():
             raise RoleNotFound(role_id)
 
-        return self.res[res_id], self.roles[role_id]
+        return self.hosts[host_id], self.roles[role_id]
 
-    def add_role(self, res_id, role_id):
+    def add_role(self, host_id, role_id):
         #prereq
         self._refresh_data()
 
-        res, role = self._get_res_roles(res_id, role_id)
-
+        host, role = self._get_host_roles(host_id, role_id)
 
         #TODO:Right now, this mapping is one to one to keep status consistent.
         # Revisit
-        if res['state'] != RState.inactive:
+        if host['state'] != RState.inactive:
             return
 
-        # Mock resource configuration
-        res['state'] = RState.activating
-        res['roles'].append(role_id)
+        # Mock host configuration
+        host['state'] = RState.activating
+        host['roles'].append(role_id)
 
-        res['state'] = RState.active
+        host['state'] = RState.active
         if self.publish_notifications:
-            notifier.publish_notification('change', 'host', res_id)
+            notifier.publish_notification('change', 'host', host_id)
 
-    def delete_role(self, res_id, role_id):
+    def delete_role(self, host_id, role_id):
         #prereq
         self._refresh_data()
 
-        res, role = self._get_res_roles(res_id, role_id)
+        host, role = self._get_host_roles(host_id, role_id)
 
         # TODO: error handling
-        if res['state'] != RState.active or \
-                not res['roles'] or role_id not in res['roles']:
+        if host['state'] != RState.active or \
+                not host['roles'] or role_id not in host['roles']:
             return
 
-        res['roles'].remove(role_id)
+        host['roles'].remove(role_id)
 
-        if not res['roles']:
-            res['state'] = RState.inactive
+        if not host['roles']:
+            host['state'] = RState.inactive
         if self.publish_notifications:
-            notifier.publish_notification('change', 'host', res_id)
-
+            notifier.publish_notification('change', 'host', host_id)
 
 def get_provider(config_file):
     return ResMgrMemProvider(config_file)

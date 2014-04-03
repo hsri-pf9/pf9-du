@@ -91,17 +91,17 @@ class TestAuthApi(unittest.TestCase) :
         self.assertEquals(401, response.status_code)
 
     @httpretty.activate
-    def test_resource_get(self) :
+    def test_host_get(self) :
         # non-admin auth
         self.mock_keystone(self.user_token, 200, self.user_response)
-        response = self.app.get('/v1/resources', {}, {'X-Auth-Token': self.user_token})
+        response = self.app.get('/v1/hosts', {}, {'X-Auth-Token': self.user_token})
         self.assertEquals(200, response.status_code)
         body = json.loads(response.text)
-        self.assertTrue(0 < len([res for res in body if res['id'] == 'rsc_1']))
+        self.assertTrue(0 < len([host for host in body if host['id'] == 'rsc_1']))
 
         # bad auth
         self.mock_keystone(self.unauth_token, 404, self.unauth_response)
-        response = self.app.get('/v1/resources', {},
+        response = self.app.get('/v1/hosts', {},
                 {'X-Auth-Token': self.unauth_token}, expect_errors = True)
         self.assertEquals(401, response.status_code)
 
@@ -111,22 +111,22 @@ class TestAuthApi(unittest.TestCase) :
         # PUT
         # non-admin auth
         self.mock_keystone(self.user_token, 200, self.user_response)
-        response = self.app.put('/v1/resources/rsc_1/roles/pf9-ostackhost', {},
+        response = self.app.put('/v1/hosts/rsc_1/roles/pf9-ostackhost', {},
                 {'X-Auth-Token': self.user_token}, expect_errors = True)
         self.assertEquals(403, response.status_code)
 
         # bad auth
         self.mock_keystone(self.unauth_token, 404, self.unauth_response)
-        response = self.app.put('/v1/resources/rsc_1/roles/pf9-ostackhost', {},
+        response = self.app.put('/v1/hosts/rsc_1/roles/pf9-ostackhost', {},
                 {'X-Auth-Token': self.unauth_token}, expect_errors = True)
         self.assertEquals(401, response.status_code)
 
         # admin auth
         self.mock_keystone(self.admin_token, 200, self.admin_response)
-        response = self.app.put('/v1/resources/rsc_1/roles/pf9-ostackhost', {},
+        response = self.app.put('/v1/hosts/rsc_1/roles/pf9-ostackhost', {},
                 {'X-Auth-Token': self.admin_token})
         self.assertEquals(200, response.status_code)
-        response = self.app.get('/v1/resources/rsc_1/', {},
+        response = self.app.get('/v1/hosts/rsc_1/', {},
                 {'X-Auth-Token': self.admin_token})
         self.assertEquals(200, response.status_code)
         body = json.loads(response.text)
@@ -135,22 +135,22 @@ class TestAuthApi(unittest.TestCase) :
         # DELETE
         # non-admin auth
         self.mock_keystone(self.user_token, 200, self.user_response)
-        response = self.app.delete('/v1/resources/rsc_1/roles/pf9-ostackhost', {},
+        response = self.app.delete('/v1/hosts/rsc_1/roles/pf9-ostackhost', {},
                 {'X-Auth-Token': self.user_token}, expect_errors = True)
         self.assertEquals(403, response.status_code)
 
         # bad auth
         self.mock_keystone(self.unauth_token, 404, self.unauth_response)
-        response = self.app.delete('/v1/resources/rsc_1/roles/pf9-ostackhost', {},
+        response = self.app.delete('/v1/hosts/rsc_1/roles/pf9-ostackhost', {},
                 {'X-Auth-Token': self.unauth_token}, expect_errors = True)
         self.assertEquals(401, response.status_code)
 
         # admin auth
         self.mock_keystone(self.admin_token, 200, self.admin_response)
-        response = self.app.delete('/v1/resources/rsc_1/roles/pf9-ostackhost', {},
+        response = self.app.delete('/v1/hosts/rsc_1/roles/pf9-ostackhost', {},
                 {'X-Auth-Token': self.admin_token})
         self.assertEquals(200, response.status_code)
-        response = self.app.get('/v1/resources/rsc_1/', {},
+        response = self.app.get('/v1/hosts/rsc_1/', {},
                 {'X-Auth-Token': self.admin_token})
         self.assertEquals(200, response.status_code)
         body = json.loads(response.text)

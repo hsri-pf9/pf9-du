@@ -40,8 +40,8 @@
 
     "mock_roles" : {
         "pf9-ostackhost": {
-            "id":"pf9-ostackhost",
             "name":"pf9-ostackhost",
+            "display_name":"pf9 ostackhost",
             "description":"xyz"
         }
     }

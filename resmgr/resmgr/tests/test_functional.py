@@ -9,13 +9,13 @@ class TestResMgr(FunctionalTest):
         assert response is not None
         return response.json_body
 
-    def _get_resources(self):
-        response = self.app.get('/v1/resources')
+    def _get_hosts(self):
+        response = self.app.get('/v1/hosts')
         assert response is not None
         return response.json_body
 
-    def _get_one_res(self, id):
-        response = self.app.get(''.join(['/v1/resources/',
+    def _get_one_host(self, id):
+        response = self.app.get(''.join(['/v1/hosts/',
                                          id]))
         assert response is not None
         return response.json_body
@@ -42,32 +42,32 @@ class TestResMgr(FunctionalTest):
         fake_keys = ['dhfjshdkf', 'fhshfs']
 
         for fake in fake_keys:
-            for path in ['/v1/resources/', '/v1/roles/']:
+            for path in ['/v1/hosts/', '/v1/roles/']:
                 response = self.app.get(''.join([path,
                                                  fake]), expect_errors=True)
                 assert response.status_int == 404
 
-    def test_get_resources(self):
-        res = self._get_resources()
-        assert type(res) is list
-        assert len(res)
+    def test_get_hosts(self):
+        host = self._get_hosts()
+        assert type(host) is list
+        assert len(host)
 
     def test_associate(self):
         roles = [r['id'] for r in self._get_roles()]
-        res = self._get_resources()
+        host = self._get_hosts()
 
-        for (k1, k2) in zip(res, roles):
+        for (k1, k2) in zip(host, roles):
             k1_id = k1['id']
-            self.app.put(''.join(['/v1/resources/', k1_id, '/roles/', k2]))
-            one_res = self._get_one_res(k1_id)
+            self.app.put(''.join(['/v1/hosts/', k1_id, '/roles/', k2]))
+            one_host = self._get_one_host(k1_id)
 
-            assert one_res['state'] == RState.active
+            assert one_host['state'] == RState.active
 
-            self.app.delete(''.join(['/v1/resources/', k1_id, '/roles/', k2]))
+            self.app.delete(''.join(['/v1/hosts/', k1_id, '/roles/', k2]))
 
-            one_res = self._get_one_res(k1_id)
+            one_host = self._get_one_host(k1_id)
 
-            assert one_res['state'] == RState.inactive
+            assert one_host['state'] == RState.inactive
 
     def test_put_config(self):
         #TODO: Figure out how to test put operations

@@ -37,37 +37,45 @@ class ResMgrProvider(object):
 
 
     @abstractmethod
-    def get_resource(self, resource_id):
+    def get_host(self, host_id):
         """
-        Returns detailed information about a particular resource
-        :param resource_id: ID of the resource
-        :rtype: dict
-        """
-        pass
-
-
-    @abstractmethod
-    def get_all_resources(self):
-        """
-        Returns information about all known resources
+        Returns detailed information about a particular host
+        :param host_id: ID of the host
         :rtype: dict
         """
         pass
 
     @abstractmethod
-    def add_role(self, res_id, role_id):
+    def delete_host(self, host_id):
         """
-        Adds a role to a resource
-        :param res_id: ID of the resource
+        Delete a host
+        :param host_id: ID
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    def get_all_hosts(self):
+        """
+        Returns information about all known hosts
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def add_role(self, host_id, role_id):
+        """
+        Adds a role to a host
+        :param host_id: ID of the host
         :param role_id: ID of the role
         """
         pass
 
     @abstractmethod
-    def delete_role(self, res_id, role_id):
+    def delete_role(self, host_id, role_id):
         """
-        Disassociates a role from a resource
-        :param res_id: ID of the resource
+        Disassociates a role from a host
+        :param host_id: ID of the host
         :param role_id: ID of the role
         :return:
         """

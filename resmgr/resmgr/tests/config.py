@@ -17,6 +17,30 @@ app = {
     }
 }
 
+logging = {
+    'loggers': {
+        'root': {'level': 'INFO', 'handlers': ['console']},
+        'resmgr': {'level': 'DEBUG', 'handlers': ['console']},
+        'keystoneclient.middleware.auth_token': {'level': 'DEBUG', 'handlers': ['console']},
+        'py.warnings': {'handlers': ['console']},
+        '__force_dict__': True
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        }
+    },
+    'formatters': {
+        'simple': {
+            'format': ('%(asctime)s %(levelname)s [%(name)s]'
+                       '[%(threadName)s] %(message)s')
+        }
+    }
+}
+
+
 # Custom Configurations must be in Python dictionary format::
 #
 # foo = {'bar':'baz'}
@@ -25,8 +49,9 @@ app = {
 # pecan.conf
 
 resmgr = {
-    'config_file': os.path.join(os.getcwd(), 'resmgr/etc/resmgr.conf'),
-    'provider': 'resmgr_provider_mem',
+    'config_file': os.path.join(os.getcwd(), 'resmgr/tests/resmgr.conf'),
+    'provider': 'resmgr_provider_pf9',
+    #'provider': 'resmgr_provider_mem',
 
     # Enforce keystone RBAC policies. Optional, defaults to True.
     # Must be false for non-auth tests to run. Auth tests override this

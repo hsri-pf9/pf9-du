@@ -32,7 +32,7 @@ logging = {
     },
     'formatters': {
         'simple': {
-            'format': ('%(asctime)s %(levelname)-5.5s [%(name)s]'
+            'format': ('%(asctime)s %(levelname)s [%(name)s]'
                        '[%(threadName)s] %(message)s')
         }
     }

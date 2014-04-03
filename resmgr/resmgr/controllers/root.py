@@ -4,11 +4,11 @@
 
 __author__ = 'Platform9'
 
-from resmgr_controller import RolesController, ResourcesController
+from resmgr_controller import RolesController, HostsController
 
 class V1Controller(object):
     roles = RolesController()
-    resources = ResourcesController()
+    hosts = HostsController()
 
 class RootController(object):
     v1 = V1Controller()

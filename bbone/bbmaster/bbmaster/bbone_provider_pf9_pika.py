@@ -6,6 +6,7 @@ This module is implementation of the backbone provider interface.
 """
 
 from ConfigParser import ConfigParser
+import datetime
 from bbone_provider_memory import bbone_provider_memory
 import threading
 from bbcommon import constants
@@ -84,6 +85,7 @@ class bbone_provider_pf9(bbone_provider_memory):
                 body = json.loads(body)
                 assert body['opcode'] == 'status'
                 host_state = body['data']
+                host_state['timestamp'] = datetime.datetime.utcnow()
                 id = host_state['host_id']
             except (ValueError, TypeError, KeyError):
                 self.log.error('Malformed message: %s', body)

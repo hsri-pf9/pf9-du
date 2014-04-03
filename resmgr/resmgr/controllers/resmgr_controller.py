@@ -12,13 +12,15 @@ This module will work in conjunction with bbone to manage pf9 software
 configuration on approved hosts.
 """
 
+import logging
 import pecan
 from pecan import abort, expose
 from pecan.rest import RestController
-from resmgr.resmgr_provider_pf9 import ResMgrPf9Provider
-from resmgr.exceptions import RoleNotFound, ResourceNotFound
+from resmgr.exceptions import RoleNotFound, HostNotFound, HostConfigFailed, BBMasterNotFound
 from enforce_policy import enforce
 
+
+log = logging.getLogger('resmgr')
 _resmgr_conf_file = pecan.conf.resmgr['config_file']
 _provider_name = pecan.conf.resmgr['provider']
 _pkg = __import__('resmgr.%s' % _provider_name, globals(), locals())
@@ -36,27 +38,31 @@ class RolesController(RestController):
         :return: a list of available roles
         :rtype: list
         """
+        log.debug('Getting all roles')
         out = _provider.get_all_roles()
 
         if not out:
+            log.info('No roles present')
             return []
 
         return [val for val in out.itervalues()]
 
     @expose('json')
-    def get_one(self, id):
+    def get_one(self, name):
         """
-        Handles request of type GET /v1/roles/<id>
-        :param str id: ID of the role
+        Handles request of type GET /v1/roles/<role_name>
+        :param str name: Name of the role
         :return: dictionary of properties for the role
         :rtype: dict
         """
-        out = _provider.get_role(id)
+        log.debug('Getting details for role %s', name)
+        out = _provider.get_role(name)
 
         if not out:
+            log.error('No matching role found for %s', name)
             abort(404)
 
-        return out[id]
+        return out[name]
 
 
 class HostRolesController(RestController):
@@ -64,63 +70,88 @@ class HostRolesController(RestController):
 
     @enforce(required = ['admin'])
     @expose('json')
-    def put(self, id, roleId):
+    def put(self, host_id, role_name):
         """
-        Handles requests of type PUT /v1/resources/<id>/roles/<role_id>
-        Assigns the specified role to the resource.
-        :param str id: ID of the resource
-        :param str roleId: ID of the role being assigned
+        Handles requests of type PUT /v1/hosts/<host_id>/roles/<role_name>
+        Assigns the specified role to the host.
+        :param str host_id: ID of the host
+        :param str role_name: Name of the role being assigned
         """
+        log.debug('Assigning role %s to host %s', role_name, host_id)
         try:
-            _provider.add_role(id, roleId)
-        except (RoleNotFound, ResourceNotFound):
-            abort(404)
+            _provider.add_role(host_id, role_name)
+        except (RoleNotFound, HostNotFound):
+            log.exception('Role %s or Host %s not found', role_name, host_id)
+        except (HostConfigFailed, BBMasterNotFound):
+            log.exception('Role assignment failed')
+            abort(500)
+
 
     @enforce(required = ['admin'])
     @expose('json')
-    def delete(self, id, roleId):
+    def delete(self, host_id, role_name):
         """
-        Handles request of type DELETE /v1/resources/<id>/roles/<role_id>
-        Removes the specified role from the resource
-        :param str id: ID of the resource
-        :param str roleId: ID of the role being assigned
+        Handles request of type DELETE /v1/hosts/<host_id>/roles/<role_name>
+        Removes the specified role from the host
+        :param str host_id: ID of the host
+        :param str role_name: Name of the role being assigned
         """
+        log.debug('Removing role %s from host %s', role_name, host_id)
         try:
-            _provider.delete_role(id, roleId)
-        except (RoleNotFound, ResourceNotFound):
-            abort(404)
+            _provider.delete_role(host_id, role_name)
+        except (RoleNotFound, HostNotFound):
+            log.exception('Role %s or Host %s not found', role_name, host_id)
+        except (HostConfigFailed, BBMasterNotFound):
+            log.exception('Role removal failed')
+            abort(500)
 
 
-class ResourcesController(RestController):
-    """ Controller for resources related requests"""
+class HostsController(RestController):
+    """ Controller for hosts related requests"""
     roles = HostRolesController()
 
     @expose('json')
     def get_all(self):
         """
-        Handles requests of type GET /v1/resources. Returns all resources known
+        Handles requests of type GET /v1/hosts. Returns all hosts known
         to the resource manager.
-        :return: list of resources. Empty list if no resources are present.
+        :return: list of hosts. Empty list if no hosts are present.
         :rtype: list
         """
-        res = _provider.get_all_resources()
+        log.debug('Getting details for all hosts')
+        res = _provider.get_all_hosts()
 
         if not res:
+            log.info('No hosts present')
             return []
 
         return [val for val in res.itervalues()]
 
     @expose('json')
-    def get_one(self, id):
+    def get_one(self, host_id):
         """
-        Handles requests of type GET /v1/resources/<id>
-        :return: dictionary of attributes about the resource
+        Handles requests of type GET /v1/hosts/<id>
+        :return: dictionary of attributes about the host
         :rtype: dict
         """
-        out = _provider.get_resource(id)
+        log.debug('Getting details for host %s', host_id)
+        out = _provider.get_host(host_id)
 
         if not out:
+            log.error('No matching host found for %s', host_id)
             abort(404)
 
-        return out[id]
+        return out[host_id]
 
+    @enforce(required= ['admin'])
+    @expose('json')
+    def delete(self, host_id):
+        log.debug('Deleting host %s', host_id)
+        try:
+            _provider.delete_host(host_id)
+        except HostNotFound:
+            log.exception('No matching host found for %s', host_id)
+            abort(404)
+        except (HostConfigFailed, BBMasterNotFound):
+            log.exception('Host delete operation failed')
+            abort(500)

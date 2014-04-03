@@ -17,7 +17,7 @@ These are the REST API endpoints.
 Returns the list of host ids that is controlled by this host management
 server. Example: [ "sah8a7a", "da79das" ]
 
-### GET /v1/hosts/<id> ###
+### GET /v1/hosts/__id__ ###
 
 Returns a description for the host with the provided host id.
 The 'info' field contains information about the host's hardware and OS.
@@ -27,12 +27,15 @@ The 'apps' field describes the currently installed pf9 applications and
 their configuration. The 'desired_apps' field only exists for the 'converging',
 'retrying' and 'failed' states, and describes the pf9 application state that
 the host is attempting to converge towards.
+The 'timestamp' field denotes the time when this state was processed by the
+backbone master
 
 Example:
-
+```
     {
         'host_id': 'da79das',
         'status': 'ok',
+        'timestamp': '2014-04-07 19:00:14.301721'
         'info': {
             'hostname': 'leb-centos-1.platform9.sys',
             'os_family': 'Linux',
@@ -59,19 +62,19 @@ Example:
             ...
         }
     }
-
+```
 ### GET /v1/hosts/ ###
 Returns a list of all host descriptors.
 
-### GET /v1/hosts/<id>/apps ###
+### GET /v1/hosts/__id__/apps ###
 Returns the apps configuration for the specified host.
 
-### PUT /v1/hosts/<id>/apps ###
+### PUT /v1/hosts/__id__/apps ###
 Sets the desired pf9 application configuration state of the specified host.
 The expected format is similar to the 'apps' section of the descriptor returned
-by GET /v1/hosts/<id> as described above.
+by GET /v1/hosts/__id__ as described above.
 
-Subsequent GETs on /v1/hosts/<id> will reflect the old configuration for a
+Subsequent GETs on /v1/hosts/__id__ will reflect the old configuration for a
 while until the configuration is successfully applied.
 
 If the host has not yet registered with the backbone server at the time

@@ -3,6 +3,7 @@ data = {
     '2d734f3a-8a16-11e3-909d-005056a93468': {
         'host_id': '2d734f3a-8a16-11e3-909d-005056a93468',
         'status': 'ok',
+        'timestamp': '2014-04-07 19:00:14.301721',
         'info': {
             'hostname':'foo.acme.com',
             'os_family': 'Linux',
@@ -29,6 +30,7 @@ data = {
     '468860b4-8a16-11e3-909d-005056a93468': {
         'host_id': '468860b4-8a16-11e3-909d-005056a93468',
         'status': 'ok',
+        'timestamp': '2014-04-07 19:00:14.301721',
         'info': {
             'hostname':'bar.acme.com',
             'os_family': 'Linux',
