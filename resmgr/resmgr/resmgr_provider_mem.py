@@ -30,7 +30,7 @@ class ResMgrMemProvider(ResMgrProvider):
         config.add_section('amqp')
         config.set('amqp', 'host', 'rabbitmq')
         config.set('amqp', 'username', 'guest')
-        config.set('amqp', 'password', 'nova')
+        config.set('amqp', 'password', 'm1llenn1umFalc0n')
         log = logging
         log.basicConfig(level=logging.INFO)
         notifier.init(log, config)
