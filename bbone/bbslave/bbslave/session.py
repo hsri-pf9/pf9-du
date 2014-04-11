@@ -23,6 +23,7 @@ from os import makedirs, unlink
 _sys_info = get_sysinfo()
 _host_id = get_host_id()
 _desired_config_basedir_path = None
+_common_config_path = None
 _converge_attempts = 0
 
 def _set_desired_config_basedir_path(config):
@@ -31,14 +32,25 @@ def _set_desired_config_basedir_path(config):
     a cached copy of the desired apps configuration.
     :param ConfigParser config: configuration object
     """
-    global _desired_config_basedir_path
+    global _desired_config_basedir_path, _common_config_path
     dir_path = config.get('hostagent', 'desired_config_basedir_path') if \
         config.has_option('hostagent', 'desired_config_basedir_path') else \
         '/var/opt/pf9/hostagent'
+    _common_config_path = dir_path
     dir_path = join(dir_path, _host_id)
     if not exists(dir_path):
         makedirs(dir_path)
     _desired_config_basedir_path = join(dir_path, 'desired_apps.json')
+
+def _persist_host_id():
+    """
+    Writes the host ID for the host to a configuration file
+    (/var/opt/pf9/hostagent/data.conf)
+    """
+    data_cfg = ConfigParser()
+    data_cfg.set('DEFAULT', 'host_id', _host_id)
+    with open(join(_common_config_path, 'data.conf'), 'w') as cf:
+        data_cfg.write(cf)
 
 def load_desired_config():
     """
@@ -80,6 +92,7 @@ def start(config, log, app_db, app_cache, remote_app_class):
     max_converge_attempts = int(config.get('hostagent', 'max_converge_attempts'))
     heartbeat_period = int(config.get('hostagent', 'heartbeat_period'))
     _set_desired_config_basedir_path(config)
+    _persist_host_id()
 
     # This dictionary holds AMQP variables set by the various nested functions.
     # We need a dictionary because python 2.x lacks the 'nonlocal' keyword
