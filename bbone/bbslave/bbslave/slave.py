@@ -70,6 +70,10 @@ def reconnect_loop(config):
                 log.info('Terminated by user. Exiting.')
                 break
             log.error('IOError with errno %d', e.errno)
+        except Exception:
+            # A catch all clause to avoid the slave going down in case of
+            # unexpected exceptions. Log and continue
+            log.exception('Unexpected error')
 
 
 

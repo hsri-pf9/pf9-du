@@ -172,8 +172,9 @@ def start(config, log, app_db, app_cache, remote_app_class):
                 if desired_config is None:
                     desired_config = current_config
             converged = valid_and_converged(desired_config)
-        except (TypeError, KeyError):
-            log.error('Malformed message or app config: %s', msg)
+        except (TypeError, KeyError, Pf9Exception):
+            log.exception('Bad message, app config or reading current app '
+                          'config. Message : %s', msg)
             return
 
         # ok to commit to disk now
@@ -197,7 +198,12 @@ def start(config, log, app_db, app_cache, remote_app_class):
                          desired_config, log=log)
         except Pf9Exception as e:
             log.error('Exception during apps processing: %s', type(e))
-        current_config = get_current_config()
+
+        try:
+            current_config = get_current_config()
+        except Pf9Exception:
+            log.exception('Reading current configuration failed.')
+            return
 
         converged = valid_and_converged(desired_config)
         if converged:
