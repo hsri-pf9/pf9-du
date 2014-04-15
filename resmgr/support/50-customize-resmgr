@@ -7,6 +7,12 @@ import ConfigParser
 import os
 import subprocess
 import sys
+import logging
+
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M')
+log = logging.getLogger('customize-resmgr')
 
 RESMGR_CONF = '/etc/pf9/resmgr.conf'
 NOVA_CONF = '/etc/nova/nova.conf'
@@ -42,13 +48,14 @@ def get_connect_string_from_nova():
     return resmgr_connect_str
 
 def main():
-    """Main routine"""
-    if 'RDS_CONNECT_STRING' in os.environ:
-        sql_connect_string = os.environ['RDS_CONNECT_STRING']
-    else:
-        # TODO: This else block should go away once we are fully integrated with
-        # RDS instances.
-        sql_connect_string = get_connect_string_from_nova()
+    """Connects the resource manager to a local mysql database named 'tests'."""
+    rds_endpoint = os.getenv('DBENDPOINT')
+    if rds_endpoint :
+        log.info('The DBENDPOINT environment variable is set. The resource manager '
+               + 'should already be configured to use that endpoint. Skipping...')
+        return 0
+
+    sql_connect_string = get_connect_string_from_nova()
 
     cparser = ConfigParser.ConfigParser()
     cparser.read(RESMGR_CONF)
