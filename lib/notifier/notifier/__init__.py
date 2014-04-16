@@ -12,20 +12,26 @@ import json
 _EXCH_NAME = 'pf9-changes'
 _CONNECTION_RETRY_PERIOD = 5
 _SEND_MSGS_PERIOD = 1
+_HEARTBEAT_PERIOD = 15
 _queue_name = None
 _pending_msgs = []
 _lock = threading.Lock()
 
 
 def _io_thread(log, config):
-    """
-    Periodically sends queued messages.
-    Tries to reconnect to AMQP broker if disconnected.
-    :param Logger log: log object
-    :param ConfigParser config: config object
-    :return:
-    """
+
+    def _before_processing_messages():
+        """
+        Starts two periodic tasks: sending general messages,
+        and sending heartbeats
+        """
+        _heartbeat()
+        _send_pending_msgs()
+
     def _send_pending_msgs():
+        """
+        Periodically sends queued messages.
+        """
         global _pending_msgs
         with _lock:
             pending_msgs = _pending_msgs
@@ -37,6 +43,15 @@ def _io_thread(log, config):
                 routing_key=routing_key,
                 body=json.dumps(body))
         state['connection'].add_timeout(_SEND_MSGS_PERIOD, _send_pending_msgs)
+
+    def _heartbeat():
+        """
+        Periodically sends heartbeat messages.
+        This is useful for certain clients, such as buggy web browsers, to
+        detect when a connection has gone bad or closed.
+        """
+        publish_notification('heartbeat', 'none', 'none')
+        state['connection'].add_timeout(_HEARTBEAT_PERIOD, _heartbeat)
 
     username = config.get('amqp', 'username')
     password = config.get('amqp', 'password')
@@ -54,7 +69,7 @@ def _io_thread(log, config):
                     credentials=credentials,
                     exch_name=_EXCH_NAME,
                     state=state,
-                    before_processing_msgs_cb=_send_pending_msgs,
+                    before_processing_msgs_cb=_before_processing_messages,
                     exch_type='topic',
                     virtual_host=virt_host,
                     ssl_options=ssl_options

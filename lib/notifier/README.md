@@ -8,6 +8,8 @@ be consumed by interested parties, such as user interfaces.
 
 A change message is a JSON object containing the type of change ('add', 'delete'
 'change'), the type of object, and the object's ID.
+There is a special change type named 'heartbeat' reserved for system heartbeats,
+in which case the object type and ID are 'none' and should be ignored.
 
 Example:
 
