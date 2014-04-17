@@ -11,6 +11,7 @@ from bbone_provider_memory import bbone_provider_memory
 import threading
 from bbcommon import constants
 from bbcommon.amqp import io_loop
+from bbcommon.exceptions import HostNotFound
 from bbcommon.utils import is_satisfied_by, get_ssl_options
 import logging
 import json
@@ -73,6 +74,32 @@ class bbone_provider_pf9(bbone_provider_memory):
             self.log.error('Invalid app config: %s', desired_apps)
             self.desired_apps[id] = previous_desired_apps
 
+    def get_host_agent(self, host_id):
+        """
+        Get the details of the host agent on a particular host
+        :param str host_id: ID of the host
+        :return: dictionary of the host agent information
+        :rtype: dict
+        """
+        with self.lock:
+            return super(bbone_provider_pf9, self).get_host_agent(host_id)
+
+    def set_host_agent(self, host_id, agent_data):
+        """
+        Update the host agent on a particular host
+        :param str host_id: ID of the host
+        :param dict agent_data: Information about the new host agent. This includes
+        URL, name and version for the host agent rpm.
+        """
+        if host_id not in self.hosts:
+            self.log.error('Host %s is not present in the identified '
+                           'hosts list.', host_id)
+            raise HostNotFound()
+
+        body = {'opcode': 'set_agent', 'data': agent_data}
+        # TODO: Think if this should be done with a retry logic
+        self._send_msg(host_id, body)
+
     # ----- these methods execute in the I/O thread -----
 
     def _io_thread(self):
@@ -87,11 +114,13 @@ class bbone_provider_pf9(bbone_provider_memory):
                 host_state = body['data']
                 host_state['timestamp'] = datetime.datetime.utcnow()
                 id = host_state['host_id']
+                host_agent_state = host_state['host_agent']
             except (ValueError, TypeError, KeyError):
                 self.log.error('Malformed message: %s', body)
                 return
             with self.lock:
                 self.hosts[id] = host_state
+                super(bbone_provider_pf9, self).set_host_agent_config(id, host_agent_state)
                 desired_apps = self.desired_apps.get(id)
             self._converge_host_if_necessary(host_state, desired_apps)
 

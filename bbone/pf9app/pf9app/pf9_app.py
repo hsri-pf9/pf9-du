@@ -18,6 +18,7 @@ SERVICECMD = "/sbin/service %s %s"
 
 def _run_command(command):
     """
+    Runs a command
     :param str command: Command to be executed.
     :return: a tuple representing (code, stdout, stderr), where code is the
     return code of the command, stdout is the standard output of the command and
@@ -203,3 +204,31 @@ class Pf9RemoteApp(Pf9App, RemoteApp):
         :raises DownloadFailed: if the download of the app failed.
         """
         return self.appcache.download(self.name, self.version, self.url)
+
+
+class Pf9AgentApp(Pf9RemoteApp):
+    """
+    Class that implements the host agent app interface
+    """
+    def __init__(self, name, version, url, app_db, app_cache, log=logging):
+        """
+        Constructor
+        :param str name: Name of the agent
+        :param str version: Version of the agent
+        :param str url: URL from where the agent can be downloaded.
+        :param AppDb app_db: database of installed agents
+        :param AppCache app_cache: cache of agent apps
+        :param Logger log: logger object for logging
+        """
+        Pf9RemoteApp.__init__(self, name=name, version=version, url=url,
+                              app_db=app_db, app_cache=app_cache, log=log)
+
+    def update(self):
+        """
+        Updates the host agent running on the host
+        """
+        self.log.info('Updating %s.%s', self.name, self.version)
+
+        local_path = self.download()
+        self.app_db.update_package(local_path)
+        self.log.info('%s.%s updated successfully', self.name, self.version)

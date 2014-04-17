@@ -48,3 +48,10 @@ class AppDb(object):
         :param app_name: Name of the app to be removed, like 'gcc'
         """
         pass
+
+    def update_package(self, path):
+        """
+        Updates a particular package on the host
+        :param str path: Local path to the package to be upgraded
+        """
+        pass

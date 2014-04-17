@@ -69,6 +69,10 @@ initial_status = {
                     }
                 }
             }
+        },
+        'host_agent': {
+            'version': '9.1.1',
+            'status': 'running'
         }
     }
 }
@@ -78,7 +82,8 @@ bad_initial_status = {
     'data': {
         'status': 'ok',
         'info': {},
-        'apps': {}
+        'apps': {},
+        'host_agent': {}
     }
 }
 

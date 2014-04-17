@@ -45,20 +45,26 @@ def reconnect_loop(config):
         from pf9app.mock_app_db import MockAppDb as AppDb
         from pf9app.mock_app_cache import MockAppCache as AppCache
         from pf9app.mock_app import MockRemoteApp as RemoteApp
+        #TODO: Figure out if we need a mock implementation for agentAppDb
+        Pf9AgentDb = AppDb
+        Pf9AgentApp = RemoteApp
     else:
         from pf9app.pf9_app import Pf9RemoteApp as RemoteApp
-        from pf9app.pf9_app_db import Pf9AppDb as AppDb
+        from pf9app.pf9_app import Pf9AgentApp
+        from pf9app.pf9_app_db import Pf9AppDb as AppDb, Pf9AgentDb
         from pf9app.pf9_app_cache import Pf9AppCache as AppCache
 
     log.info('-------------------------------')
     log.info('Platform 9 host agent started at %s ', datetime.datetime.now())
 
     app_db = AppDb()
+    agent_app_db = Pf9AgentDb()
     app_cache = AppCache(config.get('hostagent', 'app_cache_dir'))
 
     while True:
         try:
-            session.start(config, log, app_db, app_cache, RemoteApp)
+            session.start(config, log, app_db, agent_app_db, app_cache,
+                          RemoteApp, Pf9AgentApp)
         except AMQPConnectionError:
             log.error('Connection error. Retrying in %d seconds.', retry_period)
             time.sleep(retry_period)

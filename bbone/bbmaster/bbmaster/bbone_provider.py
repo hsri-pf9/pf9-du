@@ -31,11 +31,25 @@ class bbone_provider:
     def set_host_apps(self, id, apps_config):
         """
         Set the desired app configuration for the specified host.
-        :id: the host's id
+        :param str id: the host's id
         """
         pass
 
+    @abstractmethod
+    def get_host_agent(self, id):
+        """
+        Returns the host agent properties
+        :param str id: Host's id
+        """
+        pass
 
-
-
-
+    @abstractmethod
+    def set_host_agent(self, id, agent_data):
+        """
+        Updates the host agent on the host to the agent as specified by
+        the agent url
+        :param str id: ID of the host
+        :param dict agent_data: Information about the new host agent. This includes
+        URL, name and version for the host agent rpm.
+        """
+        pass

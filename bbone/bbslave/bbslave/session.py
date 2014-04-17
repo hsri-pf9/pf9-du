@@ -12,7 +12,7 @@ from ConfigParser import ConfigParser
 from pf9app.app_db import AppDb
 from pf9app.app_cache import AppCache
 from pf9app.app import RemoteApp
-from pf9app.algorithms import process_apps
+from pf9app.algorithms import process_apps, process_agent_update
 from pf9app.exceptions import Pf9Exception
 from sysinfo import get_sysinfo, get_host_id
 from bbcommon.utils import is_satisfied_by, get_ssl_options
@@ -25,6 +25,7 @@ _host_id = get_host_id()
 _desired_config_basedir_path = None
 _common_config_path = None
 _converge_attempts = 0
+_hostagent_info = {}
 
 def _set_desired_config_basedir_path(config):
     """
@@ -51,6 +52,18 @@ def _persist_host_id():
     data_cfg.set('DEFAULT', 'host_id', _host_id)
     with open(join(_common_config_path, 'data.conf'), 'w') as cf:
         data_cfg.write(cf)
+
+def _load_host_agent_info(agent_app_db):
+    """
+    Load the current host agent details. This will be reported back to the
+    master as part of status message.
+    """
+    global _hostagent_info
+    agent_info = agent_app_db.query_installed_agent()
+    _hostagent_info = {
+                        'status': 'running',
+                        'version': agent_info['version']
+                      }
 
 def load_desired_config():
     """
@@ -79,18 +92,22 @@ def save_desired_config(log, desired_config):
         except Exception as e:
             log.error('Failed to save desired configuration: %s', e)
 
-def start(config, log, app_db, app_cache, remote_app_class):
+def start(config, log, app_db, agent_app_db, app_cache,
+          remote_app_class, agent_app_class):
     """
     Starts a network session with message broker.
     :param ConfigParser config: configuration object
     :param Logger log: logger object
     :param AppDb app_db: database of local pf9 applications
+    :param AppDb agent_app_db: database of pf9 host agent
     :param AppCache app_cache: application download manager
     :param RemoteApp remote_app_class: remote application class
+    :param type agent_app_class: Agent app class
     """
 
     max_converge_attempts = int(config.get('hostagent', 'max_converge_attempts'))
     heartbeat_period = int(config.get('hostagent', 'heartbeat_period'))
+    _load_host_agent_info(agent_app_db)
     _set_desired_config_basedir_path(config)
     _persist_host_id()
 
@@ -131,7 +148,8 @@ def start(config, log, app_db, app_cache, remote_app_class):
                 'host_id': _host_id,
                 'status': status,
                 'info': _sys_info,
-                'apps': config
+                'apps': config,
+                'host_agent': _hostagent_info
             }
         }
         if desired_config is not None:
@@ -151,6 +169,38 @@ def start(config, log, app_db, app_cache, remote_app_class):
         return process_apps(app_db, app_cache, remote_app_class,
                            desired_config, probe_only=True, log=log) == 0
 
+    def update_agent(agent_info, current_config, desired_config):
+        """
+        Trigger an update of the host agent.
+        :param dict agent_info: Update info for the agent update
+        :param dict current_config: Current app config on the host
+        :param dict desired_config: Desired app config for the host
+        """
+        # Send an updating status for host agent first
+        _hostagent_info['status'] = 'updating'
+        send_status('ok', current_config, desired_config)
+        try:
+            # Perform the update
+            # Note that the update does an agent restart. On restart the new agent
+            # should return a 'running' host agent status with new agent version
+            process_agent_update(agent_info, agent_app_db, app_cache,
+                                 agent_app_class, log)
+        except Pf9Exception:
+            # TODO:  Currently we don't retry the update. Consider reporting
+            # a failure and retry logic
+            log.exception('Updating the pf9 host agent failed')
+        else:
+            # If the agent update was success, the agent should restart as part
+            # of the update and not hit this case. There is a chance that update
+            # was reported success but no error code returned. For example, the
+            # package manager did not consider the rpm as an update to current
+            # host agent
+            log.error('Host agent update %s did not happen', agent_info)
+
+        # All error/exception case, reload the host agent info
+        _load_host_agent_info(agent_app_db)
+
+
     def handle_msg(msg):
         """
         Handles an incoming message, which can be an internal heartbeat.
@@ -159,10 +209,16 @@ def start(config, log, app_db, app_cache, remote_app_class):
         global _converge_attempts
         desired_config = load_desired_config()
         try:
-            if msg['opcode'] not in ('ping', 'heartbeat', 'set_config'):
+            if msg['opcode'] not in ('ping', 'heartbeat', 'set_config', 'set_agent'):
                 log.error('Invalid opcode: %s', msg['opcode'])
                 return
             current_config = get_current_config()
+            if msg['opcode'] == 'set_agent':
+                log.info('Received set_agent message')
+                if desired_config is None:
+                    desired_config = current_config
+                update_agent(msg['data'], current_config, desired_config)
+                return
             if msg['opcode'] == 'set_config':
                 desired_config = msg['data']
                 _converge_attempts = 0

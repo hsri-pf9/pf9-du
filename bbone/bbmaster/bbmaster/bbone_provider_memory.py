@@ -13,6 +13,7 @@ class bbone_provider_memory(bbone_provider):
     def __init__(self):
         self.hosts = {}
         self.desired_apps = {}
+        self.host_agents = {}
 
     def get_host_ids(self):
         """
@@ -38,4 +39,32 @@ class bbone_provider_memory(bbone_provider):
             }
         self.desired_apps[id] = apps_config
 
+    def set_host_agent_config(self, host_id, agent_config):
+        """
+        Updates the host agent config state for a particular host
+        :param str host_id: ID of the host
+        :param dict agent_config: Configuration of the host agent that needs
+        to be updated.
+        """
+        self.host_agents[host_id] = agent_config
 
+
+    def set_host_agent(self, host_id, agent_data):
+        """
+        Update the host agent on a particular host
+        :param str host_id: ID of the host
+        :param dict agent_data: Information about the new host agent. This includes
+        URL, name and version for the host agent rpm.
+        """
+        if host_id not in self.host_agents:
+            # Set up an empty config in the dict if it is a
+            # new host id that we are seeing
+            self.set_host_agent_config(host_id, {})
+
+    def get_host_agent(self, host_id):
+        """
+        Returns the host agent properties
+        :param str host_id: Host's id
+        """
+        return self.host_agents.get(host_id) \
+            if host_id in self.host_agents else {}

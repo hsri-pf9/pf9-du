@@ -99,6 +99,31 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
         changes += 1
     return changes
 
+def process_agent_update(agent_config, app_db, app_cache, agent_app_class, log):
+    """
+    Process update of the host agent to a new version
+    :param dict agent_config: agent configuration that needs to be applied
+    :param AppDb app_db: Database of agent applications
+    :param AppCache app_cache: A cache manager for downloaded applications
+    :param type agent_app_class: Class for the agent App class
+    :param Logger log: log object
+    """
 
+    # Check the current version of the agent. Do nothing if same
+    current_agent = app_db.query_installed_agent()
+    if current_agent['version'] == agent_config['version']:
+        log.info('pf9 agent is already at the expected version, %s',
+                 agent_config['version'])
+        return
 
-
+    # Create an agent app object
+    # Download the agent into the cache
+    # Run an update on the agent
+    new_agent = agent_app_class(name=agent_config['name'],
+                                version=agent_config['version'],
+                                url=agent_config['url'],
+                                app_db=app_db,
+                                app_cache=app_cache,
+                                log=log)
+    new_agent.download()
+    new_agent.update()

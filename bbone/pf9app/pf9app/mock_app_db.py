@@ -28,4 +28,8 @@ class MockAppDb(AppDb):
             raise exceptions.NotInstalled()
         del self.apps[app.name]
 
-
+    def query_installed_agent(self):
+        return {
+            'name': 'mock-hostagent',
+            'version': '1.0.1-1'
+        }

@@ -23,3 +23,12 @@ class ServiceCtrlError(Pf9Exception):
 
 class ConfigOperationError(Pf9Exception):
     pass
+
+class UpdateOperationFailed(Pf9Exception):
+    pass
+
+class RemoveOperationFailed(Pf9Exception):
+    pass
+
+class InstallOperationFailed(Pf9Exception):
+    pass

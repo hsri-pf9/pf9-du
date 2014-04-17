@@ -29,6 +29,9 @@ their configuration. The 'desired_apps' field only exists for the 'converging',
 the host is attempting to converge towards.
 The 'timestamp' field denotes the time when this state was processed by the
 backbone master
+The host_agent field describes the details of the host agent that is currently
+running on that host. It reports the version of the host agent and its status.
+Current possible values for status are 'running' and 'updating'.
 
 Example:
 ```
@@ -58,8 +61,12 @@ Example:
                 }
             }
         },
-        'desired_apps' : {
+        'desired_apps': {
             ...
+        }
+        'host_agent': {
+            'status': 'running',
+            'version': '1.0.0-1'
         }
     }
 ```
@@ -86,5 +93,27 @@ slave reports the existence of the host, 'info' and 'apps' are updated with
 information from the slave, and the desired apps configuration is sent to
 the slave for convergence.
 
+### GET /v1/hosts/__id__/hostagent ###
+Returns information about the host agent that is present on the specified
+host. Response contains the status of the agent and the version of the
+host agent that it is currently running.
+```
+    {
+        'status': 'running',
+        'version': '1.0.0-1'
+    }
+```
 
+### PUT /v1/hosts/__id__/hostagent ###
+Update the hostagent on the host specified by the host id. The request body
+should provide the a URL for the hostagent rpm that needs to be installed on
+the host.
+Request body:
+```
+    {
+        'name': 'pf9-hostagent',
+        'version': '1.2.3',
+        'url': 'http://agentserver/hostagent/pf9-hostagent-1.2.3.x86-64.rpm'
+    }
+```
 

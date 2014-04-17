@@ -1,0 +1,234 @@
+#!/usr/bin/env python
+# Copyright (c) 2014 Platform9 Systems Inc.
+# All Rights Reserved.
+
+"""
+Control script for deployment unit related operations
+Usage:
+#./du_ctl [options]
+"""
+
+import json
+import logging
+import argparse
+import requests
+import sys
+import time
+
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(message)s')
+log = logging.getLogger('du-ctl')
+
+_bbmaster_endpoint = 'http://localhost:8082/v1/hosts'
+
+_parser = argparse.ArgumentParser()
+
+
+def _build_parsers():
+    """
+    Build the command line parser hierarchy based on the control script actions
+    """
+    subparsers = _parser.add_subparsers(help='sub-commands',
+                                       dest='subparser')
+
+    #Add agent_update command
+    agent_parser = subparsers.add_parser('hostagent',
+                                         help='Host agent commands')
+    agent_sub_parser = agent_parser.add_subparsers(help='Host agent sub-commands',
+                                                   dest='agent_subparser')
+    # Parser for update
+    agent_update_parser = agent_sub_parser.add_parser('update',
+                                                      help='Update the host agent')
+    agent_update_parser.add_argument('--host_id',
+                    action='store',
+                    dest='host_id',
+                    required=True,
+                    help='Host ID of the host to which the agent update has to be applied')
+    agent_update_parser.add_argument("--agent_version",
+                      action='store',
+                      dest='agent_version',
+                      required=True,
+                      help='Version of the hostagent that is being updated to.')
+    agent_update_parser.add_argument("--agent_name",
+                      action='store',
+                      dest='agent_name',
+                      default='pf9-hostagent',
+                      help='Name of the hostagent package. Defaults to pf9-hostagent')
+    agent_update_parser.add_argument("--agent_url",
+                      action='store',
+                      dest='agent_url',
+                      required=True,
+                      help='URL from where this agent package can be downloaded from')
+
+    # Parser for list
+    agent_list_parser = agent_sub_parser.add_parser('list',
+                                                    help='List the hosts and its details')
+    agent_list_parser.add_argument("--host",
+                      action='store',
+                      dest='host',
+                      help='ID of the specific host to be queried. If not specified, '
+                           'all hosts are queried')
+
+def _process_cmd(args):
+    """
+    Does the work of the command.
+    :param args: command line args parsed from argparse
+    """
+    if args.subparser == 'hostagent':
+        if args.agent_subparser == 'update':
+            if not (args.host_id and args.agent_version and args.agent_url):
+                # Should never hit this because argparse's parsing should take
+                # care of this, but keeping it here as a safety net.
+                log.error('Missing mandatory arguments for host agent update')
+                _parser.print_help()
+                sys.exit(1)
+            else:
+                # Agent update
+                do_agent_update(args)
+                return
+        elif args.agent_subparser == 'list':
+            do_agent_list(args)
+            return
+
+    # Did not match any known command. Should not hit this because argparse
+    # should do everything for us.
+    parser.print_help()
+
+def _do_get(url):
+    """
+    Execute the GET http call
+    :param str url: URL to run the GET call on
+    :return: JSON response
+    :rtype: JSON encoded dict
+    """
+    resp = requests.get(url)
+    resp.raise_for_status()
+    return resp.json()
+
+def _do_put(url, body=None):
+    """
+    Execute the PUT http call
+    :param str url: URL to run the PUT call on
+    :param dict body: Request body for the PUT request
+    :return: JSON response
+    :rtype: JSON encoded dict
+    """
+    headers = {'Content-type': 'json'}
+    resp = requests.put(url, data=json.dumps(body), headers=headers)
+    resp.raise_for_status()
+    return resp.json()
+
+def _update_and_poll(options, cur_host_agent_version):
+    """
+    Trigger a host agent update and poll for its status change
+    :param ParserOption options: command line options
+    :param str cur_host_agent_version: Version of the current host agent
+    on the host
+    """
+    host_endpoint = ''.join([_bbmaster_endpoint, '/', options.host_id])
+    put_req = ''.join([host_endpoint, '/hostagent'])
+    agent_data = {
+        'version': options.agent_version,
+        'name': options.agent_name,
+        'url': options.agent_url
+    }
+    try:
+        _do_put(put_req, agent_data)
+
+        time_left = 10 * 60    # 10 mins
+        poll_interval = 20    # 20 secs
+        updating = False
+        while (time_left):
+            host_details = _do_get(host_endpoint)
+            host_agent_status = host_details['host_agent']['status']
+            host_agent_version = host_details['host_agent']['version']
+            if host_agent_version == options.agent_version:
+                log.info('Host agent for host %s is at version %s',
+                         options.host_id, options.agent_version)
+                return
+            if host_agent_status == 'updating':
+                updating = True
+            else:
+                # agent_status is 'ok'
+                if host_agent_version == cur_host_agent_version and updating:
+                    # The host was updating but has now reverted to ok with the
+                    # agent version back to the old version. Implies error
+                    log.error('Host agent update failed for host. Agent version '
+                              'is %s', host_agent_version)
+                    sys.exit(1)
+
+            log.info('Agent update status : %s, agent version: %s',
+                     host_agent_status, host_agent_version)
+
+            time.sleep(poll_interval)
+            time_left -= poll_interval
+
+    except Exception:
+        log.exception('Update host agent request failed')
+        sys.exit(1)
+
+def do_agent_list(options):
+    """
+    List host agent related details
+    :param options: args parsed from command line by argparser
+    """
+    resp = []
+    if options.host:
+        url = ''.join([_bbmaster_endpoint, '/', options.host])
+        query_op = _do_get(url)
+        resp.append(query_op)
+    else:
+        resp = _do_get(_bbmaster_endpoint)
+
+    output = []
+    for host in resp:
+        temp = {
+            'host id': host['host_id'],
+            'agent info': host['host_agent']
+        }
+        output.append(temp)
+
+    log.info('%s', json.dumps(output, indent=3))
+
+def do_agent_update(options):
+    """
+    Perform host agent update
+    :param ParserOption options: command line options
+    """
+    try:
+        # Ensure host ID exists
+        resp = _do_get(''.join([_bbmaster_endpoint, '/ids']))
+        if options.host_id not in resp:
+            log.info('Host ID %s not in list of hosts that backbone is aware of',
+                 options.host_id)
+            raise Exception()
+
+        # Query host details.
+        host_endpoint = ''.join([_bbmaster_endpoint, '/', options.host_id])
+        resp = _do_get(host_endpoint)
+    except Exception:
+        log.exception('Querying host details failed')
+        sys.exit(1)
+
+    # If host agent is already in expected version, do nothing
+    if resp['host_agent']['version'] == options.agent_version:
+        log.info('Host agent on %s already at version %s',
+                 options.host_id, options.agent_version)
+        return
+
+    # If the host agent is currently updating, quit
+    if resp['host_agent']['status'] == 'updating':
+        log.info('Host %s is currently updating the host agent. Try again later.',
+                 options.host_id)
+        return
+
+    # push update
+    _update_and_poll(options, resp['host_agent']['version'])
+
+def main():
+    _build_parsers()
+    args = _parser.parse_args()
+    _process_cmd(args)
+
+if __name__ == '__main__':
+        main()

@@ -6,11 +6,32 @@ __author__ = 'Platform9'
 import errno
 import logging
 import os
+import subprocess
 import yum
 
 from app_db import AppDb
 from pf9_app import Pf9App
-from exceptions import NotInstalled
+from exceptions import NotInstalled, UpdateOperationFailed, \
+    RemoveOperationFailed, InstallOperationFailed
+
+
+def _run_command(command):
+    """
+    Run a command
+    :param str command: Command to be executed.
+    :return: a tuple representing (code, stdout, stderr), where code is the
+             return code of the command, stdout is the standard output of the
+             command and stderr is the stderr of the command
+    :rtype: tuple
+    """
+    proc = subprocess.Popen(command, shell=True,
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    out, err = proc.communicate()
+    code = proc.returncode
+
+    return code, out, err
 
 
 class YumPkgMgr(object):
@@ -19,8 +40,9 @@ class YumPkgMgr(object):
     # TODO: Consider building a package manager interface to denote all the methods
     # that need to be implemented as part of the package manager.
 
-    def __init__(self):
+    def __init__(self, log = logging):
         self.ybase = yum.YumBase()
+        self.log = log
 
     def query_pf9_apps(self):
         """
@@ -31,7 +53,10 @@ class YumPkgMgr(object):
         :rtype: dict
         """
         out = {}
-
+        # We need to refresh the RPM DB, otherwise we won't discover the latest
+        # set of apps which may have been installed outside of this YumBase
+        # instance
+        self.ybase.closeRpmDB()
         pkgs = self.ybase.rpmdb.searchProvides("pf9app")
         for pkg in pkgs:
             out[pkg.name] = {
@@ -40,6 +65,19 @@ class YumPkgMgr(object):
             }
 
         return out
+
+    def query_pf9_agent(self):
+        """
+        Query the installed pf9 host agent details from the YUM repo
+        :return: dictionary of agent name and version
+        :rtype: dict
+        """
+        pkgs = self._find_installed_pkg('pf9-hostagent')
+        assert len(pkgs) == 1
+        return {
+            'name': pkgs[0].name,
+            'version': pkgs[0].printVer()
+        }
 
     def _find_installed_pkg(self, appname):
         """
@@ -58,6 +96,7 @@ class YumPkgMgr(object):
         Removes an installed app.
         :param appname: Name of  the app to remove
         :raises NotInstalled: if the app is not found/installed
+        :raises RemoveOperationFailed: if the remove operation failed.
         """
         pkgs = self._find_installed_pkg(appname)
 
@@ -70,24 +109,52 @@ class YumPkgMgr(object):
         # TODO: verify if this is an issue if same app has 2 versions installed
         assert len(pkgs) == 1
 
-        self.ybase.remove(pkgs[0])
-        self.ybase.buildTransaction()
-        self.ybase.processTransaction()
+        erase_cmd = 'yum -y erase %s' % appname
+        code, out, err = _run_command(erase_cmd)
+        if code:
+            self.log.error('Erase command failed : %s. Return code: %d, '
+                           'stdout: %s, stderr: %s', erase_cmd, code, out, err)
+            raise RemoveOperationFailed()
 
-    def install_from_file(self, pkgpath):
+    def install_from_file(self, pkg_path):
         """
         Installs an app from the specified local path
-        :param pkgpath: Local path to the app to be installed
+        :param pkg_path: Local path to the app to be installed
         :raises OSError: if the file is not found.
+        :raises InstallOperationFailed: if the install operation failed
         """
-        if not os.path.exists(pkgpath):
+        if not os.path.exists(pkg_path):
             # File to install doesn't exist
-            raise OSError(errno.ENOENT, os.strerror(errno.ENOENT), pkgpath)
+            raise OSError(errno.ENOENT, os.strerror(errno.ENOENT), pkg_path)
 
-        self.ybase.installLocal(pkgpath)
-        self.ybase.buildTransaction()
-        self.ybase.processTransaction()
+        install_cmd = 'yum -y install %s' % pkg_path
+        code, out, err = _run_command(install_cmd)
+        if code:
+            self.log.error('Install command failed : %s. Return code: %d, '
+                           'stdout: %s, stderr: %s', install_cmd, code, out, err)
+            raise InstallOperationFailed()
 
+    def update_from_file(self, pkg_path):
+        """
+        Updates a package from the specified local path
+        :param str pkg_path: Local path to the package to be upgraded
+        :raises OSError: if the file is not found
+        :raises UpdateOperationFailed: if the update operation failed.
+        """
+        if not os.path.exists(pkg_path):
+            # File to update doesn't exist
+            raise OSError(errno.ENOENT, os.strerror(errno.ENOENT), pkg_path)
+
+        # Ideally, we want to use YUM API for this. However, we are using this
+        # for in place update of the host agent only. That operation will not
+        # work cleanly with YUM API (end up with multiple host agents because
+        # YUM marks the removal of previous host agent as incomplete)
+        update_cmd = 'yum -y update %s' % pkg_path
+        code, out, err = _run_command(update_cmd)
+        if code:
+            self.log.error('Update command failed : %s. Return code: %d, '
+                           'stdout: %s, stderr: %s', update_cmd, code, out, err)
+            raise UpdateOperationFailed()
 
 class Pf9AppDb(AppDb):
     """ Class that implements the AppDb model interface"""
@@ -100,7 +167,7 @@ class Pf9AppDb(AppDb):
         self.apps = {}
         # Currently, assumed that only YUM is supported. This will eventually
         # have to be distro specific
-        self.pkgmgr = YumPkgMgr()
+        self.pkgmgr = YumPkgMgr(log)
         self.log = log
 
     def query_installed_apps(self):
@@ -146,3 +213,31 @@ class Pf9AppDb(AppDb):
         :raises NotInstalled: if the app is not installed
         """
         self.pkgmgr.remove_package(app_name)
+
+
+class Pf9AgentDb(Pf9AppDb):
+    """
+    Class that implements the agent app db interface
+    """
+
+    def __init__(self, log=logging):
+        """
+        Constructor
+        :param Logger log: Logger object
+        """
+        Pf9AppDb.__init__(self, log)
+
+
+    def update_package(self, path):
+        """
+        Updates the specified package
+        :param str path: Path to the app to be installed
+        :raises OSError: if the file provided by path is not found
+        """
+        self.pkgmgr.update_from_file(path)
+
+    def query_installed_agent(self):
+        """
+        Queries properties of the installed host agent
+        """
+        return self.pkgmgr.query_pf9_agent()
