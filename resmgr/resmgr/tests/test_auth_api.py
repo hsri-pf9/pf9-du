@@ -82,7 +82,7 @@ class TestAuthApi(unittest.TestCase) :
         response = self.app.get('/v1/roles', {}, {'X-Auth-Token': self.user_token})
         self.assertEquals(200, response.status_code)
         body = json.loads(response.text)
-        self.assertEquals("pf9-ostackhost", body[0]['id'])
+        self.assertEquals("pf9-ostackhost", body[0]['name'])
 
         # bad auth
         self.mock_keystone(self.unauth_token, 404, self.unauth_response)

@@ -50,8 +50,7 @@ logging = {
 
 resmgr = {
     'config_file': os.path.join(os.getcwd(), 'resmgr/tests/resmgr.conf'),
-    'provider': 'resmgr_provider_pf9',
-    #'provider': 'resmgr_provider_mem',
+    'provider': 'resmgr_provider_mem',
 
     # Enforce keystone RBAC policies. Optional, defaults to True.
     # Must be false for non-auth tests to run. Auth tests override this
