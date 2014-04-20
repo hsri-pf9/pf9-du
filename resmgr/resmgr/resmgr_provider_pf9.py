@@ -632,17 +632,29 @@ class ResMgrPf9Provider(ResMgrProvider):
             log.info('Role %s is already assigned to %s', role_name, host_id)
             return
 
+        initially_inactive = host_inst[host_id]['state'] == RState.inactive
         host_inst[host_id]['roles'].append(role_name)
+
+        if initially_inactive:
+            assert host_id in _unauthorized_hosts
+            host_inst[host_id]['state'] = RState.activating
+            notifier.publish_notification('change', 'host', host_id)
 
         log.debug('Sending request to backbone to add role %s to %s',
                  role_name, host_id)
-        app_info = self.prepare_app_config(host_inst[host_id]['roles'])
-        self.roles_mgr.push_configuration(host_id, app_info)
-        # Need to ensure the host is added or updated in the DB.
-        log.debug('Updating host %s state after %s role association',
-                  host_id, role_name)
-        self.res_mgr_db.insert_update_host(host_id, host_inst[host_id]['info'])
-        self.res_mgr_db.associate_role_to_host(host_id, role_name)
+        try:
+            app_info = self.prepare_app_config(host_inst[host_id]['roles'])
+            self.roles_mgr.push_configuration(host_id, app_info)
+            # Need to ensure the host is added or updated in the DB.
+            log.debug('Updating host %s state after %s role association',
+                      host_id, role_name)
+            self.res_mgr_db.insert_update_host(host_id, host_inst[host_id]['info'])
+            self.res_mgr_db.associate_role_to_host(host_id, role_name)
+        except:
+            if initially_inactive:
+                host_inst[host_id]['state'] = RState.inactive
+            raise
+
         with _host_lock:
             # Once added to the DB, remove it from the unauthorized host dict
             _unauthorized_hosts.pop(host_id, None)
