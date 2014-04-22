@@ -48,7 +48,6 @@ _roles = {
                 'nova': {
                     'DEFAULT': {
                         'rabbit_host': '%(du_host)s',
-                        'my_ip': '%(du_host)s',
                         'ec2_dmz_host': '%(du_host)s',
                         'glance_api_servers': '%(du_host)s:9292',
                         'rabbit_password': '%(ostack_password)s',
