@@ -85,7 +85,9 @@ class ResMgrMemProvider(ResMgrProvider):
         return self._get_hosts()
 
     def get_host(self, host_id):
-        return self._get_hosts([host_id])
+        host = self._get_hosts([host_id])
+        return host[host_id] if host else {}
+
 
     def delete_host(self, host_id):
         self._refresh_data()

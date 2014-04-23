@@ -141,11 +141,15 @@ class HostsController(RestController):
             log.error('No matching host found for %s', host_id)
             abort(404)
 
-        return out[host_id]
+        return out
 
     @enforce(required= ['admin'])
     @expose('json')
     def delete(self, host_id):
+        """
+        Handles requests of type DELETE /v1/hosts/<id>
+        :param str host_id: ID of host to be removed
+        """
         log.debug('Deleting host %s', host_id)
         try:
             _provider.delete_host(host_id)

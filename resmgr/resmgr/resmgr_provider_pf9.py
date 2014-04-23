@@ -176,44 +176,16 @@ class HostInventoryMgr(object):
         self.sleep_time = config.get("backbone", "requestWaitPeriod")
         self.timeout = config.get("backbone", "requestTimeout")
 
-    def _build_host_attributes(self, roles, host_details):
-        """
-        Internal utility method that builds a host dict object
-        :param list roles: list of all roles for the host
-        :param Host host_details: Host ORM object that contains the host
-        information
-        :return: dictionary of host attributes
-        :rtype: dict
-        """
-        host_attrs = {
-            'id': host_details.id,
-            'roles': roles,
-            'state': RState.active if roles else RState.inactive,
-            'info' : {
-                'hostname': host_details.hostname,
-                'os_family': host_details.hostosfamily,
-                'arch': host_details.hostarch,
-                'os_info': host_details.hostosinfo
-            }
-        }
-        return host_attrs
-
-
     def get_all_hosts(self):
         """
         Returns information about all known hosts.
         :rtype: dict:
         """
-        query_op = self.db_handler.query_hosts()
         result = {}
-        # Populate authorized hosts from the DB first
+        query_op = self.db_handler.query_hosts()
         for host in query_op:
-            cur_roles = []
-            for role in host.roles:
-                cur_roles.append(role.rolename)
-
-            host_attrs = self._build_host_attributes(cur_roles, host)
-            result[host.id] = host_attrs
+            host['state'] = RState.active if host['roles'] else RState.inactive
+            result[host['id']] = host
 
         # Add unauthorized hosts into the result
         log.debug('Looking up unauthorized hosts')
@@ -238,9 +210,7 @@ class HostInventoryMgr(object):
             with _host_lock:
                 if host_id in _unauthorized_hosts:
                     log.info('Found %s in unauthorized hosts', host_id)
-                    result = {
-                        host_id: _unauthorized_hosts[host_id]
-                    }
+                    result = _unauthorized_hosts[host_id]
 
         return result
 
@@ -253,18 +223,12 @@ class HostInventoryMgr(object):
         found in the list of authorized hosts.
         :rtype: dict
         """
-        result = {}
         host = self.db_handler.query_host(host_id)
         if host:
-            cur_roles = []
-            for role in host.roles:
-                cur_roles.append(role.rolename)
+            host['state'] = RState.active if host['roles'] else RState.inactive
+            return host
 
-            result = {
-                host_id: self._build_host_attributes(cur_roles, host)
-            }
-
-        return result
+        return {}
 
     def delete_host(self, host_id):
         """
@@ -328,7 +292,7 @@ class BbonePoller(object):
                 host_info = call_remote_service('%s/v1/hosts/%s' %
                                                 (self.bbone_endpoint, host))
             except BBMasterNotFound:
-                logging.exception('Querying backbone for %s failed', host)
+                log.exception('Querying backbone for %s failed', host)
                 continue
             unauth_host = {
                 'id': host,
@@ -388,7 +352,7 @@ class BbonePoller(object):
                 host_info = call_remote_service('%s/v1/hosts/%s' %
                                                 (self.bbone_endpoint, host))
             except BBMasterNotFound:
-                logging.exception('Querying backbone for %s failed', host)
+                log.exception('Querying backbone for %s failed', host)
                 # TODO: Should we return instead of continuing here?
                 continue
 
@@ -430,7 +394,7 @@ class BbonePoller(object):
                                   expected_cfg)
                         self.rolemgr.push_configuration(host, expected_cfg)
                 except (BBMasterNotFound, HostConfigFailed):
-                    logging.exception('Backbone request for %s failed', host)
+                    log.exception('Backbone request for %s failed', host)
                     continue
             else:
                 # assignment to _unauthorized_* dicts is atomic. There is no need
@@ -468,7 +432,7 @@ class BbonePoller(object):
             bbone_ids = set(call_remote_service('%s/v1/hosts/ids' %
                                                 self.bbone_endpoint))
         except BBMasterNotFound:
-            logging.exception('Querying backbone for hosts failed')
+            log.exception('Querying backbone for hosts failed')
         else:
             # Get authorized host ids and unauthorized host ids and store it
             # in all_ids
@@ -494,7 +458,12 @@ class BbonePoller(object):
         log.debug('start backbone poll routine')
         while (True):
             # Get the host ids that backbone is aware of
-            self.process_hosts()
+            try:
+                self.process_hosts()
+            except:
+                # Ensure that this poller will never go down.
+                # Log and continue
+                log.exception('Poller encountered an error')
             # Sleep for the poll interval
             time.sleep(self.poll_interval)
 
@@ -584,7 +553,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             raise HostNotFound(host_id)
 
         # Clear out all the roles
-        if host_inst[host_id]['roles']:
+        if host_inst['roles']:
             log.debug('Sending request to backbone to remove all roles from %s',
                       host_id)
             self.roles_mgr.push_configuration(host_id, app_info={})
@@ -628,31 +597,31 @@ class ResMgrPf9Provider(ResMgrProvider):
             log.error('Host %s is not a recognized host', host_id)
             raise HostNotFound(host_id)
 
-        if role_name in host_inst[host_id]['roles']:
+        if role_name in host_inst['roles']:
             log.info('Role %s is already assigned to %s', role_name, host_id)
             return
 
-        initially_inactive = host_inst[host_id]['state'] == RState.inactive
-        host_inst[host_id]['roles'].append(role_name)
+        initially_inactive = host_inst['state'] == RState.inactive
+        host_inst['roles'].append(role_name)
 
         if initially_inactive:
             assert host_id in _unauthorized_hosts
-            host_inst[host_id]['state'] = RState.activating
+            host_inst['state'] = RState.activating
             notifier.publish_notification('change', 'host', host_id)
 
         log.debug('Sending request to backbone to add role %s to %s',
                  role_name, host_id)
         try:
-            app_info = self.prepare_app_config(host_inst[host_id]['roles'])
+            app_info = self.prepare_app_config(host_inst['roles'])
             self.roles_mgr.push_configuration(host_id, app_info)
             # Need to ensure the host is added or updated in the DB.
             log.debug('Updating host %s state after %s role association',
                       host_id, role_name)
-            self.res_mgr_db.insert_update_host(host_id, host_inst[host_id]['info'])
+            self.res_mgr_db.insert_update_host(host_id, host_inst['info'])
             self.res_mgr_db.associate_role_to_host(host_id, role_name)
         except:
             if initially_inactive:
-                host_inst[host_id]['state'] = RState.inactive
+                host_inst['state'] = RState.inactive
             raise
 
         with _host_lock:
@@ -681,15 +650,15 @@ class ResMgrPf9Provider(ResMgrProvider):
             log.error('Host %s is not a recognized host', host_id)
             raise HostNotFound(host_id)
 
-        if role_name not in host_inst[host_id]['roles']:
+        if role_name not in host_inst['roles']:
             log.warn('Role %s is not assigned to %s', role_name, host_id)
             return
 
-        host_inst[host_id]['roles'].remove(role_name)
+        host_inst['roles'].remove(role_name)
 
         log.debug('Sending request to backbone to remove role %s from %s',
                  role_name, host_id)
-        app_info = self.prepare_app_config(host_inst[host_id]['roles'])
+        app_info = self.prepare_app_config(host_inst['roles'])
         self.roles_mgr.push_configuration(host_id, app_info)
         log.debug('Clearing role %s for host %s in DB', role_name, host_id)
         self.res_mgr_db.remove_role_from_host(host_id, role_name)

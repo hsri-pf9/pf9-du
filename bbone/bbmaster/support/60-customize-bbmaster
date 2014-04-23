@@ -13,5 +13,7 @@ echo "Backbone master customization called"
 
 sudo sed -i "s/CHANGE_TO_YOUR_BROKER_IP/127.0.0.1/g" /etc/pf9/bbmaster.conf
 
+/sbin/chkconfig --add pf9-bbmaster
+
 #Start the service
 sudo service pf9-bbmaster start

@@ -3,6 +3,7 @@
 
 __author__ = 'Platform9'
 
+from contextlib import contextmanager
 import datetime
 import logging
 import json
@@ -128,6 +129,7 @@ class ResMgrDB(object):
         """
         self.config = config
         self.connectstr = config.get('database', 'sqlconnectURI')
+        self.session_maker = sessionmaker(bind=self.dbengine)
         self._init_db()
 
     def _init_db(self):
@@ -182,13 +184,43 @@ class ResMgrDB(object):
 
         return engineHandle
 
-    @property
-    def dbsession(self):
-        """Get the database session instance to run database operations."""
-        sessionmkr = sessionmaker(bind=self.dbengine)
-        session = sessionmkr()
-        return session
+    def _has_uncommitted_changes(self, session):
+        """
+        Method to check if a session has pending changes. Pending changes can
+        be new, modified or deleted objects corresponding to the DB state.
+        :param Session session: SQLAlchmey ORM session instance
+        :return: True if there is a pending change, else False
+        :rtype: bool
+        """
+        if session.dirty or session.new or session.deleted:
+            # TODO: This is temporarily here for monitoring. To be removed
+            log.debug('Session has pending changes %s %s %s',
+                      session.dirty, session.deleted, session.new)
+            return True
+        return False
 
+    @contextmanager
+    def dbsession(self):
+        """
+        Get the database session instance to run database operations. Integrated
+        with contextmanager and can be used with the 'with' statement.
+        When the context goes out of scope, the session is committed if there are
+        uncommitted changes (or rolled back in case of errors). The session is
+        finally closed.
+        """
+        session = self.session_maker()
+        try:
+            yield session
+            # TODO: This is temporarily here for monitoring. To be removed.
+            log.info('Connection pool status: %s', self.dbengine.pool.status())
+            if self._has_uncommitted_changes(session):
+                session.commit()
+        except:
+            if self._has_uncommitted_changes(session):
+                session.rollback()
+            raise
+        finally:
+            session.close()
 
     def insert_update_host(self, host_id, host_details):
         """
@@ -200,7 +232,6 @@ class ResMgrDB(object):
         :param dict host_details: Dictionary of the host details that
          needs to be added.
         """
-        session = self.dbsession
         new_host = Host(id=host_id,
                         hostname=host_details['hostname'],
                         hostosfamily=host_details['os_family'],
@@ -208,32 +239,31 @@ class ResMgrDB(object):
                         hostosinfo=host_details['os_info'],
                         responding=True)
 
-        try:
-            log.info('Adding/updating host %s', host_id)
-            session.merge(new_host)
-        except:
-            log.exception('Host %s update in database failed', host_id)
-            session.rollback()
-        else:
-            session.commit()
+        with self.dbsession() as session:
+            try:
+                log.info('Adding/updating host %s', host_id)
+                session.merge(new_host)
+            except:
+                # log and raise
+                log.exception('Host %s update in database failed', host_id)
+                raise
 
     def delete_host(self, host_id):
         """
         Removes a host entry from the database.
         :param str host_id: Host ID to be purged from the database.
         """
-        session = self.dbsession
-        try:
-            log.info('Deleting host %s from the database', host_id)
-            del_host = session.query(Host).filter_by(id=host_id).first()
-            session.delete(del_host)
-        except NoResultFound:
-            return HostNotFound(del_host)
-        except:
-            log.exception('Deleting host %s in the database failed', host_id)
-            session.rollback()
-        else:
-            session.commit()
+        with self.dbsession() as session:
+            try:
+                log.info('Deleting host %s from the database', host_id)
+                del_host = session.query(Host).filter_by(id=host_id).first()
+                session.delete(del_host)
+            except NoResultFound:
+                log.error('Could not find host %s in the database', host_id)
+                raise HostNotFound(del_host)
+            except:
+                log.exception('Deleting host %s in the database failed', host_id)
+                raise
 
     def mark_host_state(self, host_id, responding=False):
         """
@@ -244,23 +274,21 @@ class ResMgrDB(object):
         :param bool responding: Indicate if the host is to be marked responding
         or not
         """
-        session = self.dbsession
-        try:
-            del_host = session.query(Host).filter_by(id=host_id).first()
-            if responding:
-                log.info('Marking the host %s as responding', host_id)
-                del_host.lastresponsetime = None
-                del_host.responding = True
-            else:
-                log.info('Marking the host %s as not responding', host_id)
-                del_host.lastresponsetime = datetime.datetime.utcnow()
-                del_host.responding = False
-        except:
-            log.exception('Marking host as %s responding failed',
-                          '' if responding else 'not')
-            session.rollback()
-        else:
-            session.commit()
+        with self.dbsession() as session:
+            try:
+                del_host = session.query(Host).filter_by(id=host_id).first()
+                if responding:
+                    log.info('Marking the host %s as responding', host_id)
+                    del_host.lastresponsetime = None
+                    del_host.responding = True
+                else:
+                    log.info('Marking the host %s as not responding', host_id)
+                    del_host.lastresponsetime = datetime.datetime.utcnow()
+                    del_host.responding = False
+            except:
+                log.exception('Marking host as %s responding failed',
+                              '' if responding else 'not')
+                raise
 
     def insert_update_role(self, id, role_name, version, display_name,
                            description, desired_config, active):
@@ -277,7 +305,6 @@ class ResMgrDB(object):
         template of the role.
         :param bool active: Indicates if this is the active version of the role
         """
-        session = self.dbsession
         new_role = Role(id=id,
                         rolename=role_name,
                         version=version,
@@ -286,14 +313,13 @@ class ResMgrDB(object):
                         desiredconfig=desired_config,
                         active=active)
 
-        try:
-            log.info('Insert/updating role %s, active=%s', id, active)
-            session.merge(new_role)
-        except:
-            log.exception('Role %s update in database failed', id)
-            session.rollback()
-        else:
-            session.commit()
+        with self.dbsession() as session:
+            try:
+                log.info('Insert/updating role %s, active=%s', id, active)
+                session.merge(new_role)
+            except:
+                log.exception('Role %s update in database failed', id)
+                raise
 
     def query_role(self, role_name, active_only=True):
         """
@@ -305,18 +331,42 @@ class ResMgrDB(object):
         :return: Role object with the role attributes. None if role is not present
         :rtype: Role
         """
-        session = self.dbsession
         log.info('Querying role %s, active only = %s', role_name, active_only)
-        try:
-            if active_only:
-                result = session.query(Role).filter_by(rolename=role_name, active=True).first()
-            else:
-                result = session.query(Role).filter_by(rolename=role_name).first()
-        except NoResultFound as nrf:
-            log.exception('No role found %s')
-            result = None
+        with self.dbsession() as session:
+            try:
+                if active_only:
+                    result = session.query(Role).filter_by(rolename=role_name, active=True).first()
+                else:
+                    result = session.query(Role).filter_by(rolename=role_name).first()
+            except NoResultFound:
+                log.exception('No role found %s')
+                result = None
 
         return result
+
+    def _build_host_attributes(self, host_details):
+        """
+        Internal utility method that builds a host dict object
+        :param list roles: list of all roles for the host
+        :param Host host_details: Host ORM object that contains the host information
+        :return: dictionary of host attributes
+        :rtype: dict
+        """
+        roles = []
+        for role in host_details.roles:
+            roles.append(role.rolename)
+
+        host_attrs = {
+            'id': host_details.id,
+            'roles': roles,
+            'info' : {
+                'hostname': host_details.hostname,
+                'os_family': host_details.hostosfamily,
+                'arch': host_details.hostarch,
+                'os_info': host_details.hostosinfo
+            }
+        }
+        return host_attrs
 
     def query_roles(self, active_only=True):
         """
@@ -326,12 +376,12 @@ class ResMgrDB(object):
         :return: List of Role objects
         :rtype: list
         """
-        session = self.dbsession
         log.info('Querying all roles, active only = %s', active_only)
-        if active_only:
-            results = session.query(Role).filter_by(active=True).all()
-        else:
-            results = session.query(Role).all()
+        with self.dbsession() as session:
+            if active_only:
+                results = session.query(Role).filter_by(active=True).all()
+            else:
+                results = session.query(Role).all()
 
         return results
 
@@ -343,15 +393,17 @@ class ResMgrDB(object):
         host is not present
         :rtype: Host
         """
-        session = self.dbsession
         log.info('Querying host %s', host_id)
-        try:
-            result = session.query(Host).filter_by(id=host_id).first()
-        except NoResultFound as nrf:
-            log.exception('No host found %s', host_id)
-            result = None
+        out = None
+        with self.dbsession() as session:
+            try:
+                result = session.query(Host).filter_by(id=host_id).first()
+                if result:
+                    out = self._build_host_attributes(result)
+            except NoResultFound:
+                log.exception('No host found %s', host_id)
 
-        return result
+        return out
 
     def query_hosts(self):
         """
@@ -359,10 +411,14 @@ class ResMgrDB(object):
         :return: list of host objects
         :rtype: list
         """
-        session = self.dbsession
         log.info('Querying all hosts')
-        results = session.query(Host).all()
-        return results
+        out = []
+        with self.dbsession() as session:
+            results = session.query(Host).all()
+            for host in results:
+                out.append(self._build_host_attributes(host))
+
+        return out
 
     def query_host_details(self):
         """
@@ -372,14 +428,16 @@ class ResMgrDB(object):
         :return: list of hosts' properties in JSON format
         :rtype: dict
         """
-        results = self.query_hosts()
+        log.info('Querying all hosts details')
         out = {}
-        for host in results:
-            assigned_roles = {}
-            for role in host.roles:
-                assigned_roles[role.rolename] = json.loads(role.desiredconfig)
+        with self.dbsession() as session:
+            results = session.query(Host).all()
+            for host in results:
+                assigned_roles = {}
+                for role in host.roles:
+                    assigned_roles[role.rolename] = json.loads(role.desiredconfig)
 
-            out[host.id] = {
+                out[host.id] = {
                     'hostname': host.hostname,
                     'hostosfamily': host.hostosfamily,
                     'hostarch': host.hostarch,
@@ -398,15 +456,17 @@ class ResMgrDB(object):
         :param str host_id: ID of the host
         :param str role_name: ID of the role
         """
-        session = self.dbsession
         log.info('Adding role %s to host %s', role_name, host_id)
-        host = session.query(Host).filter_by(id=host_id).first()
-
-        role = session.query(Role).filter_by(rolename=role_name, active=True).first()
-        host.roles.add(role)
-
-        if session.dirty:
-            session.commit()
+        with self.dbsession() as session:
+            try:
+                host = session.query(Host).filter_by(id=host_id).first()
+                role = session.query(Role).filter_by(rolename=role_name,
+                                                     active=True).first()
+                host.roles.add(role)
+            except:
+                log.exception('DB error while associating host %s with role %s',
+                              host_id, role_name)
+                raise
 
     def remove_role_from_host(self, host_id, role_name):
         """
@@ -414,14 +474,16 @@ class ResMgrDB(object):
         :param str host_id: ID of the host
         :param str role_name: ID of the role
         """
-        session = self.dbsession
         log.info('Removing role %s from host %s', role_name, host_id)
-        host = session.query(Host).filter_by(id=host_id).first()
-        role = session.query(Role).filter_by(rolename=role_name, active=True).first()
-        host.roles.remove(role)
-
-        if session.dirty:
-            session.commit()
+        with self.dbsession() as session:
+            try:
+                host = session.query(Host).filter_by(id=host_id).first()
+                role = session.query(Role).filter_by(rolename=role_name, active=True).first()
+                host.roles.remove(role)
+            except:
+                log.exception('DB error while removing role %s from host %s',
+                              role_name, host_id)
+                raise
 
     def update_roles_for_host(self, host_id, roles):
         """
@@ -429,11 +491,14 @@ class ResMgrDB(object):
         :param str host_id: ID of the host
         :param list roles: list of role IDs to associated with the host.
         """
-        session = self.dbsession
         log.info('Updating roles %s for host %s', roles, host_id)
-        host = session.query(Host).filter_by(id=host_id).first()
-        roles_set = set(roles)
-        host.roles = roles_set
+        with self.dbsession() as session:
+            try:
+                host = session.query(Host).filter_by(id=host_id).first()
+                roles_set = set(roles)
+                host.roles = roles_set
+            except:
+                log.exception('DB error while updating roles %s for host %s',
+                              roles, host_id)
+                raise
 
-        if session.dirty:
-            session.commit()
