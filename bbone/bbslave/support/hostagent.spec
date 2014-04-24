@@ -62,5 +62,8 @@ if [ "$1" = 0 ]; then
 fi
 
 %postun
+# The cache clean up will be done with uninstall and upgrade
+# of the hostagent.
+rm -rf "/var/opt/pf9/hostagent"
 
 %changelog
