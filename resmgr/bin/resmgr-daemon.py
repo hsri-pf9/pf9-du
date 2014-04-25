@@ -12,7 +12,6 @@ from time import time,strftime
 pidfile = '/var/run/pf9/resmgr.pid'
 logfile = '/var/log/pf9/resmgr-daemon.log'
 outfile ='/var/log/pf9/resmgr-out.log'
-errfile ='/var/log/pf9/resmgr-err.log'
 pecan_config = '/etc/pf9/resmgr_config.py'
 paste_ini = '/etc/pf9/resmgr-paste.ini'
 
@@ -29,7 +28,7 @@ class ResmgrDaemon():
     def __init__(self):
         self.stdin_path = '/dev/null'
         self.stdout_path = outfile
-        self.stderr_path = errfile
+        self.stderr_path = outfile
         self.pidfile_path = pidfile
         self.pidfile_timeout = 5
 

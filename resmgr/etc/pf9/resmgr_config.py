@@ -17,13 +17,21 @@ app = {
 
 logging = {
     'loggers': {
-        'root': {'level': 'INFO', 'handlers': ['console']},
-        'resmgr': {'level': 'DEBUG', 'handlers': ['console']},
-        'keystoneclient.middleware.auth_token': {'level': 'DEBUG', 'handlers': ['console']},
-        'py.warnings': {'handlers': ['console']},
+        'root': {'level': 'INFO', 'handlers': ['filelogger']},
+        'resmgr': {'level': 'DEBUG', 'handlers': ['filelogger']},
+        'keystoneclient.middleware.auth_token': {'level': 'DEBUG', 'handlers': ['filelogger']},
+        'py.warnings': {'handlers': ['filelogger']},
         '__force_dict__': True
     },
     'handlers': {
+        'filelogger': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'maxBytes': 2097152,
+            'backupCount': 10,
+            'filename': '/var/log/pf9/resmgr.log',
+            'formatter': 'simple'
+        },
         'console': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
