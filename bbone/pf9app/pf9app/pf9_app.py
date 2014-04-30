@@ -69,8 +69,8 @@ class Pf9App(App):
         """
         cmd = SERVICECMD % (self.app_name, "status")
         code, out, err = _run_command(cmd)
-        self.log.info("Command %s, code=%d stdout=%s stderr=%s",
-                      cmd, code, out, err)
+        self.log.debug("Command %s, code=%d stdout=%s stderr=%s",
+                       cmd, code, out, err)
         # Refer to LSB specification for the codes. If code is 0, then service is
         # assumed to be running.
         return code == 0
@@ -90,6 +90,8 @@ class Pf9App(App):
         :raises ServiceCtrlError: if the service state change operation fails
         """
         cmd = SERVICECMD % (self.app_name, "start" if run_state else "stop")
+        self.log.info("Setting service state %s.%s. Command: %s",
+                      self.name, self.version, cmd)
         code, out, err = _run_command(cmd)
         if code:
             self.log.error("Command %s, code=%d stdout=%s stderr=%s",
@@ -141,6 +143,7 @@ class Pf9App(App):
         # There is no need to do this as part of this method
 
         # The script shall return a non zero return code in case of an error
+        self.log.info("Setting config for %s.%s", self.name, self.version)
         code, out, err = _run_command("%s --set-config '%s'" % (cfgscript, json.dumps(config)))
         if code:
             self.log.error("%s:set_config failed: %s %s", self.app_name, out, err)
@@ -154,13 +157,14 @@ class Pf9App(App):
         Stops it first if it is running.
         :raises ServiceCtrlError: if stopping the service fails before the uninstall
         """
-
+        self.log.info("Removing %s.%s", self.name, self.version)
         # Stop the running service first
         self.set_run_state(False)
 
         # Stop service will raise an exception if it fails, uninstall will be
         # called only if that succeeds
         self.app_db.remove_package(self.app_name)
+        self.log.info("%s.%s removed successfully", self.name, self.version)
 
 
 class Pf9RemoteApp(Pf9App, RemoteApp):

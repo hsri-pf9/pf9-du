@@ -310,6 +310,9 @@ class BbonePoller(object):
                 # TODO: This should probably go in backbone master land
                 continue
 
+            # TODO: There is a potential case here where we want to clear out remnant
+            # roles (pf9apps) from a newly/unauthorized hosts.
+
             # assignment to _unauthorized_* dicts is atomic. There is no need
             # for a lock here.
             # See http://effbot.org/pyfaq/what-kinds-of-global-value-mutation-are-thread-safe.htm
@@ -554,14 +557,15 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         # Clear out all the roles
         if host_inst['roles']:
+            log.debug('Removing roles and state entries in the database for %s',
+                      host_id)
+            self.res_mgr_db.update_roles_for_host(host_id, roles=[])
+            self.res_mgr_db.delete_host(host_id)
+            notifier.publish_notification('delete', 'host', host_id)
+
             log.debug('Sending request to backbone to remove all roles from %s',
                       host_id)
             self.roles_mgr.push_configuration(host_id, app_info={})
-            self.res_mgr_db.update_roles_for_host(host_id, roles=[])
-
-        log.debug('Removing host %s from database', host_id)
-        self.res_mgr_db.delete_host(host_id)
-        notifier.publish_notification('delete', 'host', host_id)
 
 
     def prepare_app_config(self, roles):
@@ -609,25 +613,31 @@ class ResMgrPf9Provider(ResMgrProvider):
             host_inst['state'] = RState.activating
             notifier.publish_notification('change', 'host', host_id)
 
-        log.debug('Sending request to backbone to add role %s to %s',
-                 role_name, host_id)
         try:
-            app_info = self.prepare_app_config(host_inst['roles'])
-            self.roles_mgr.push_configuration(host_id, app_info)
-            # Need to ensure the host is added or updated in the DB.
+            # 1. Record the role addition state in the DB
+            # 2. Publish change notification
+            # 3. Push the new configuration to the host
+            # Push configuration to bbone is idempotent, so we will end up with
+            # a converged state eventually.
             log.debug('Updating host %s state after %s role association',
                       host_id, role_name)
             self.res_mgr_db.insert_update_host(host_id, host_inst['info'])
             self.res_mgr_db.associate_role_to_host(host_id, role_name)
+
+            with _host_lock:
+                # Once added to the DB, remove it from the unauthorized host dict
+                _unauthorized_hosts.pop(host_id, None)
+                _unauthorized_host_status_time.pop(host_id, None)
+
+            log.debug('Sending request to backbone to add role %s to %s',
+                 role_name, host_id)
+            app_info = self.prepare_app_config(host_inst['roles'])
+            self.roles_mgr.push_configuration(host_id, app_info)
         except:
             if initially_inactive:
                 host_inst['state'] = RState.inactive
             raise
 
-        with _host_lock:
-            # Once added to the DB, remove it from the unauthorized host dict
-            _unauthorized_hosts.pop(host_id, None)
-            _unauthorized_host_status_time.pop(host_id, None)
         notifier.publish_notification('change', 'host', host_id)
 
     def delete_role(self, host_id, role_name):
@@ -656,14 +666,21 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         host_inst['roles'].remove(role_name)
 
-        log.debug('Sending request to backbone to remove role %s from %s',
-                 role_name, host_id)
-        app_info = self.prepare_app_config(host_inst['roles'])
-        self.roles_mgr.push_configuration(host_id, app_info)
+        # 1. Record the role removal state in the DB
+        # 2. Publish change notification
+        # 3. Push the new configuration to the host
+        # Push configuration to bbone is idempotent, so we will end up with
+        # a converged state eventually.
         log.debug('Clearing role %s for host %s in DB', role_name, host_id)
         self.res_mgr_db.remove_role_from_host(host_id, role_name)
         notifier.publish_notification('change', 'host', host_id)
         # TODO: Think about if there is a case to remove this host from the database
+
+        log.debug('Sending request to backbone to remove role %s from %s',
+                 role_name, host_id)
+        app_info = self.prepare_app_config(host_inst['roles'])
+        self.roles_mgr.push_configuration(host_id, app_info)
+
 
 def get_provider(config_file):
     return ResMgrPf9Provider(config_file)

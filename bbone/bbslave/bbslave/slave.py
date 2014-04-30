@@ -57,8 +57,8 @@ def reconnect_loop(config):
     log.info('-------------------------------')
     log.info('Platform 9 host agent started at %s ', datetime.datetime.now())
 
-    app_db = AppDb()
-    agent_app_db = Pf9AgentDb()
+    app_db = AppDb(log)
+    agent_app_db = Pf9AgentDb(log)
     app_cache = AppCache(config.get('hostagent', 'app_cache_dir'))
 
     while True:

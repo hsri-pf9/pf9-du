@@ -180,7 +180,7 @@ class Pf9AppDb(AppDb):
         appMap = {}
         installed = self.pkgmgr.query_pf9_apps()
         for app, val in installed.iteritems():
-            appMap[app] = Pf9App(app, val['version'], self)
+            appMap[app] = Pf9App(app, val['version'], self, log=self.log)
 
         return appMap
 

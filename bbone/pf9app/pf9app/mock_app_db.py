@@ -3,6 +3,7 @@
 
 __author__ = 'leb'
 import exceptions
+import logging
 
 from app_db import AppDb
 from app import App
@@ -10,7 +11,7 @@ from app import App
 
 class MockAppDb(AppDb):
 
-    def __init__(self):
+    def __init__(self, log=logging):
         self.apps = {}
 
     def query_installed_apps(self):
