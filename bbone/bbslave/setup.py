@@ -17,7 +17,7 @@ setup(
         'pf9app',
         'bbcommon',
         'configutils',
-        'netifaces'
+        'netifaces == 0.8'
     ],
     test_suite='bbslave',
     zip_safe=False,
