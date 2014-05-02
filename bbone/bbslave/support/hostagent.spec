@@ -62,13 +62,18 @@ fi
 # $1==1: install the first time
 # $1>=2: upgrade
 if [ "$1" = 0 ]; then
-  service pf9-hostagent stop > /dev/null
-  chkconfig --del pf9-hostagent
+    service pf9-hostagent stop > /dev/null
+    chkconfig --del pf9-hostagent
 fi
 
 %postun
 # The cache clean up will be done with uninstall and upgrade
 # of the hostagent.
 rm -rf "/var/opt/pf9/hostagent"
+
+# Remove the apps cache in case of an uninstall
+if [ "$1" = "0" ]; then
+    rm -rf "/var/cache/pf9apps"
+fi
 
 %changelog
