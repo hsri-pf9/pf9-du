@@ -20,7 +20,7 @@ HOSTAGENT_TARBALL=$ROOT_DIR/hostagent-tarball/pf9-hostagent.tar.gz
 RPMBUILD_DIR=$ROOT_DIR/hostagent-tarball/rpm-build
 
 HOST_AGENT_RPM=$RPMBUILD_DIR/RPMS/x86_64/pf9-hostagent-1.0.0-1.x86_64.rpm
-HOST_AGENT_DIR=$ROOT_DIR/hostagent
+PRIVATE_FILES_DIR=$ROOT_DIR/www/private
 
 # Create a temporary directory to expand the tarball
 HOSTAGENT_TARBALL_EXPANDEDDIR=`mktemp -d -t pf9-XXX`
@@ -43,8 +43,8 @@ mkdir $RPMBUILD_DIR
 $HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-rpmbuild.sh $RPMBUILD_DIR $HOSTAGENT_TARBALL_EXPANDEDDIR $VERSION $DU_FQDN
 
 # Copy the rpm over to a well known location
-mkdir -p $HOST_AGENT_DIR
-cp $HOST_AGENT_RPM $HOST_AGENT_DIR
+mkdir -p $PRIVATE_FILES_DIR
+cp $HOST_AGENT_RPM $PRIVATE_FILES_DIR
 
 rm -fr $HOSTAGENT_TARBALL_EXPANDEDDIR
 rm -fr $RPMBUILD_DIR
