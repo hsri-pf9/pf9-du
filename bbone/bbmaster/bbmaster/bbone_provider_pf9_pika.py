@@ -34,9 +34,7 @@ class bbone_provider_pf9(bbone_provider_memory):
         bbmaster_conf = environ.get('BBMASTER_CONFIG_FILE',
                                     constants.BBMASTER_CONFIG_FILE)
         self.config.read(bbmaster_conf)
-        log_level_name = self.config.get('bbmaster', 'log_level_name')
         self.log = logging.getLogger('bbmaster')
-        self.log.setLevel(getattr(logging, log_level_name))
         self.retry_period = int(self.config.get('bbmaster',
                                                 'connection_retry_period'))
         self.send_pending_msgs_period = int(self.config.get('bbmaster',

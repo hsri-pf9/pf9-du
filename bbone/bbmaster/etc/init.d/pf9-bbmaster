@@ -19,7 +19,7 @@ SERVER_BIN="$prog"
 
 SERVER_OPTS="/opt/pf9/bbmaster/bin/pecan serve /etc/pf9/bbmaster_config.py"
 
-SERVER_LOGFILE=/var/log/pf9-bbmaster.log
+SERVER_LOGFILE=/var/log/pf9/bbmaster-out.log
 
 # Source function library.
 . /etc/init.d/functions

@@ -37,6 +37,7 @@ rm -rf ${RPM_BUILD_ROOT}
 /opt/pf9
 /etc/pf9
 /etc/init.d/pf9-bbmaster
+%dir /var/log/pf9
 
 
 %post
