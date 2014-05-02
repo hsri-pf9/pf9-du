@@ -19,9 +19,7 @@ PF9CERT_DIR := $(SRC_ROOT)/lib/pf9cert
 
 
 VERSION ?= 1.0.0
-BBMASTER_RPM :=$(BUILD_DIR)/pf9-bbmaster-$(VERSION).rpm
 RPM_DIR := $(BUILD_DIR)/rpmbuild
-BBMASTER_SRC_RPM := $(RPM_DIR)/pf9-bbmaster-$(VERSION)-1.src.rpm
 MOCK = /usr/bin/mock -r epel-6-x86_64
 
 # These additional modules need to be setup in order for our tests to run
@@ -71,10 +69,13 @@ ${BBMASTER_SRC_TARBALL}: ${BBMASTER_SRC_STAGE}
 	cd ${BUILD_DIR}/srcstage;\
 	tar -czf ${BBMASTER_SRC_TARBALL} *
 
-${BBMASTER_RPM}: ${BBMASTER_SRC_TARBALL}
+rpm: ${BBMASTER_SRC_TARBALL}
 	echo "RPM build goes here"
-	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec bbmaster-rpm.spec --resultdir ${RPM_DIR}
-	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BBMASTER_SRC_RPM}
+	sed -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" bbmaster-rpm.spec > ${BUILD_DIR}/bbmaster-rpm.spec
+	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/bbmaster-rpm.spec --resultdir ${RPM_DIR}
+	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
+	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm
+	rm -f ${BUILD_DIR}/*.src.rpm
 
 pre-reqs : ${VENV}
 	for pkg in ${SETUP_DEPS}; do \
@@ -101,9 +102,6 @@ unit-test: unit-test-setup
 			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app bbmaster/tests/test_controller.py; \
 	cd ${BUILD_DIR}/coverage;\
 	zip -q ${COVERAGE_ZIP} *;
-
-rpm: ${BBMASTER_RPM}
-
 
 clean:
 	rm -rf $(BUILD_DIR)

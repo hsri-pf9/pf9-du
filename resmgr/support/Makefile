@@ -15,9 +15,7 @@ CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
 NOTIFIER_DIR :=$(SRC_ROOT)/lib/notifier
 
 VERSION ?= 1.0.0
-RESMGR_RPM :=$(BUILD_DIR)/pf9-resmgr-$(VERSION).rpm
 RPM_DIR := $(BUILD_DIR)/rpmbuild
-RESMGR_SRC_RPM := $(RPM_DIR)/pf9-resmgr-$(VERSION)-1.src.rpm
 MOCK = /usr/bin/mock -r epel-6-x86_64
 
 RESMGR_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-resmgr-${VERSION}
@@ -76,9 +74,12 @@ ${RESMGR_SRC_TARBALL}: ${RESMGR_SRC_STAGE}
 	cd ${BUILD_DIR}/srcstage;\
 	tar -czf ${RESMGR_SRC_TARBALL} *
 
-${RESMGR_RPM}: ${RESMGR_SRC_TARBALL}
-	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec resmgr-rpm.spec --resultdir ${RPM_DIR}
-	${MOCK} --rebuild --resultdir ${RPM_DIR} ${RESMGR_SRC_RPM}
+rpm: ${RESMGR_SRC_TARBALL}
+	sed -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" resmgr-rpm.spec > ${BUILD_DIR}/resmgr-rpm.spec
+	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/resmgr-rpm.spec --resultdir ${RPM_DIR}
+	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
+	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm
+	rm -f ${BUILD_DIR}/*.src.rpm
 
 pre-reqs: ${VENV}
 	for pkg in ${SETUP_DEPS}; do \
@@ -110,9 +111,6 @@ unit-test: unit-test-setup
 			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app;
 	cd ${BUILD_DIR}/coverage;\
 	zip -q ${COVERAGE_ZIP} *;
-
-rpm: ${RESMGR_RPM}
-
 
 clean:
 	rm -rf $(BUILD_DIR)

@@ -20,7 +20,6 @@ RPMBUILD_DIR := $(BUILD_DIR)/rpmbuild
 VERSION ?= 1.0.0
 HOST_IP ?= 10.1.10.254
 
-HOSTAGENT_RPM := $(BUILD_DIR)/pf9-hostagent.rpm
 HOSTAGENT_TARBALL_SRCDIR := $(BUILD_DIR)/hostagent-tarball-src
 
 OPT_PF9_DIR := $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9
@@ -29,7 +28,6 @@ VENV_DIR := $(OPT_PF9_DIR)/hostagent
 HOSTAGENT_TARBALL_EXPANDEDDIR := $(BUILD_DIR)/hostagent-tarball-expanded
 HOSTAGENT_TARBALL := $(BUILD_DIR)/pf9-hostagent.tar.gz
 RPM_DIR := $(BUILD_DIR)/rpmbuild
-HOSTAGENT_TARBALL_SRC_RPM := $(RPM_DIR)/pf9-hostagent-tarball-$(VERSION)-1.src.rpm
 MOCK = /usr/bin/mock -r epel-6-x86_64
 
 HOSTAGENT_ROOT := $(RPM_TAR_ROOT)/rpmsrc
@@ -86,17 +84,18 @@ hostagent-expand-tarball: | $(HOSTAGENT_TARBALL_EXPANDEDDIR) $(HOSTAGENT_TARBALL
 # - Expanded directory of tarball
 # - (Optional) Version for the rpm
 # - (Optional) Ip/DNS name of the service
-$(HOSTAGENT_RPM): hostagent-expand-tarball
+hostagent-rpm: hostagent-expand-tarball
 	$(HOSTAGENT_TARBALL_EXPANDEDDIR)/hostagent-rpmbuild.sh $(RPMBUILD_DIR) $(HOSTAGENT_TARBALL_EXPANDEDDIR) $(VERSION) $(HOST_IP)
-
-hostagent-rpm: $(HOSTAGENT_RPM)
 
 hostagent-tarball: $(HOSTAGENT_TARBALL)
 
 hostagent-tarball-rpm: hostagent-tarball
 	cp ${SRC_DIR}/support/45-customize-hostagent-rpm ${BUILD_DIR}
-	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec hostagent-tarball-rpm.spec --resultdir ${RPM_DIR}
-	${MOCK} --rebuild --resultdir ${RPM_DIR} ${HOSTAGENT_TARBALL_SRC_RPM}
+	sed -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" hostagent-tarball-rpm.spec > ${BUILD_DIR}/hostagent-tarball-rpm.spec
+	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/hostagent-tarball-rpm.spec --resultdir ${RPM_DIR}
+	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
+	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm
+	rm -f ${BUILD_DIR}/*.src.rpm
 
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${SRC_ROOT}/bbone/bbmaster ${PF9APP_DIR} ${CONFIGUTILS_DIR}
