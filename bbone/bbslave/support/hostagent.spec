@@ -1,6 +1,6 @@
 Name:           pf9-hostagent
-Version:        %{_version}
-Release:        1
+Version:        __VERSION__
+Release:        1.__GITHASH__
 Summary:        Platform 9 host agent
 
 License:        Commercial

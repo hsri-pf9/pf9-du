@@ -18,7 +18,8 @@ BUILD_DIR := $(BUILD_ROOT)/hostagent
 RPMBUILD_DIR := $(BUILD_DIR)/rpmbuild
 
 VERSION ?= 1.0.0
-HOST_IP ?= 10.1.10.254
+GITHASH=$(shell git rev-parse --short HEAD)
+SED_CMD=sed -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(VERSION)/"
 
 HOSTAGENT_TARBALL_SRCDIR := $(BUILD_DIR)/hostagent-tarball-src
 
@@ -69,29 +70,18 @@ install-bbslave: | $(BUILD_DIR) $(VENV_DIR)
 	$(VENV_INSTALL_CMD)
 
 $(HOSTAGENT_TARBALL): | $(HOSTAGENT_TARBALL_SRCDIR) install-bbslave
-	cp $(SRC_DIR)/support/hostagent.spec $(HOSTAGENT_TARBALL_SRCDIR)
+	$(SED_CMD) hostagent.spec > $(HOSTAGENT_TARBALL_SRCDIR)/hostagent.spec
 	cp $(SRC_DIR)/support/hostagent-rpmbuild.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/scripts/pf9-hostagent $(VENV_DIR)/bin
 	cd $(HOSTAGENT_TARBALL_SRCDIR);\
 	tar -czf $(HOSTAGENT_TARBALL) *
 
-hostagent-expand-tarball: | $(HOSTAGENT_TARBALL_EXPANDEDDIR) $(HOSTAGENT_TARBALL)
-	tar -xzf $(HOSTAGENT_TARBALL) -C $(HOSTAGENT_TARBALL_EXPANDEDDIR)
-
-# The creation of RPM will be at a time when we won't have access to
-# the make system, so the hostagent-rpmbuild should be self contained
-# and needs only the expanded tar file to exist and optionally pass in as a parameter
-# - Expanded directory of tarball
-# - (Optional) Version for the rpm
-# - (Optional) Ip/DNS name of the service
-hostagent-rpm: hostagent-expand-tarball
-	$(HOSTAGENT_TARBALL_EXPANDEDDIR)/hostagent-rpmbuild.sh $(RPMBUILD_DIR) $(HOSTAGENT_TARBALL_EXPANDEDDIR) $(VERSION) $(HOST_IP)
-
 hostagent-tarball: $(HOSTAGENT_TARBALL)
 
 hostagent-tarball-rpm: hostagent-tarball
-	cp ${SRC_DIR}/support/45-customize-hostagent-rpm ${BUILD_DIR}
-	sed -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" hostagent-tarball-rpm.spec > ${BUILD_DIR}/hostagent-tarball-rpm.spec
+	$(SED_CMD) ${SRC_DIR}/support/45-customize-hostagent-rpm > ${BUILD_DIR}/45-customize-hostagent-rpm
+	chmod +x ${BUILD_DIR}/45-customize-hostagent-rpm
+	$(SED_CMD)  hostagent-tarball-rpm.spec > ${BUILD_DIR}/hostagent-tarball-rpm.spec
 	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/hostagent-tarball-rpm.spec --resultdir ${RPM_DIR}
 	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
 	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm

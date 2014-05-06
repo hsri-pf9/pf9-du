@@ -1,5 +1,5 @@
 Name:           pf9-hostagent-tarball
-Version:        1.0.0
+Version:        __VERSION__
 Release:        1.__GITHASH__
 Summary:        Platform 9 Host Agent tarball
 
