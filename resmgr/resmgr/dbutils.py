@@ -43,7 +43,7 @@ _roles = {
         'config': {
             'version': '1.0.0-1',
             'running': True,
-            'url': 'https://%(du_host)s/ostackhost/pf9-ostackhost-1.0.0-1'
+            'url': 'https://%(du_host)s:9443/private/pf9-ostackhost-1.0.0-1'
                    '.x86_64.rpm',
             'config': {
                 'nova': {

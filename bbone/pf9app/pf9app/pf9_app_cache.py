@@ -6,24 +6,37 @@ __author__ = 'Platform9'
 import contextlib
 import logging
 import os
-import urllib2
 from urlparse import urlsplit
-
 from pf9app.app_cache import AppCache
 from pf9app.exceptions import DownloadFailed
-
+import requests
 
 DOWNLOAD_CHUNK_SIZE = 512 * 1024
 
 class Pf9AppCache(AppCache):
     """Class that implements the AppCache interface"""
 
-    def __init__(self, cachelocation, log = logging):
+    def __init__(self, cachelocation,
+                 certfile=None, keyfile=None, ca_certs=False,
+                 cert_reqs=None,
+                 log=logging):
+        """
+        Constructs a package downloader and caching object.
+
+        :param str cachelocation: Root directory for cache
+        :param str certfile: Client certificate for SSL
+        :param str keyfile: Client private key file for SSL
+        :param str ca_certs: Certificates file for verifying server identity
+        :param int cert_reqs: Whether server verification is required (not used)
+        """
         # TODO: Maintaining the cache in a dict. Need to figure out how this will
         # persist across restarts of the backbone service
         self.downloads = {}
         self.cache_location = cachelocation
         self.log = log
+        self.certfile = certfile
+        self.keyfile = keyfile
+        self.ca_certs = ca_certs
 
     def _download_file(self, srcurl, destfile):
         """
@@ -35,15 +48,18 @@ class Pf9AppCache(AppCache):
         """
         self.log.info("Downloading file %s to %s", srcurl, destfile)
         try:
-            with contextlib.closing(urllib2.urlopen(srcurl)) as urlreq:
+            with contextlib.closing(requests.get(srcurl,
+                                                 verify=self.ca_certs,
+                                                 cert=(self.certfile,
+                                                       self.keyfile),
+                                                 stream=True)) as response:
+                # Raise HTTPError if status is not 200
+                response.raise_for_status()
                 with open(destfile, "w") as wf:
                     # Source files (rpms) could be huge,download them in chunks
-                    while True:
-                        data = urlreq.read(DOWNLOAD_CHUNK_SIZE)
-                        if not data:
-                            break
-                        wf.write(data)
-        except urllib2.URLError, e:
+                    for chunk in response.iter_content(DOWNLOAD_CHUNK_SIZE):
+                        wf.write(chunk)
+        except requests.exceptions.RequestException as e:
             self.log.error("Downloading %s failed: %s", srcurl, e)
             raise DownloadFailed(str(e))
 

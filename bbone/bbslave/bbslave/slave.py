@@ -14,6 +14,7 @@ from ConfigParser import ConfigParser
 import time
 import datetime
 import errno
+from bbcommon.utils import get_ssl_options
 
 def reconnect_loop(config):
     """
@@ -59,7 +60,10 @@ def reconnect_loop(config):
 
     app_db = AppDb(log)
     agent_app_db = Pf9AgentDb(log)
-    app_cache = AppCache(config.get('hostagent', 'app_cache_dir'))
+    ssl_options = get_ssl_options(config)
+    app_cache_kwargs = ssl_options if ssl_options else {}
+    app_cache_kwargs['cachelocation'] = config.get('hostagent', 'app_cache_dir')
+    app_cache = AppCache(**app_cache_kwargs)
 
     while True:
         try:
