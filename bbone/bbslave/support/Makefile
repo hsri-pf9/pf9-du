@@ -70,7 +70,7 @@ install-bbslave: | $(BUILD_DIR) $(VENV_DIR)
 	$(VENV_INSTALL_CMD)
 
 $(HOSTAGENT_TARBALL): | $(HOSTAGENT_TARBALL_SRCDIR) install-bbslave
-	$(SED_CMD) hostagent.spec > $(HOSTAGENT_TARBALL_SRCDIR)/hostagent.spec
+	cp $(SRC_DIR)/support/hostagent.spec $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/hostagent-rpmbuild.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/scripts/pf9-hostagent $(VENV_DIR)/bin
 	cd $(HOSTAGENT_TARBALL_SRCDIR);\
