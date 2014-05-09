@@ -425,7 +425,7 @@ class BbonePoller(object):
             for id in cleanup_hosts:
                 _unauthorized_hosts.pop(id, None)
                 _unauthorized_host_status_time.pop(id, None)
-                self.notifier.publish_notification('delete', 'host', 'id')
+                self.notifier.publish_notification('delete', 'host', id)
 
     def process_hosts(self):
         """
