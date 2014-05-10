@@ -1,0 +1,32 @@
+#!/bin/sh
+# Copyright (c) 2014 Platform9 Systems Inc.
+
+# This script owns the customization of the rabbitmq broker service
+
+# Failfast
+# Fail on first error
+set -e
+# Fail on uninitialized variables
+set -u
+
+echo "Rabbitmq customization invoked"
+
+# Need to reset rabbitmq password during customize because it looks like the
+# password is associated with the rabbitmq node and the node changes (related to
+# IP) when we instantiate the AMI
+
+change_rabbitmq_password() {
+    set +e
+    n=0
+    for n in $(seq 1 40); do
+        sudo /usr/sbin/rabbitmqctl change_password guest m1llenn1umFalc0n && break
+        sleep 5
+    done
+    if [ $n -ge 40 ]; then
+        exit 1
+    fi
+    set -e
+}
+
+change_rabbitmq_password
+sudo /sbin/service rabbitmq-server restart

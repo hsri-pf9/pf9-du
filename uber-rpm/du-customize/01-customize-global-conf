@@ -1,0 +1,14 @@
+#!/bin/sh
+# Copyright (c) 2014 Platform9 Systems Inc.
+
+# This script owns the customization of the global.conf
+
+# Failfast
+# Fail on first error
+set -e
+# Fail on uninitialized variables
+set -u
+
+echo "global conf customization called with du_fqdn $DU_FQDN"
+
+sudo sed -i "s/__DU_FQDN__/$DU_FQDN/g" /etc/pf9/global.conf
