@@ -130,30 +130,11 @@ class RolesMgr(object):
         log.info('Applying configuration %s to %s', app_info, host_id)
         url = "%s/v1/hosts/%s/apps" % (self.bb_url, host_id)
         try:
-            installed_app_info = call_remote_service(url)
-
-            if is_satisfied_by(app_info, installed_app_info):
-                log.info('Host %s is already in the expected app state', host_id)
-                return
-
             r = requests.put(url, json.dumps(app_info))
 
             if r.status_code != requests.codes.ok:
                 log.error('PUT request failed, response status code %d', r.status_code)
-                raise HostConfigFailed('Unexpected response: %d' % r.status_code)
-
-            total_time = 0
-            while total_time < self.req_timeout and \
-                    not is_satisfied_by(app_info, installed_app_info):
-                time.sleep(self.req_sleep_interval)
-                total_time += self.req_sleep_interval
-                installed_app_info = call_remote_service(url)
-
-            # Apps did not converge
-            if not is_satisfied_by(app_info, installed_app_info):
-                log.error('Host apps did not converge within the expected timeout.'
-                          'Expected: %s, Installed: %s', app_info, installed_app_info)
-                raise HostConfigFailed('setup timeout')
+                raise HostConfigFailed('Error in PUT request response: %d' % r.status_code)
 
         except requests.exceptions.RequestException as exc:
             log.error('Configuring host %s failed: %s', host_id, exc)
