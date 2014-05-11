@@ -26,7 +26,7 @@ cd $(dirname $0)
 for i in [0-9][0-9]*; do
     if test -x $i; then
         echo "[Running $i]"
-        timeout -k 2s -s SIGTERM 2s ./$i || RETVAL=$?
+        timeout 5m ./$i || RETVAL=$?
         case $RETVAL in
         '')  ;;
         124) echo "ERROR: Timeout after 5 minutes. Killed with SIGTERM."
