@@ -15,6 +15,7 @@ CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
 NOTIFIER_DIR :=$(SRC_ROOT)/lib/notifier
 
 VERSION ?= 1.0.0
+BUILD_NUMBER ?= 0
 RPM_DIR := $(BUILD_DIR)/rpmbuild
 MOCK = /usr/bin/mock -r epel-6-x86_64
 
@@ -75,7 +76,7 @@ ${RESMGR_SRC_TARBALL}: ${RESMGR_SRC_STAGE}
 	tar -czf ${RESMGR_SRC_TARBALL} *
 
 rpm: ${RESMGR_SRC_TARBALL}
-	sed -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" resmgr-rpm.spec > ${BUILD_DIR}/resmgr-rpm.spec
+	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" resmgr-rpm.spec > ${BUILD_DIR}/resmgr-rpm.spec
 	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/resmgr-rpm.spec --resultdir ${RPM_DIR}
 	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
 	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm

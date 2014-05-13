@@ -1,6 +1,6 @@
 Name:           pf9-hostagent-tarball
 Version:        __VERSION__
-Release:        1.__GITHASH__
+Release:        __BUILDNUM__.__GITHASH__
 Summary:        Platform 9 Host Agent tarball
 
 License:        Commercial

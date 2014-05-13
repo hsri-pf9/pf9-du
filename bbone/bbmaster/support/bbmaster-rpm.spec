@@ -1,6 +1,6 @@
 Name:           pf9-bbmaster
 Version:        1.0.0
-Release:        1.__GITHASH__
+Release:        __BUILDNUM__.__GITHASH__
 Summary:        Platform 9 Backbone Master
 
 License:        Commercial

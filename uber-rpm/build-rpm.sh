@@ -12,9 +12,13 @@ BLDROOT=$SRCROOT/build
 rm -rf $BLDROOT
 mkdir -p $BLDROOT
 
-# Copy the spec file
+# Generate the spec file
 cd $BLDROOT
-sed -e "s/__GITHASH__/$(git rev-parse --short HEAD)/" $SRCROOT/$NAME.spec > $NAME.spec
+# BUILD_NUMBER is pre-defined in TeamCity builds
+test -z "$BUILD_NUMBER" && BUILD_NUMBER=0
+sed -e "s/__BUILDNUM__/$BUILD_NUMBER/" \
+    -e "s/__GITHASH__/$(git rev-parse --short HEAD)/" \
+    $SRCROOT/$NAME.spec > $NAME.spec
 
 # Generate $NAME-$VERSION.tar.gz from source files in git
 rm -rf $NAME-$VERSION

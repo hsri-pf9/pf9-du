@@ -1,6 +1,6 @@
 Name:           pf9-du-tools
 Version:        %{_version}
-Release:        1.__GITHASH__
+Release:        __BUILDNUM__.__GITHASH__
 Summary:        Platform9 Deployment Unit Tools
 
 License:        Commercial

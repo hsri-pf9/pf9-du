@@ -18,8 +18,9 @@ BUILD_DIR := $(BUILD_ROOT)/hostagent
 RPMBUILD_DIR := $(BUILD_DIR)/rpmbuild
 
 VERSION ?= 1.0.0
+BUILD_NUMBER ?= 0
 GITHASH=$(shell git rev-parse --short HEAD)
-SED_CMD=sed -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(VERSION)/"
+SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(VERSION)/"
 
 HOSTAGENT_TARBALL_SRCDIR := $(BUILD_DIR)/hostagent-tarball-src
 
