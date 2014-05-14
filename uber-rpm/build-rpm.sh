@@ -15,7 +15,7 @@ mkdir -p $BLDROOT
 # Generate the spec file
 cd $BLDROOT
 # BUILD_NUMBER is pre-defined in TeamCity builds
-test -z "$BUILD_NUMBER" && BUILD_NUMBER=0
+BUILD_NUMBER=${BUILD_NUMBER:-0}
 sed -e "s/__BUILDNUM__/$BUILD_NUMBER/" \
     -e "s/__GITHASH__/$(git rev-parse --short HEAD)/" \
     $SRCROOT/$NAME.spec > $NAME.spec
