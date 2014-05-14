@@ -57,8 +57,10 @@ $(HOSTAGENT_TARBALL_EXPANDEDDIR):
 
 $(HOSTAGENT_TARBALL_SRCDIR):
 	rm -fr $@
-	mkdir -p $@
-	cp -r $(BBSLAVE_DIR)/etc $@/
+	mkdir -p $@/etc/init.d
+	mkdir -p $@/etc/pf9
+	cp $(BBSLAVE_DIR)/etc/init.d/pf9-hostagent $@/etc/init.d/
+	cp $(BBSLAVE_DIR)/etc/pf9/hostagent.conf $@/etc/pf9
 
 install-bbslave: | $(BUILD_DIR) $(VENV_DIR)
 	cd $(CONFIGUTILS_DIR);\

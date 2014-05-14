@@ -76,7 +76,9 @@ ${RESMGR_SRC_TARBALL}: ${RESMGR_SRC_STAGE}
 	tar -czf ${RESMGR_SRC_TARBALL} *
 
 rpm: ${RESMGR_SRC_TARBALL}
-	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" resmgr-rpm.spec > ${BUILD_DIR}/resmgr-rpm.spec
+	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__VERSION__/${VERSION}/" \
+	    -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" resmgr-rpm.spec \
+	    > ${BUILD_DIR}/resmgr-rpm.spec
 	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/resmgr-rpm.spec --resultdir ${RPM_DIR}
 	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
 	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm

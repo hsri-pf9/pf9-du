@@ -72,7 +72,9 @@ ${BBMASTER_SRC_TARBALL}: ${BBMASTER_SRC_STAGE}
 
 rpm: ${BBMASTER_SRC_TARBALL}
 	echo "RPM build goes here"
-	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" bbmaster-rpm.spec > ${BUILD_DIR}/bbmaster-rpm.spec
+	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__VERSION__/${VERSION}/" \
+	    -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" \
+	    bbmaster-rpm.spec > ${BUILD_DIR}/bbmaster-rpm.spec
 	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/bbmaster-rpm.spec --resultdir ${RPM_DIR}
 	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
 	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm

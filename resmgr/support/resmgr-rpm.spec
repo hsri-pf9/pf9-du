@@ -1,5 +1,5 @@
 Name:           pf9-resmgr
-Version:        1.0.0
+Version:        __VERSION__
 Release:        __BUILDNUM__.__GITHASH__
 Summary:        Platform 9 Resource Manager
 
@@ -14,7 +14,7 @@ Requires:       sudo
 BuildArch:      noarch
 Group:          pf9-resmgr
 
-Source:         pf9-resmgr-1.0.0.tgz
+Source:         %{name}-%{version}.tgz
 
 %define _unpackaged_files_terminate_build 0
 
@@ -45,11 +45,18 @@ rm -rf ${RPM_BUILD_ROOT}
 %dir /var/log/pf9
 
 %post
-# assume that keystone is already in place with the admin key
-pattern="^[ \t]*admin_token[ \t]*=[ \t]*.*";
-adminkeyline=`grep "$pattern" /etc/keystone/keystone.conf`;
-sed -i.orig "s/$pattern/$adminkeyline/g" /etc/pf9/resmgr-paste.ini
-/sbin/chkconfig --add pf9-resmgr
+if [ "$1" = "1" ]; then
+    # assume that keystone is already in place with the admin key
+    pattern="^[ \t]*admin_token[ \t]*=[ \t]*.*";
+    adminkeyline=`grep "$pattern" /etc/keystone/keystone.conf`;
+    sed -i.orig "s/$pattern/$adminkeyline/g" /etc/pf9/resmgr-paste.ini
+    /sbin/chkconfig --add pf9-resmgr
+elif [ "$1" -ge "2" ]; then
+    # In case of an upgrade, only restart the service
+    # stop and start service for now till IAAS-441 is fixed.
+    /sbin/service pf9-resmgr stop
+    /sbin/service pf9-resmgr start
+fi
 
 %preun
 if [ $1 = 0 ]; then # package is being erased, not upgraded

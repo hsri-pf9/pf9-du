@@ -37,7 +37,8 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 /opt/pf9
 /etc/init.d/pf9-hostagent
-/etc/pf9
+%config /etc/pf9/hostagent.conf
+/etc/pf9/certs
 
 %post
 if [ "$1" = "1" ]; then

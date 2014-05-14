@@ -1,5 +1,5 @@
 Name:           pf9-bbmaster
-Version:        1.0.0
+Version:        __VERSION__
 Release:        __BUILDNUM__.__GITHASH__
 Summary:        Platform 9 Backbone Master
 
@@ -14,7 +14,7 @@ Requires:       sudo
 BuildArch:      noarch
 Group:          pf9-bbone
 
-Source:         pf9-bbmaster-1.0.0.tgz
+Source:         %{name}-%{version}.tgz
 
 %define _unpackaged_files_terminate_build 0
 
@@ -35,7 +35,8 @@ rm -rf ${RPM_BUILD_ROOT}
 %files
 %defattr(-,root,root,-)
 /opt/pf9
-/etc/pf9
+%config /etc/pf9/bbmaster_config.py
+%config /etc/pf9/bbmaster.conf
 /etc/init.d/pf9-bbmaster
 %dir /var/log/pf9
 
@@ -43,6 +44,11 @@ rm -rf ${RPM_BUILD_ROOT}
 %post
 # Ugly hack to get pf9-bbmaster hooked up to init.d scripts
 sudo /bin/ln -sf /opt/pf9/bbmaster/bin/python /opt/pf9/bbmaster/bin/pf9-bbmaster
+
+if [ "$1" -ge "2" ]; then
+    # In case of an upgrade, restart the service
+    /sbin/service pf9-bbmaster restart
+fi
 
 %preun
 
