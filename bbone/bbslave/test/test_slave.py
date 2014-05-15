@@ -48,6 +48,7 @@ config.set('hostagent', 'log_level_name', 'INFO')
 config.set('hostagent', 'app_cache_dir', '/tmp/appcache')
 config.set('hostagent', 'USE_MOCK', '1')
 config.set('hostagent', 'console_logging', '1')
+config.set('hostagent', 'allow_exit_opcode', 'true')
 CACHED_DESIRED_CONFIG_BASEDIR='/tmp/hostagent_test'
 config.set('hostagent', 'desired_config_basedir_path', CACHED_DESIRED_CONFIG_BASEDIR)
 if os.path.exists(CACHED_DESIRED_CONFIG_BASEDIR):
@@ -75,6 +76,7 @@ def _exercise_testroutine(test_data):
         t = threading.Thread(target=reconnect_loop, args=(config,))
         t.daemon = True
         t.start()
+        state['slave_thread'] = t
         return
 
     def consume_msg(ch, method, properties, body):
@@ -110,9 +112,14 @@ def _exercise_testroutine(test_data):
         if not len(test_data):
             log.info('Done.')
             channel = state['channel']
+            msg = {'opcode': 'exit'}
+            channel.basic_publish(exchange=constants.BBONE_EXCHANGE,
+                                  routing_key=body['data']['host_id'],
+                                  body=json.dumps(msg))
             channel.close()
             conn = state['connection']
             conn.close()
+            state['slave_thread'].join()
             return
 
         cur_test = test_data.pop(0)
@@ -163,8 +170,8 @@ def test_slave_ping():
 @with_setup(prep_amqp_broker, clean_amqp_broker)
 def test_slave_config():
     """
-    Simulates a backbone master to test config operations through a slave agent
-    """
+Simulates a backbone master to test config operations through a slave agent
+"""
 
     test_data = test_slave_data.test_data_config
     _exercise_testroutine(test_data)

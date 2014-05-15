@@ -117,8 +117,8 @@ unit-test-setup: pre-reqs
 
 unit-test: unit-test-setup
 	cd ${BBSLAVE_DIR};\
-	${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
-			--cover-package=bbslave --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/test_slave.py;\
+	HOSTAGENT_HOST_ID_BASEDIR=${BUILD_DIR} ${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
+			--cover-package=bbslave --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/test_slave.py;
 	cd ${BUILD_DIR}/coverage;\
 	zip -q ${COVERAGE_ZIP} *;
 

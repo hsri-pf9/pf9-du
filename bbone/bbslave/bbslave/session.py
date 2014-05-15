@@ -105,6 +105,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
     :param type agent_app_class: Agent app class
     """
 
+    allow_exit_opcode = config.getboolean('hostagent', 'allow_exit_opcode') if \
+        config.has_option('hostagent', 'allow_exit_opcode') else False
     max_converge_attempts = int(config.get('hostagent', 'max_converge_attempts'))
     heartbeat_period = int(config.get('hostagent', 'heartbeat_period'))
     _load_host_agent_info(agent_app_db)
@@ -209,8 +211,17 @@ def start(config, log, app_db, agent_app_db, app_cache,
         global _converge_attempts
         desired_config = load_desired_config()
         try:
-            if msg['opcode'] not in ('ping', 'heartbeat', 'set_config', 'set_agent'):
+            if msg['opcode'] not in ('ping', 'heartbeat', 'set_config',
+                                     'set_agent', 'exit'):
                 log.error('Invalid opcode: %s', msg['opcode'])
+                return
+            if msg['opcode'] == 'exit':
+                if allow_exit_opcode:
+                    log.info('Exiting cleanly.')
+                    state['channel'].close()
+                    state['connection'].close()
+                else:
+                    log.error('Unexpected "exit" opcode.')
                 return
             current_config = get_current_config()
             if msg['opcode'] == 'set_agent':

@@ -99,10 +99,11 @@ unit-test: unit-test-setup
 	cd ${BBMASTER_DIR};\
 	${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
 			--cover-package=bbmaster --cover-package=bbcommon --verbosity=2 --with-xunit \
-			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app bbmaster/tests/test_master.py; \
+			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app bbmaster/tests/test_master.py;
+	cd ${BBMASTER_DIR};\
 	${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
 			--cover-package=bbmaster --cover-package=bbcommon --verbosity=2 --with-xunit \
-			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app bbmaster/tests/test_controller.py; \
+			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app bbmaster/tests/test_controller.py;
 	cd ${BUILD_DIR}/coverage;\
 	zip -q ${COVERAGE_ZIP} *;
 

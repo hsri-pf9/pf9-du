@@ -3,7 +3,8 @@
 
 __author__ = 'leb'
 import platform
-import netifaces
+import ConfigParser
+import uuid
 import os
 
 def get_sysinfo():
@@ -19,38 +20,31 @@ def get_sysinfo():
         'os_family': platform.system()
     }
 
-def get_host_id():
+def get_host_id(base_dir='/etc/pf9'):
     """
-    Attempts to compute a unique host id.
-
-    Currently uses the MAC address of the first network interface
-    alphabetically sorted by interface name.
-    If this fails, defaults to the supplied hostname.
-    For more information about the netifaces library, see:
-    http://alastairs-place.net/projects/netifaces/
-    The host id can be overridden for test purposes using
-    the HOSTAGENT_HOST_ID environment variable.
-
-    :param str hostname: current machine's host name
+    Returns a unique identifier for the host.
+    Can be overridden with HOSTAGENT_HOST_ID environment variable.
     :rtype: str
     """
 
     if 'HOSTAGENT_HOST_ID' in os.environ:
         return os.environ['HOSTAGENT_HOST_ID']
 
-    hostname = platform.node()
-    ifaces = sorted(netifaces.interfaces())
-    for iface in ifaces:
-        addresses = netifaces.ifaddresses(iface)
-        try:
-            mac = addresses[netifaces.AF_LINK][0]['addr']
-        except (IndexError, KeyError):
-            continue
-        # Avoid the loopback MAC address
-        if mac == '00:00:00:00:00:00':
-            continue
-        return mac
+    if 'HOSTAGENT_HOST_ID_BASEDIR' in os.environ:
+        base_dir = os.environ['HOSTAGENT_HOST_ID_BASEDIR']
 
-    # TODO: Don't use hostname. Check for a persistent host uuid file,
-    # and if not present, generate uuid and store in that file.
-    return hostname
+    host_id_file = os.path.join(base_dir, 'host_id.conf')
+    SECT_NAME = 'hostagent'
+    OPT_NAME = 'host_id'
+    cfg = ConfigParser.ConfigParser()
+    cfg.read([host_id_file])
+    if cfg.has_section(SECT_NAME) and cfg.has_option(SECT_NAME, OPT_NAME):
+        host_id = cfg.get(SECT_NAME, OPT_NAME)
+    else:
+        host_id = str(uuid.uuid4())
+        cfg = ConfigParser.ConfigParser()
+        cfg.add_section(SECT_NAME)
+        cfg.set(SECT_NAME, OPT_NAME, host_id)
+        with open(host_id_file, 'w') as fp:
+            cfg.write(fp)
+    return host_id

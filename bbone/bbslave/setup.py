@@ -16,8 +16,7 @@ setup(
         'pika',
         'pf9app',
         'bbcommon',
-        'configutils',
-        'netifaces == 0.8'
+        'configutils'
     ],
     test_suite='bbslave',
     zip_safe=False,
