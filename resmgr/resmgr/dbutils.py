@@ -5,8 +5,10 @@ __author__ = 'Platform9'
 
 from contextlib import contextmanager
 import datetime
+import glob
 import logging
 import json
+import os
 
 from exceptions import HostNotFound
 
@@ -33,47 +35,6 @@ role_host_assoc_table = Table('host_role_map', Base.metadata,
                                          ForeignKey('hosts.id')),
                                   Column('rolename', String(120),
                                          ForeignKey('roles.id')))
-
-#TODO: Move this to a configuration file?
-_roles = {
-    'pf9-ostackhost': {
-        'display_name': 'Openstack host',
-        'description': 'Host assigned to run OpenStack Software',
-        'active': True,
-        'config': {
-            'version': '1.0.0-1',
-            'running': True,
-            'url': 'https://%(du_host)s:9443/private/pf9-ostackhost-1.0.0-1'
-                   '.x86_64.rpm',
-            'config': {
-                'nova': {
-                    'DEFAULT': {
-                        'rabbit_host': '%(du_host)s',
-                        'ec2_dmz_host': '%(du_host)s',
-                        'glance_api_servers': '%(du_host)s:9292',
-                        'rabbit_password': '%(ostack_password)s',
-                        'xvpvncproxy_base_url':
-                            'http://%(du_host)s:6081/console',
-                        's3_host': '%(du_host)s',
-                        'flat_interface': '%(interface)s',
-                        'novncproxy_base_url':
-                            'http://%(du_host)s:6080/vnc_auto.html'
-                    },
-                    'spice': {
-                        'html5proxy_base_url':
-                            'http://%(du_host)s:6082/spice_auto.html'
-                    }
-                },
-                'api-paste': {
-                    'filter:authtoken': {
-                        'admin_password': '%(ostack_password)s',
-                        'auth_host': '%(du_host)s'
-                    }
-                }
-            }
-        }
-    }
-}
 
 class Role(Base):
     """The ORM class for the roles table in the database."""
@@ -141,38 +102,75 @@ class ResMgrDB(object):
         # Populate/Update the roles table, if needed.
         self.setup_roles()
 
-    def _setup_config(self, role, config):
+    def _setup_config(self, config):
         """
         Sets up the configuration data for a role
-        :param str role: role name
         :param dict config: config structure as a JSON object
         :return: Configuration data after value substitutions
         :rtype: str
         """
-        out = None
-        config_str = json.dumps(config)
-        # Currently, only ostackhost config is supported
-        if role == 'pf9-ostackhost':
-            param_vals = {
-                'du_host': self.config.get("DEFAULT", "DU_FQDN"),
-                'interface': "eth0",
-                'ostack_password': "m1llenn1umFalc0n",
-            }
-            out = config_str % param_vals
 
+        # The params that can be substituted in a config string can either be
+        # (1) part of the environment variables for the DU
+        # (2) part of a predefined set of name, values.
+        config_str = json.dumps(config)
+        os_vars = os.environ
+
+        # TODO: Make this dynamic. May be read in from some file?
+        param_vals = {
+            'du_fqdn': self.config.get("DEFAULT", "DU_FQDN"),
+        }
+        os_vars.update(param_vals)
+        out = config_str % os_vars
         return out
+
+    def _load_roles_from_files(self):
+        """
+        Read the roles related JSON metadata files and collate the role metadata
+        information
+        :return: The metadata of all the roles.
+        :rtype: dict
+        """
+        metadata = {}
+        file_pattern = '%s/*/*/*.json' % self.config.get('resmgr',
+                                                         'role_metadata_location')
+        for file in glob.glob(file_pattern):
+            with open(file) as fp:
+                try:
+                    # Each file should represent data for one version of a role
+                    data = json.load(fp)
+                    if not isinstance(data, dict):
+                        # Skip this metadata file and move on to the next file
+                        log.error('Invalid role metadata file %s, data is not '
+                                  'of expected dict format. Ignoring it', file)
+                        continue
+                    role_name = data['role_name']
+                    role_version = data['config']['version']
+                    log.info('Reading role data for %s, version %s',
+                             role_name, data['config']['version'])
+                    metadata[role_name] = {
+                        role_version: data
+                    }
+                except:
+                    log.exception('Error loading the role metadata file %s', file)
+                    # Skip this metadata file and continue
+                    continue
+        return metadata
 
     def setup_roles(self):
         """
         Pushes the roles related metadata into the database.
         """
         log.info('Setting up roles in the database')
-        for k, v in _roles.iteritems():
-            config_str = self._setup_config(k, v['config'])
-            version = v['config']['version']
-            id = '%s_%s' % (k, version)
-            self.insert_update_role(id, k, version, v['display_name'],
-                                    v['description'], config_str, v['active'])
+        roles = self._load_roles_from_files()
+        for k, v in roles.iteritems():
+            # Each role can have multiple versions associated with it.
+            for ver, ver_vals in v.iteritems():
+                config_str = self._setup_config(ver_vals['config'])
+                id = '%s_%s' % (k, ver)
+                is_active = True
+                self.insert_update_role(id, k, ver, ver_vals['display_name'],
+                                    ver_vals['description'], config_str, is_active)
 
     @property
     def dbengine(self):
@@ -337,7 +335,7 @@ class ResMgrDB(object):
                 if active_only:
                     result = session.query(Role).filter_by(rolename=role_name, active=True).first()
                 else:
-                    result = session.query(Role).filter_by(rolename=role_name).first()
+                    result = session.query(Role).filter_by(rolename=role_name).all()
             except NoResultFound:
                 log.exception('No role found %s')
                 result = None

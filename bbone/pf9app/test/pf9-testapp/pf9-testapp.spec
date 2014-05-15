@@ -1,5 +1,5 @@
 Name:           pf9-testapp
-Version:        1.0
+Version:        1.0.0
 Release:        1
 Summary:        Platform 9 test app
 

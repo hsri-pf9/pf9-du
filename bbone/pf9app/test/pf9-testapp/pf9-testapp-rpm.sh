@@ -33,4 +33,4 @@ cp "$CONFIGUTILS_ROOT"/*.py "$SRC_STAGE_ROOT"
 
 mock --buildsrpm --sources "$SRC_STAGE_ROOT" --spec "$SRC_STAGE_ROOT"/pf9-testapp.spec --resultdir "$SRC_BUILD_ROOT"
 
-mock --rebuild --resultdir "$RPM_BUILD_ROOT" "$SRC_BUILD_ROOT"/pf9-testapp-1.0-1.src.rpm
+mock --rebuild --resultdir "$RPM_BUILD_ROOT" "$SRC_BUILD_ROOT"/pf9-testapp-1.0.0-1.src.rpm

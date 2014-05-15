@@ -56,10 +56,11 @@ ${RESMGR_SRC_STAGE}: pre-reqs
 	pip install MySQL-python; \
 	deactivate
 
-	mkdir -p ${RESMGR_SRC_STAGE}/var/log/pf9; \
-	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9; \
-	cp ${RESMGR_DIR}/etc/pf9/resmgr.conf ${RESMGR_SRC_STAGE}/etc/pf9/; \
-	cp ${RESMGR_DIR}/etc/pf9/resmgr_config.py ${RESMGR_SRC_STAGE}/etc/pf9/; \
+	mkdir -p ${RESMGR_SRC_STAGE}/var/log/pf9
+	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9
+	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9/resmgr_roles
+	cp ${RESMGR_DIR}/etc/pf9/resmgr.conf ${RESMGR_SRC_STAGE}/etc/pf9/
+	cp ${RESMGR_DIR}/etc/pf9/resmgr_config.py ${RESMGR_SRC_STAGE}/etc/pf9/
 	cp ${RESMGR_DIR}/etc/pf9/resmgr-paste.ini ${RESMGR_SRC_STAGE}/etc/pf9/
 
 	mkdir -p ${VENV}/bin; \

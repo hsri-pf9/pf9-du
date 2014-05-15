@@ -1,0 +1,21 @@
+{
+    "role_name": "pf9-testapp",
+    "display_name": "test app",
+    "description": "Host assigned to run test app",
+    "config": {
+        "version": "1.0.0-1",
+        "running": "True",
+        "url": "https://%(du_fqdn)s:9443/private/pf9-testapp-1.0.0-1.noarch.rpm",
+        "config": {
+            "DEFAULT": {},
+            "section2": {
+                "key3": "val3",
+                "key4": "val4"
+                },
+            "section1": {
+                "key2": "val2",
+                "key1": "val1"
+                }
+            }
+        }
+    }
