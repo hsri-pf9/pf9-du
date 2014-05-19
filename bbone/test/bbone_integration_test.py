@@ -64,7 +64,7 @@ class BBoneIntegrationTest(unittest.TestCase):
     def setUp(self):
         bbone_dir = realpath(join(dirname(__file__), '..'))
         master_conf = join(bbone_dir, 'bbmaster/etc/bbmaster_test.conf')
-        pecan_conf = join(bbone_dir, 'bbmaster/config.py')
+        pecan_conf = join(bbone_dir, 'bbmaster/test_config.py')
         slave_conf = join(bbone_dir, 'bbslave/etc/pf9/hostagent_test.conf')
         slave_script = join(bbone_dir, 'bbslave/bbslave/main.py')
         ca_certs = join(bbone_dir, 'etc/pf9/certs/testca/cacert.pem')
