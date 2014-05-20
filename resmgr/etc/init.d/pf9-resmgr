@@ -22,14 +22,17 @@ case "$1" in
   start)
     echo "Starting $name"
     $cmd start
+    RETVAL=$?
     ;;
   stop)
     echo "Stopping $name"
     $cmd stop
+    RETVAL=$?
     ;;
   restart)
     echo "Restarting $name"
     $cmd restart
+    RETVAL=$?
     ;;
   status)
     if [ ! -e $pidfile ]; then
@@ -50,5 +53,5 @@ case "$1" in
     ;;
 esac
 
-exit 0
+exit $RETVAL
 

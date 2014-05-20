@@ -6,6 +6,7 @@ import logging
 import paste.deploy
 import paste.httpserver
 import os
+import sys
 import os.path
 from time import time,strftime
 
@@ -55,5 +56,8 @@ runner = DaemonRunner(resmgr)
 # ensures that the logger file handle does not get closed during daemonization
 runner.daemon_context.files_preserve = [handler.stream]
 makedir(os.path.dirname(pidfile))
-runner.do_action()
+try:
+    runner.do_action()
+except DaemonRunnerStopFailureError:
+    sys.exit(1)
 
