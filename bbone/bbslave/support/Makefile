@@ -10,9 +10,6 @@
 
 include ../../../common-defs.mk
 
-PARENT_DIR := $(abspath $(SRC_ROOT)/..)
-
-MYSELF := $(shell whoami)
 SRC_DIR := $(SRC_ROOT)/bbone/bbslave
 BUILD_DIR := $(BUILD_ROOT)/hostagent
 RPMBUILD_DIR := $(BUILD_DIR)/rpmbuild
@@ -27,7 +24,6 @@ HOSTAGENT_TARBALL_SRCDIR := $(BUILD_DIR)/hostagent-tarball-src
 OPT_PF9_DIR := $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9
 VENV_DIR := $(OPT_PF9_DIR)/hostagent
 
-HOSTAGENT_TARBALL_EXPANDEDDIR := $(BUILD_DIR)/hostagent-tarball-expanded
 HOSTAGENT_TARBALL := $(BUILD_DIR)/pf9-hostagent.tar.gz
 RPM_DIR := $(BUILD_DIR)/rpmbuild
 MOCK = /usr/bin/mock -r epel-6-x86_64
@@ -51,15 +47,11 @@ $(OPT_PF9_DIR):
 $(VENV_DIR): | $(OPT_PF9_DIR) $(BUILD_DIR)
 	virtualenv --system-site-packages $@
 
-$(HOSTAGENT_TARBALL_EXPANDEDDIR):
-	rm -fr $@
-	mkdir -p $@
-
 $(HOSTAGENT_TARBALL_SRCDIR):
 	rm -fr $@
-	mkdir -p $@/etc/init.d
+	mkdir -p $@/etc/rc.d/init.d
 	mkdir -p $@/etc/pf9
-	cp $(BBSLAVE_DIR)/etc/init.d/pf9-hostagent $@/etc/init.d/
+	cp $(BBSLAVE_DIR)/etc/init.d/pf9-hostagent $@/etc/rc.d/init.d/
 	cp $(BBSLAVE_DIR)/etc/pf9/hostagent.conf $@/etc/pf9
 
 install-bbslave: | $(BUILD_DIR) $(VENV_DIR)

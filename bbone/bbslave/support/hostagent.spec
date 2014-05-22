@@ -36,7 +36,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 /opt/pf9
-/etc/init.d/pf9-hostagent
+/etc/rc.d/init.d/pf9-hostagent
 %config /etc/pf9/hostagent.conf
 /etc/pf9/certs
 

@@ -37,7 +37,7 @@ rm -rf ${RPM_BUILD_ROOT}
 /opt/pf9
 %config /etc/pf9/bbmaster_config.py
 %config /etc/pf9/bbmaster.conf
-/etc/init.d/pf9-bbmaster
+/etc/rc.d/init.d/pf9-bbmaster
 %dir /var/log/pf9
 
 
