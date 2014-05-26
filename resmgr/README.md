@@ -22,12 +22,14 @@ Example:
     {
         "name": "roleA",
         "display_name": "Role A",
-        "description": "Simple role A"
+        "description": "Simple role A",
+        "active_version": "3.0.9-1"
     },
     {
         "name": "roleB",
         "display_name": "Role B",
-        "description": "Another role B"
+        "description": "Another role B",
+        "active_version": "1.0.2-5"
     }
 ]
 ```
@@ -40,9 +42,28 @@ Example:
 {
     "name": "roleA",
     "display_name": "Role A",
-    "description": "Simple role A"
+    "description": "Simple role A",
+    "active_version": "3.0.9-1"
 }
 ```
+
+### PUT /v1/roles/__role_name__ ###
+
+Sets a particular version of a role as the active version of the role. The version
+of the role that is to be marked active is passed in the body of the request
+
+Example:
+```
+{
+    'active_version': '1.0.2-2'
+}
+```
+
+On setting a role version as active, new hosts where the role is applied will install
+this version of the role. However, existing hosts will continue to use the pre-existing
+version of the role. To move these hosts to this active version of the role, the role
+should be reapplied to these hosts.
+
 ### GET /v1/hosts ##
 
 Returns a dictionary of hosts in the pf9 system with assigned roles.
@@ -117,8 +138,15 @@ in the inactive state.
 
 ### PUT /v1/hosts/__id__/roles/__role_name__ ###
 
-Activates the role specified by role_name on the host specified by id
-
+Activates the role specified by role_name on the host specified by id. There are 3 possible
+outcomes of this operation
+1. If the role was not present on the host, then the role will be installed and configured
+on the host
+2. If the role was already present on the host and the version of the role on the host
+is same as the active version of the role, no action is performed on the host
+3. If the role was already present on the host but the version of the role on the host
+is not the same as the active version of the role, the role on the host is updated to the
+active version of the role.
 
 ### DELETE /v1/hosts/__id__/roles/__role_name__ ###
 

@@ -9,6 +9,7 @@ import glob
 import logging
 import json
 import os
+import re
 
 from exceptions import HostNotFound
 
@@ -148,14 +149,61 @@ class ResMgrDB(object):
                     role_version = data['config']['version']
                     log.info('Reading role data for %s, version %s',
                              role_name, data['config']['version'])
-                    metadata[role_name] = {
-                        role_version: data
-                    }
+                    if not role_name in metadata:
+                        metadata[role_name] = {
+                            role_version: data
+                        }
+                    else:
+                        metadata[role_name][role_version] = data
                 except:
                     log.exception('Error loading the role metadata file %s', file)
                     # Skip this metadata file and continue
                     continue
         return metadata
+
+    def _determine_active_role_versions(self, new_roles):
+        """
+        Figure what is the active version for the roles in resource manager.
+        :param dict new_roles: roles that are read in from the metadata in the
+         filesystem
+        :return: dictionary of role names mapped to their active versions
+        :rtype: dict
+        """
+        active_roles = {}
+        active_roles_in_db_map = {}
+        # Get all the roles already present in the DB.
+        active_roles_in_db = self.query_roles()
+        for role in active_roles_in_db:
+            active_roles_in_db_map[role.rolename] = role.version
+
+        for role, role_details in new_roles.iteritems():
+            if role in active_roles_in_db_map:
+                # A version for this role is already present in our DB.
+                active_roles[role] = active_roles_in_db_map[role]
+                break
+                # Note: there is a chance that the role versions in the filesystem
+                # are not what we have in the DB. These should be treated as
+                # not active roles
+            else:
+                # This role is not present in our DB. In this role's metadata (that
+                # was read in), pick the highest version of this role as the active
+                # role
+                active_version = None
+                for ver in role_details.keys():
+                    # Assumption is role version is made of digits of form like
+                    # a.b.c-d
+                    ver_tuple = tuple([int(x) for x in re.split('\.|\-', ver) if x.isdigit()])
+                    if not active_version:
+                        active_version = ver
+                        active_version_tuple = ver_tuple
+                        continue
+                    if cmp(ver_tuple, active_version_tuple) > 0:
+                        active_version = ver
+                        active_version_tuple = ver_tuple
+
+                active_roles[role] = active_version
+
+        return active_roles
 
     def setup_roles(self):
         """
@@ -163,12 +211,19 @@ class ResMgrDB(object):
         """
         log.info('Setting up roles in the database')
         roles = self._load_roles_from_files()
+
+        active_roles = self._determine_active_role_versions(roles)
+
         for k, v in roles.iteritems():
             # Each role can have multiple versions associated with it.
             for ver, ver_vals in v.iteritems():
                 config_str = self._setup_config(ver_vals['config'])
                 id = '%s_%s' % (k, ver)
-                is_active = True
+
+                if k in active_roles and active_roles[k] == ver:
+                    is_active = True
+                else:
+                    is_active = False
                 self.insert_update_role(id, k, ver, ver_vals['display_name'],
                                     ver_vals['description'], config_str, is_active)
 
@@ -342,17 +397,22 @@ class ResMgrDB(object):
 
         return result
 
-    def _build_host_attributes(self, host_details):
+    def _build_host_attributes(self, host_details, fetch_role_ids):
         """
         Internal utility method that builds a host dict object
         :param list roles: list of all roles for the host
         :param Host host_details: Host ORM object that contains the host information
+        :param bool fetch_role_ids: Boolean to return role ids instead of role names
         :return: dictionary of host attributes
         :rtype: dict
         """
         roles = []
-        for role in host_details.roles:
-            roles.append(role.rolename)
+        if fetch_role_ids:
+           for role in host_details.roles:
+               roles.append(role.id)
+        else:
+            for role in host_details.roles:
+                roles.append(role.rolename)
 
         host_attrs = {
             'id': host_details.id,
@@ -385,10 +445,11 @@ class ResMgrDB(object):
 
         return results
 
-    def query_host(self, host_id):
+    def query_host(self, host_id, fetch_role_ids=False):
         """
         Query the attributes for a particular host
         :param str host_id: ID of the host
+        :param bool fetch_role_ids: Boolean to return role ids instead of role names
         :return: Host object with the host attributes. None if the
         host is not present
         :rtype: Host
@@ -399,7 +460,7 @@ class ResMgrDB(object):
             try:
                 result = session.query(Host).filter_by(id=host_id).first()
                 if result:
-                    out = self._build_host_attributes(result)
+                    out = self._build_host_attributes(result, fetch_role_ids)
             except NoResultFound:
                 log.exception('No host found %s', host_id)
 
@@ -416,7 +477,7 @@ class ResMgrDB(object):
         with self.dbsession() as session:
             results = session.query(Host).all()
             for host in results:
-                out.append(self._build_host_attributes(host))
+                out.append(self._build_host_attributes(host, fetch_role_ids=False))
 
         return out
 
@@ -483,6 +544,24 @@ class ResMgrDB(object):
             except:
                 log.exception('DB error while removing role %s from host %s',
                               role_name, host_id)
+                raise
+
+
+    def mark_role_version_active(self, role_name, version):
+        """
+        Mark a particular role version as active. All other versions of that
+        role are marked as not active.
+        :param str role_name: Name of the role
+        :param str version: Version of the role to be marked active
+        """
+        with self.dbsession() as session:
+            try:
+                roles = session.query(Role).filter_by(rolename=role_name).all()
+                for role in roles:
+                    role.active = role.version == version
+            except:
+                log.exception('Setting active role %s, version %s failed',
+                               role_name, version)
                 raise
 
     def update_roles_for_host(self, host_id, roles):

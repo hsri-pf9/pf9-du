@@ -20,22 +20,70 @@ logging.basicConfig(level=logging.DEBUG,
 log = logging.getLogger('du-ctl')
 
 _bbmaster_endpoint = 'http://localhost:8082/v1/hosts'
+_resmgr_endpoint = 'http://localhost:8083/v1'
 
 _parser = argparse.ArgumentParser()
 
 
-def _build_parsers():
+def _build_role_parser(subparsers):
     """
-    Build the command line parser hierarchy based on the control script actions
+    Build subparser for resource manager's roles related operations
+    :param subparsers: Subparsers object which is used to build the role
+    subparser
     """
-    subparsers = _parser.add_subparsers(help='sub-commands',
-                                       dest='subparser')
+    role_parser = subparsers.add_parser('hostrole',
+                                        help='Host role related commands')
+    role_sub_parser = role_parser.add_subparsers(help='Host role sub-commands',
+                                                 dest='role_subparser')
 
-    #Add agent_update command
+    role_active_version_parser = role_sub_parser.add_parser('set_active',
+                                                            help='Set a version of role as active')
+    role_active_version_parser.add_argument('--role',
+                                            action='store',
+                                            dest='role',
+                                            required=True,
+                                            help='Name of the role whose version is be marked active')
+    role_active_version_parser.add_argument('--version',
+                                            action='store',
+                                            dest='version',
+                                            required=True,
+                                            help='Version of the role being marked active')
+    role_active_version_parser.add_argument('--user_token_file',
+                                            action='store',
+                                            dest='user_token_file',
+                                            required=True,
+                                            help='File containing user token for this operation')
+
+    role_apply_parser = role_sub_parser.add_parser('apply',
+                                                   help='Apply a role to a host')
+    role_apply_parser.add_argument('--host_id',
+                                   action='store',
+                                   dest='host_id',
+                                   required=True,
+                                   help='Host ID of the host to which the role is going to be applied')
+    role_apply_parser.add_argument('--role',
+                                   action='store',
+                                   dest='role',
+                                   required=True,
+                                   help='Name of the role that is being applied')
+    role_apply_parser.add_argument('--user_token_file',
+                                   action='store',
+                                   dest='user_token_file',
+                                   required=True,
+                                   help='File containing user token for this operation')
+
+def _build_hostagent_parser(subparsers):
+    """
+    Build subparser for host agent related operations
+    :param subparsers: Subparsers object which is used to build the role
+    subparser
+    """
     agent_parser = subparsers.add_parser('hostagent',
                                          help='Host agent commands')
+
     agent_sub_parser = agent_parser.add_subparsers(help='Host agent sub-commands',
                                                    dest='agent_subparser')
+
     # Parser for update
     agent_update_parser = agent_sub_parser.add_parser('update',
                                                       help='Update the host agent')
@@ -63,11 +111,20 @@ def _build_parsers():
     # Parser for list
     agent_list_parser = agent_sub_parser.add_parser('list',
                                                     help='List the hosts and its details')
-    agent_list_parser.add_argument("--host",
+    agent_list_parser.add_argument('--host',
                       action='store',
                       dest='host',
                       help='ID of the specific host to be queried. If not specified, '
                            'all hosts are queried')
+
+def _build_parsers():
+    """
+    Build the command line parser hierarchy based on the control script actions
+    """
+    subparsers = _parser.add_subparsers(help='sub-commands',
+                                        dest='subparser')
+    _build_role_parser(subparsers)
+    _build_hostagent_parser(subparsers)
 
 def _process_cmd(args):
     """
@@ -90,9 +147,17 @@ def _process_cmd(args):
             do_agent_list(args)
             return
 
+    if args.subparser == 'hostrole':
+        if args.role_subparser == 'set_active':
+            do_set_active_role_version(args)
+            return
+        elif args.role_subparser == 'apply':
+            do_set_host_role(args)
+            return
+
     # Did not match any known command. Should not hit this because argparse
     # should do everything for us.
-    parser.print_help()
+    _parser.print_help()
 
 def _do_get(url):
     """
@@ -105,7 +170,7 @@ def _do_get(url):
     resp.raise_for_status()
     return resp.json()
 
-def _do_put(url, body=None):
+def _do_put(url, body=None, headers=None):
     """
     Execute the PUT http call
     :param str url: URL to run the PUT call on
@@ -113,7 +178,7 @@ def _do_put(url, body=None):
     :return: JSON response
     :rtype: JSON encoded dict
     """
-    headers = {'Content-type': 'json'}
+    headers['Content-type'] = 'json'
     resp = requests.put(url, data=json.dumps(body), headers=headers)
     resp.raise_for_status()
     return resp.json()
@@ -225,10 +290,46 @@ def do_agent_update(options):
     # push update
     _update_and_poll(options, resp['host_agent']['version'])
 
+def do_set_active_role_version(options):
+    """
+    Sets a particular version of the role as active
+    :param options: command line options that are passed in for this command
+    """
+    url = ''.join([_resmgr_endpoint, '/roles/', options.role])
+    log.info('Setting role %s version %s as active', options.role, options.version)
+    with open(options.user_token_file) as token_file:
+        auth_token = token_file.read()
+
+    headers = {
+        'X-Auth-Token': auth_token
+    }
+
+    body = {
+        'active_version': options.version
+    }
+
+    _do_put(url, body=body, headers=headers)
+
+def do_set_host_role(options):
+    """
+    Applies the role to a host
+    :param options: command line options that are passed in for this command
+    """
+    url = ''.join([_resmgr_endpoint, '/hosts/', options.host_id, '/roles/', options.role])
+    log.info('Updating role %s for host %s', options.role, options.host_id)
+    with open(options.user_token_file) as token_file:
+        auth_token = token_file.read()
+
+    headers = {
+        'X-Auth-Token': auth_token
+    }
+
+    _do_put(url, body=None, headers=headers)
+
 def main():
     _build_parsers()
     args = _parser.parse_args()
     _process_cmd(args)
 
 if __name__ == '__main__':
-        main()
+    main()

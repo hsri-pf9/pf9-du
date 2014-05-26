@@ -75,7 +75,8 @@ class RolesMgr(object):
             role_attrs = {
                 'name': role.rolename,
                 'display_name': role.displayname,
-                'description': role.description
+                'description': role.description,
+                'active_version': role.version
             }
             result[role.rolename] = role_attrs
 
@@ -94,13 +95,31 @@ class RolesMgr(object):
                 role.rolename: {
                     'name': role.rolename,
                     'display_name': role.displayname,
-                    'description': role.description
+                    'description': role.description,
+                    'active_version': role.version
                 }
             }
         else:
             result = None
 
         return result
+
+    def set_active_role_version(self, role_name, version):
+        """
+        Set a version of the role as active
+        :param str role_name: Name of the role
+        :param str version: Version to be marked active
+        """
+        roles = self.db_handler.query_role(role_name, active_only=False)
+        # First ensure it is a valid role
+        if not roles:
+            raise RoleNotFound(role_name)
+
+        # Next check that the specified version exists for that role
+        if not any(role.version == version for role in roles):
+            raise RoleNotFound(role_name)
+
+        self.db_handler.mark_role_version_active(role_name, version)
 
     def active_role_config(self):
         """
@@ -113,7 +132,7 @@ class RolesMgr(object):
         result = {}
         for role in query_op:
             result[role.rolename] = {
-                'role_name': role.id,
+                'role_id': role.id,
                 'config': json.loads(role.desiredconfig)
             }
 
@@ -527,7 +546,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         """
         if host_id in _unauthorized_hosts:
             log.warn('Host %s is classified as unauthorized host. Nothing '
-                         'to delete', host_id)
+                     'to delete', host_id)
             return
 
         # Delete all the roles for the host
@@ -582,7 +601,9 @@ class ResMgrPf9Provider(ResMgrProvider):
             log.error('Host %s is not a recognized host', host_id)
             raise HostNotFound(host_id)
 
-        if role_name in host_inst['roles']:
+        host_roles = self.res_mgr_db.query_host(host_id, fetch_role_ids=True)
+        if host_roles and \
+            self.active_config[role_name]['role_id'] in host_roles['roles']:
             log.info('Role %s is already assigned to %s', role_name, host_id)
             return
 
@@ -661,6 +682,17 @@ class ResMgrPf9Provider(ResMgrProvider):
                  role_name, host_id)
         app_info = self.prepare_app_config(host_inst['roles'])
         self.roles_mgr.push_configuration(host_id, app_info)
+
+    def set_active_role_version(self, role_name, version):
+        """
+        Set a particular role version as active. All other versions of that
+        role are automatically marked as inactive.
+        :param str role_name: Name of the role
+        :param str version: Version of the role
+        """
+        self.roles_mgr.set_active_role_version(role_name, version)
+        # Update the active config cache
+        self.active_config = self.roles_mgr.active_role_config()
 
 
 def get_provider(config_file):
