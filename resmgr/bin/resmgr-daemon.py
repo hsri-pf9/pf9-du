@@ -1,7 +1,7 @@
 # Copyright (c) 2014 Platform9 Systems Inc.
 # All Rights reserved
 
-from daemon.runner import DaemonRunner
+from daemon.runner import DaemonRunner, DaemonRunnerStopFailureError
 import logging
 import paste.deploy
 import paste.httpserver

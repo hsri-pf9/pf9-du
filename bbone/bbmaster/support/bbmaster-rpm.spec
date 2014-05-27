@@ -46,8 +46,8 @@ rm -rf ${RPM_BUILD_ROOT}
 sudo /bin/ln -sf /opt/pf9/bbmaster/bin/python /opt/pf9/bbmaster/bin/pf9-bbmaster
 
 if [ "$1" -ge "2" ]; then
-    # In case of an upgrade, restart the service
-    /sbin/service pf9-bbmaster restart
+    # In case of an upgrade, restart the service if it's already running
+    /sbin/service pf9-bbmaster condrestart
 fi
 
 %preun

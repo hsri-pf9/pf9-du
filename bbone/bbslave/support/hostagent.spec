@@ -55,8 +55,8 @@ if [ "$1" = "1" ]; then
     chkconfig --add pf9-hostagent
     service pf9-hostagent start
 elif [ "$1" = "2" ]; then
-    # In case of an upgrade, only restart the service
-    service pf9-hostagent restart
+    # In case of an upgrade, only restart the service if it's already running
+    service pf9-hostagent condrestart
 fi
 %preun
 # $1==0: remove the last version of the package

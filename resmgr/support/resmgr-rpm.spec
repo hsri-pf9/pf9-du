@@ -52,10 +52,8 @@ if [ "$1" = "1" ]; then
     sed -i.orig "s/$pattern/$adminkeyline/g" /etc/pf9/resmgr-paste.ini
     /sbin/chkconfig --add pf9-resmgr
 elif [ "$1" -ge "2" ]; then
-    # In case of an upgrade, only restart the service
-    # stop and start service for now till IAAS-441 is fixed.
-    /sbin/service pf9-resmgr stop
-    /sbin/service pf9-resmgr start
+    # In case of an upgrade, only restart the service if it's already running
+    /sbin/service pf9-resmgr condrestart
 fi
 
 %preun

@@ -18,6 +18,20 @@ root=/opt/pf9/resmgr
 cmd="$root/bin/python $root/bin/resmgr-daemon.py"
 pidfile=/var/run/pf9/resmgr.pid
 
+status() {
+    if [ ! -e $pidfile ]; then
+        echo "$name service is not running"
+        return 1
+    elif ! kill -0 `cat $pidfile` >> /dev/null 2>&1; then
+        rm -f $pidfile
+        echo "$name service is not running"
+        return 1
+    else
+        echo "$name service is running"
+        return 0
+    fi
+}
+
 case "$1" in
   start)
     echo "Starting $name"
@@ -34,21 +48,22 @@ case "$1" in
     $cmd restart
     RETVAL=$?
     ;;
-  status)
-    if [ ! -e $pidfile ]; then
-        echo "$name service is not running"
-        exit 1
-    elif ! kill -0 `cat $pidfile` >> /dev/null 2>&1; then
-        rm -f $pidfile
-        echo "$name service is not running"
-        exit 1
-    else
-        echo "$name service is running"
-        exit 0
+  condrestart)
+    RETVAL=0
+    if status > /dev/null 2>&1; then
+      echo "Stopping $name"
+      $cmd stop
+      echo "Starting $name"
+      $cmd start
+      RETVAL=$?
     fi
     ;;
+  status)
+    status
+    RETVAL=$?
+    ;;
   *)
-    echo "Usage: /etc/init.d/pf9-resmgr {start|stop|restart|status}"
+    echo "Usage: /etc/init.d/pf9-resmgr {start|stop|restart|condrestart|status}"
     exit 1
     ;;
 esac
