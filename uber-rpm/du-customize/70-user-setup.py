@@ -92,7 +92,7 @@ try :
                            email=admin_email)
     ks.roles.add_user_role(user, admin_role, service_tenant)
     log.info("Created user %s" % admin_user)
-except Exception as ex :
+except Exception as ex:
     log.error('Failed to create user %s : %s' % (admin_user, ex))
     exit(1)
 
@@ -117,3 +117,10 @@ with open('/etc/nova/nova.conf', 'a') as novaCfg:
         novaCfg.write(line + '\n')
 
 log.info('Successfully added Platform9 user and system information to nova config')
+
+# Add tenant id information to janitor.conf
+with open('/etc/pf9/janitor.conf', 'a') as f:
+    for line in lines:
+        novaCfg.write(line + '\n')
+
+log.info('Successfully added Platform9 user and system information to janitor config')
