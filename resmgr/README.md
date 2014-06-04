@@ -45,7 +45,9 @@ Example:
 ```
 ### GET /v1/hosts ##
 
-Returns a dictionary of hosts in the pf9 system with assigned roles
+Returns a dictionary of hosts in the pf9 system with assigned roles.
+The `last_response_time` values are used when the host is not responding.
+Otherwise, this value may be null.
 
 Example:
 ```
@@ -57,7 +59,9 @@ Example:
             "hostname": "leb-centos-1.platform9.sys",
             "os_family": "Linux",
             "arch": "x86_64",
-            "os_info": "centos 6.4 Final"
+            "os_info": "centos 6.4 Final",
+            "responding": <true|false>,
+            "last_response_time": <date|null>
         },
         "roles": ["role_1", "role2"]
     },
@@ -69,6 +73,9 @@ Example:
             "os_family": "Linux",
             "arch": "x86_64",
             "os_info": "centos 6.4 Final"
+            "responding": <true|false>,
+            "last_response_time": <date|null>
+
         },
         "roles": ["role_2", "role5"]
     },
@@ -76,7 +83,9 @@ Example:
 ```
 ### GET /v1/hosts/__id__ ###
 
-Returns a descriptor for a single host
+Returns a descriptor for a single host.
+The `last_response_time` value is used when the host is not responding.
+Otherwise, this value may be null.
 
 Example:
 ```
@@ -87,6 +96,9 @@ Example:
         "os_family": "Linux",
         "arch": "x86_64",
         "os_info": "centos 6.4 Final"
+        "responding": <true|false>,
+        "last_response_time": <date|null>
+
     },
     "state": "<inactive|activating|active>",
     "roles": ["role4", "role3"]

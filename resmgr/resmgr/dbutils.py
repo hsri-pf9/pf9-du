@@ -361,7 +361,9 @@ class ResMgrDB(object):
                 'hostname': host_details.hostname,
                 'os_family': host_details.hostosfamily,
                 'arch': host_details.hostarch,
-                'os_info': host_details.hostosinfo
+                'os_info': host_details.hostosinfo,
+                'responding' : host_details.responding,
+                'last_response_time' : host_details.lastresponsetime
             }
         }
         return host_attrs
