@@ -14,6 +14,7 @@ import logging
 import os
 import re
 from novaclient.v1_1 import client as nv_client
+from subprocess import call
 
 keystone_endpoint = 'http://localhost:35357/v2.0'
 default_tenant = 'service'
@@ -100,9 +101,14 @@ log.info('Adding information on Platform9 users and projects')
 
 try:
     nc = nv_client.Client(admin_user, admin_pass, default_tenant,
-                          auth_url=keystone_endpoint)
+                          auth_url=keystone_endpoint, http_log_debug=True)
+    log.info('Completed nova client initialization.')
+    nova_status_code = call(["service", "openstack-nova-api", "status"])
+    log.info("openstack-nova-api status code: %s" % nova_status_code)
     nc.quotas.update(service_tenant.id, instances=-1, ram=-1, cores=-1, floating_ips=-1)
-
+    nova_status_code = call(["service", "openstack-nova-api", "status"])
+    log.info("openstack-nova-api status code: %s" % nova_status_code)
+    log.info('Completed nova quota update.')
 except Exception as ex:
     log.error("Failed to update quota: %s" % ex)
     exit(1)
@@ -110,7 +116,6 @@ except Exception as ex:
 # Set quota, add user and tenant info to nova.conf
 lines = ["[PF9]", ''.join(["pf9_project_id", "=", service_tenant.id]),
          ''.join(["pf9_user_id", "=", user.id])]
-
 
 with open('/etc/nova/nova.conf', 'a') as novaCfg:
     for line in lines:
