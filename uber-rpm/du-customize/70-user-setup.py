@@ -126,6 +126,6 @@ log.info('Successfully added Platform9 user and system information to nova confi
 # Add tenant id information to janitor.conf
 with open('/etc/pf9/janitor.conf', 'a') as f:
     for line in lines:
-        novaCfg.write(line + '\n')
+        f.write(line + '\n')
 
 log.info('Successfully added Platform9 user and system information to janitor config')
