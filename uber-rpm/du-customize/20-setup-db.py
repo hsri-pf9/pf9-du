@@ -9,7 +9,7 @@
 # + wires the new database into the service configs
 # + creates new nova, keystone and glance databases, and migrates all the data from
 #   the local mysql to the new databases.
-# + starts all the services.
+# + restarts all the services.
 #
 # Requires the following environment variables:
 # DBENDPOINT - admin endpoint of the mysql database, like
@@ -72,11 +72,11 @@ class DbSetup(object) :
         for svc in DbSetup.services :
             self.stop_service(svc)
 
-    def start_services(self) :
-        """ Start the openstack services, raise exception on failure. """
-        log.info("starting services...")
+    def restart_services(self) :
+        """ Restart the openstack services, raise exception on failure. """
+        log.info("restarting services...")
         for svc in DbSetup.services :
-            subprocess.check_call(['service', svc, 'start'])
+            subprocess.check_call(['service', svc, 'restart'])
 
     def create_db(self, db_name) :
         """
@@ -134,6 +134,10 @@ class DbSetup(object) :
                 'DEFAULT', 'sql_connection', conn_template.format('glance')])
 
 if __name__ == '__main__' :
+    # FIXME JIRA IAAS-519
+    # Other services may be starting in between the stop and restart calls here
+    # which could lead to incorrect config files and openstack-nova could be
+    # confused about which database to use.
 
     # DBENDPOINT and thus db-setup is optional - only necessary for rds
     admin_endpoint = os.getenv('DBENDPOINT')
@@ -149,7 +153,7 @@ if __name__ == '__main__' :
             setup.migrate_db(db)
         setup.create_db('resmgr')
         setup.config_dbs_in_services()
-        setup.start_services()
+        setup.restart_services()
         setup.stop_service('mysqld')
         # FIXME - uninstall mysqld?
         sys.exit(0)

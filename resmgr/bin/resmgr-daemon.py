@@ -59,5 +59,5 @@ makedir(os.path.dirname(pidfile))
 try:
     runner.do_action()
 except DaemonRunnerStopFailureError:
-    sys.exit(1)
+    sys.exit(0)
 
