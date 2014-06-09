@@ -45,7 +45,8 @@ case "$1" in
     ;;
   restart)
     echo "Restarting $name"
-    $cmd restart
+    $cmd stop
+    $cmd start
     RETVAL=$?
     ;;
   condrestart)
