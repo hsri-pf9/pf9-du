@@ -21,4 +21,5 @@ def serve(config_file):
     cfg = _parse_config(config_file)
     nova_obj = NovaCleanup(conf=cfg)
 
-    threading.Timer(60, nova_obj.cleanup_hosts).start()
+    while True:
+        threading.Timer(60, nova_obj.cleanup_hosts).start()

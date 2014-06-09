@@ -53,7 +53,7 @@ class NovaCleanup(object):
             }
         }
 
-        url = 'http://localhost:35357/keystone/v2.0/tokens'
+        url = 'http://localhost:35357/v2.0/tokens'
 
         r = requests.post(url, json.dumps(data), verify=False, headers={'Content-Type': 'application/json'})
 
@@ -106,7 +106,7 @@ class NovaCleanup(object):
             return
 
         resmgr_data = resp.json()
-        resmgr_ids = set([h['id'] for h in resmgr_data])
+        resmgr_ids = set(h['id'] for h in filter(lambda h: h['state'] == 'active', resmgr_data))
         resp = self._nova_request('os-hypervisors', token)
 
         if resp.status_code != requests.codes.ok:
@@ -118,7 +118,7 @@ class NovaCleanup(object):
         for nova_id in nova_ids:
             if nova_id not in resmgr_ids:
                 LOG.info('Cleaning up hypervisor info for %s', nova_id)
-                resp = self._nova_request('os-hypervisors/%s' % str(nova_id), 'delete')
+                resp = self._nova_request('os-hypervisors/%s' % str(nova_id), token, req_type='delete')
 
                 if resp.status_code != 204:
                     LOG.error('Skipping hypervisor %s', nova_id)
