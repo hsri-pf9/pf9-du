@@ -2,7 +2,7 @@ __author__ = 'Platform9'
 
 from ConfigParser import ConfigParser
 from nova_cleanup import NovaCleanup
-import threading
+from time import sleep
 
 
 def _parse_config(config_file):
@@ -22,4 +22,6 @@ def serve(config_file):
     nova_obj = NovaCleanup(conf=cfg)
 
     while True:
-        threading.Timer(60, nova_obj.cleanup_hosts).start()
+        nova_obj.cleanup_hosts()
+        sleep(60)
+
