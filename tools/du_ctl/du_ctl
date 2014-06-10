@@ -170,7 +170,7 @@ def _do_get(url):
     resp.raise_for_status()
     return resp.json()
 
-def _do_put(url, body=None, headers=None):
+def _do_put(url, body=None, headers={}):
     """
     Execute the PUT http call
     :param str url: URL to run the PUT call on
