@@ -3,6 +3,7 @@ __author__ = 'Platform9'
 from ConfigParser import ConfigParser
 from nova_cleanup import NovaCleanup
 from time import sleep
+from requests import exceptions
 
 
 def _parse_config(config_file):
@@ -22,6 +23,10 @@ def serve(config_file):
     nova_obj = NovaCleanup(conf=cfg)
 
     while True:
-        nova_obj.cleanup_hosts()
+        try:
+            nova_obj.cleanup_hosts()
+        except exceptions.ConnectionError:
+            pass
+
         sleep(60)
 
