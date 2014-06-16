@@ -10,9 +10,12 @@
 
 from keystoneclient.v2_0 import client
 from keystoneclient.apiclient.exceptions import Conflict
+from keystoneclient.exceptions import ConnectionError
+
 import logging
 import os
 import re
+import time
 from novaclient.v1_1 import client as nv_client
 from subprocess import call
 
@@ -57,6 +60,28 @@ if not admin_token:
 # keystone client
 log.info('Connecting to keystone at %s' % keystone_endpoint)
 ks = client.Client(token=admin_token, endpoint=keystone_endpoint)
+
+# make sure the keystone API is ready:
+max_wait = 300
+interval = 5
+wait = 0
+
+while True :
+    try :
+        users = ks.users.list()
+        log.info("The number of existing keystone users is %d" % len(users))
+        break
+    except ConnectionError :
+        if wait > max_wait :
+            log.error("Timed out waiting for a response from keystone!")
+            exit(1)
+        else :
+            log.info("Waiting for keystone %s seconds..." % wait)
+            wait += interval
+            time.sleep(interval)
+    except Exception as ex :
+        log.error("Failed to make contact with keystone: %s" % ex)
+        exit(1)
 
 # admin role
 try :
