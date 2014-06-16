@@ -16,6 +16,7 @@ Requires: pf9-hostagent-tarball
 Requires: pf9-ostackhost-wrapper
 Requires: pf9-authproxy
 Requires: pf9-janitor
+Requires: pf9-imagelibrary-wrapper
 
 %description
 Platform9 deployment unit.

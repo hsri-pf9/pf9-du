@@ -180,7 +180,7 @@ class ResMgrDB(object):
             if role in active_roles_in_db_map:
                 # A version for this role is already present in our DB.
                 active_roles[role] = active_roles_in_db_map[role]
-                break
+                continue
                 # Note: there is a chance that the role versions in the filesystem
                 # are not what we have in the DB. These should be treated as
                 # not active roles
