@@ -24,7 +24,7 @@ def serve(config_file):
 
     while True:
         try:
-            nova_obj.cleanup_hosts()
+            nova_obj.cleanup()
         except exceptions.ConnectionError:
             pass
 

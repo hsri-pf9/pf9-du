@@ -36,6 +36,8 @@ class NovaCleanup(object):
 
         return nova_conf
 
+    # FIXME: Move all these utility methods to library
+
     @staticmethod
     def _get_auth_token(tenant, user, password):
         # FIXME: Make this reuse tokens
@@ -58,21 +60,23 @@ class NovaCleanup(object):
 
         return r.json()['access']['token']['id'], r.json()['access']['token']['tenant']['id']
 
-    def _nova_request(self, namespace, token, proj_id, req_type='get', body=None):
+    def _nova_request(self, namespace, token, proj_id, req_type='get'):
         url = '/'.join([self._nova_url, 'v2', proj_id, namespace])
 
         headers = {'X-Auth-Token': token, 'Content-Type': 'application/json'}
 
-        assert(req_type in ('get', 'post', 'delete'))
+        assert(req_type in ('get', 'delete'))
+
+        resp = None
 
         if req_type == 'get':
             resp = requests.get(url, verify=False, headers=headers)
-        elif req_type == 'post':
-            resp = requests.post(url, body, verify=False, headers=headers)
         elif req_type == 'delete':
             resp = requests.delete(url, verify=False, headers=headers)
 
-        if resp.status_code not in (requests.codes.ok, 204):
+        if not resp:
+            LOG.error("No response")
+        elif resp.status_code not in (requests.codes.ok, 204):
             LOG.error('Nova hypervisor query failed: %d', resp.status_code)
 
         return resp
@@ -88,13 +92,13 @@ class NovaCleanup(object):
 
         return resp
 
-    def cleanup_hosts(self):
+    def cleanup(self):
         """Remove hypervisor and instance information from Nova for
         hosts which have been removed from resmgr
         """
-        token, project_id = NovaCleanup._get_auth_token(self._nova_conf['tenant'],
-                                                        self._nova_conf['admin_name'],
-                                                        self._nova_conf['password'])
+        token, project_id = self._get_auth_token(self._nova_conf['tenant'],
+                                                 self._nova_conf['admin_name'],
+                                                 self._nova_conf['password'])
 
         resp = self._resmgr_request(token)
 
@@ -110,14 +114,20 @@ class NovaCleanup(object):
             return
 
         nova_data = resp.json()['hypervisors']
-        nova_ids = [(h['OS-EXT-PF9-HYP-ATTR:host_id'], h['id']) for h in nova_data]
+        nova_map = dict()
+        nova_ids = set()
+        for h in nova_data:
+            nova_map[h['OS-EXT-PF9-HYP-ATTR:host_id']] = h['id']
+            nova_ids.add(h['OS-EXT-PF9-HYP-ATTR:host_id'])
 
-        for (pf9_id, nova_id) in nova_ids:
-            if pf9_id not in resmgr_ids:
-                LOG.info('Cleaning up hypervisor info for %s', pf9_id)
-                resp = self._nova_request('os-hypervisors/%s' % str(nova_id), token, project_id,
+        nova_only_ids = nova_ids.difference(resmgr_ids)
+
+        # Clean up hosts found in nova, but not with resmgr
+        for pf9_id in nova_only_ids:
+            LOG.info('Cleaning up hypervisor info for %s', pf9_id)
+            resp = self._nova_request('os-hypervisors/%s' % str(nova_map[pf9_id]), token, project_id,
                                           req_type='delete')
 
-                if resp.status_code != 204:
-                    LOG.error('Skipping hypervisor %s, resp: %d', pf9_id, resp.status_code)
+            if resp.status_code != 204:
+                LOG.error('Skipping hypervisor %s, resp: %d', pf9_id, resp.status_code)
 
