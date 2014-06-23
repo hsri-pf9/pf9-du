@@ -55,6 +55,9 @@ if [ "$1" = "1" ]; then
     chkconfig --add pf9-hostagent
     service pf9-hostagent start
 elif [ "$1" = "2" ]; then
+    # During an upgrade, hostagent files are reverted to the default owner and
+    # group. So, pf9group must be assigned again.
+    chgrp -R pf9group /etc/pf9/certs/*
     # In case of an upgrade, only restart the service if it's already running
     service pf9-hostagent condrestart
 fi
