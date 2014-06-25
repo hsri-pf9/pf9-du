@@ -132,6 +132,8 @@ class DbSetup(object) :
                 'DEFAULT', 'sql_connection', conn_template.format('nova')])
         subprocess.check_call(['openstack-config', '--set', '/etc/glance/glance-api.conf',
                 'DEFAULT', 'sql_connection', conn_template.format('glance')])
+        subprocess.check_call(['openstack-config', '--set', '/etc/glance/glance-registry.conf',
+                'DEFAULT', 'sql_connection', conn_template.format('glance')])
 
 if __name__ == '__main__' :
     # FIXME JIRA IAAS-519
