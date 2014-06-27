@@ -292,13 +292,30 @@ class ResMgrDB(object):
                         hostosinfo=host_details['os_info'],
                         responding=True)
 
-        with self.dbsession() as session:
+        max_tries = 4
+        for attempt in range(max_tries):
             try:
-                log.info('Adding/updating host %s', host_id)
-                session.merge(new_host)
+                with self.dbsession() as session:
+                    try:
+                        log.info('Adding/updating host %s', host_id)
+                        session.merge(new_host)
+                    except:
+                        # log and raise
+                        log.exception('Host %s update in database failed', host_id)
+                        raise
+
+                # Commit was successful (session went out of scope successfully)
+                break
+            except IntegrityError as e:
+                log.exception('Host add/update failed')
+
+                if e.orig[0] != 1062 or attempt ==  max_tries - 1:
+                    # In case of key constraint violation (in this case only
+                    # host id), the orig tuple of the exception has code 1062.
+                    # Try to merge and commit again till max tries. Otherwise, raise
+                    raise
             except:
-                # log and raise
-                log.exception('Host %s update in database failed', host_id)
+                log.exception('Host add/update failed')
                 raise
 
     def delete_host(self, host_id):
