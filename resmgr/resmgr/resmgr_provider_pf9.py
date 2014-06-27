@@ -26,6 +26,7 @@ log = logging.getLogger('resmgr')
 # Maintain some state for resource manager
 _unauthorized_hosts = {}
 _unauthorized_host_status_time = {}
+_authorized_host_role_status = {}
 _host_lock = threading.Lock()
 
 def call_remote_service(url):
@@ -185,6 +186,8 @@ class HostInventoryMgr(object):
         query_op = self.db_handler.query_hosts()
         for host in query_op:
             host['state'] = RState.active if host['roles'] else RState.inactive
+            if _authorized_host_role_status.get(host['id']):
+                host['role_status'] = _authorized_host_role_status[host['id']]
             result[host['id']] = host
 
         # Add unauthorized hosts into the result
@@ -226,22 +229,11 @@ class HostInventoryMgr(object):
         host = self.db_handler.query_host(host_id)
         if host:
             host['state'] = RState.active if host['roles'] else RState.inactive
+            if _authorized_host_role_status.get(host_id):
+                host['role_status'] = _authorized_host_role_status[host_id]
             return host
 
         return {}
-
-    def delete_host(self, host_id):
-        """
-        Delete the state of a host. Actual deletion happens only for authorized
-        hosts. For unauthorized hosts, it is a no-op
-        :param str host_id: ID of the host
-        """
-        # The call site already check that the host is not in
-        # _unauthorized_hosts. Assert if this is not the case.
-        assert host_id in _unauthorized_hosts
-
-        self.db_handler.delete_host(host_id)
-
 
 class BbonePoller(object):
     """
@@ -323,7 +315,7 @@ class BbonePoller(object):
             # Trigger the notifier so that clients know about it.
             self.notifier.publish_notification('add', 'host', host)
 
-    def _process_deleted_hosts(self, host_ids, authorized_hosts):
+    def _process_absent_hosts(self, host_ids, authorized_hosts):
         """
         Process hosts that are present in our state but are not being processed
         by backbone
@@ -343,6 +335,11 @@ class BbonePoller(object):
                 log.info('Host %s being marked as not responding', host)
                 self.db_handle.mark_host_state(host, responding=False)
                 self.notifier.publish_notification('change', 'host', host)
+
+    def _update_role_status(self, host_id, host):
+        if _authorized_host_role_status.get(host_id) != host['status']:
+            _authorized_host_role_status[host_id] = host['status']
+            self.notifier.publish_notification('change', 'host', host_id)
 
     def _process_existing_hosts(self, host_ids, authorized_hosts):
         """
@@ -374,6 +371,8 @@ class BbonePoller(object):
                 if not responding:
                     # If not responding, nothing more to do
                     continue
+
+                self._update_role_status(host, host_info)
 
                 host_status = host_info['status']
                 # Active hosts but we need to change the configuration
@@ -448,7 +447,7 @@ class BbonePoller(object):
             # Process hosts that are newly reported from backbone
             self._process_new_hosts(new_ids)
             # Process hosts that backbone claims are not present anymore(?)
-            self._process_deleted_hosts(del_ids, authorized_hosts)
+            self._process_absent_hosts(del_ids, authorized_hosts)
             # Deal with changes to existing hosts
             self._process_existing_hosts(exist_ids, authorized_hosts)
             # Cleanup older unauthorized hosts
@@ -559,6 +558,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         if host_inst['roles']:
             log.debug('Removing roles and state entries in the database for %s',
                       host_id)
+            _authorized_host_role_status[host_id] = None
             self.res_mgr_db.update_roles_for_host(host_id, roles=[])
             self.res_mgr_db.delete_host(host_id)
             notifier.publish_notification('delete', 'host', host_id)
@@ -609,6 +609,7 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         initially_inactive = host_inst['state'] == RState.inactive
         host_inst['roles'].append(role_name)
+        _authorized_host_role_status[host_id] = None
 
         if initially_inactive:
             assert host_id in _unauthorized_hosts
@@ -676,7 +677,9 @@ class ResMgrPf9Provider(ResMgrProvider):
         log.debug('Clearing role %s for host %s in DB', role_name, host_id)
         self.res_mgr_db.remove_role_from_host(host_id, role_name)
         notifier.publish_notification('change', 'host', host_id)
-        # TODO: Think about if there is a case to remove this host from the database
+        # TODO: Think about if there is a case to remove this host from the
+        # database. If removing role from db, the role_status should be changed.
+        # See IAAS-649
 
         log.debug('Sending request to backbone to remove role %s from %s',
                  role_name, host_id)

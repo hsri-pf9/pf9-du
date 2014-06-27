@@ -67,8 +67,12 @@ should be reapplied to these hosts.
 ### GET /v1/hosts ##
 
 Returns a dictionary of hosts in the pf9 system with assigned roles.
+
 The `last_response_time` values are used when the host is not responding.
 Otherwise, this value may be null.
+
+For unauthorized hosts, `responding`, `last_response_time`, and `role_status`
+are not exposed.
 
 Example:
 ```
@@ -84,7 +88,8 @@ Example:
             "responding": <true|false>,
             "last_response_time": <date|null>
         },
-        "roles": ["role_1", "role2"]
+        "roles": ["role_1", "role2"],
+        "role_status": "<ok|converging|retrying|failed>"
     },
     {
         "id": "rsc_2",
@@ -98,15 +103,20 @@ Example:
             "last_response_time": <date|null>
 
         },
-        "roles": ["role_2", "role5"]
+        "roles": ["role_2", "role5"],
+        "role_status": "<ok|converging|retrying|failed>"
     },
 ]
 ```
 ### GET /v1/hosts/__id__ ###
 
 Returns a descriptor for a single host.
+
 The `last_response_time` value is used when the host is not responding.
 Otherwise, this value may be null.
+
+For unauthorized hosts, `responding`, `last_response_time`, and `role_status`
+are not exposed.
 
 Example:
 ```
@@ -122,7 +132,8 @@ Example:
 
     },
     "state": "<inactive|activating|active>",
-    "roles": ["role4", "role3"]
+    "roles": ["role4", "role3"],
+    "role_status": "<ok|converging|retrying|failed>"
 }
 ```
 
