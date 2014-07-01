@@ -3,6 +3,7 @@
 
 
 import pika
+from pika.exceptions import AMQPConnectionError
 from pika.credentials import PlainCredentials
 
 def io_loop(host,
@@ -31,8 +32,29 @@ def io_loop(host,
     :param dict ssl_options: SSL options if SSL is enabled (optional)
     """
 
+    def add_on_connection_close_callback():
+        """
+        This method adds an on close callback that will be invoked by pika
+        when RabbitMQ closes the connection to the publisher unexpectedly.
+        """
+        state['connection'].add_on_close_callback(on_connection_closed)
+
+    def on_connection_closed(connection, reply_code, reply_text):
+        """
+        This method is invoked by pika when the connection to RabbitMQ is
+        closed unexpectedly. Since it is unexpected, we will throw an error
+        and rely on an outer loop to retry if necessary.
+
+        :param pika.connection.Connection connection: The closed connection obj
+        :param int reply_code: The server provided reply_code if given
+        :param str reply_text: The server provided reply_text if given
+        """
+        connection.ioloop.stop()
+        state['closed_unexpectedly'] = True
+
     def on_open(connection):
         state['connection'] = connection
+        add_on_connection_close_callback()
         connection.channel(on_channel_open)
 
     def on_channel_open(channel):
@@ -72,15 +94,18 @@ def io_loop(host,
         state['channel'].basic_consume(consumer_callback=consume_cb,
                                        queue=state['queue_name'],
                                        no_ack=True)
-    port = 5671 if ssl_options else 5672
-    connection = pika.SelectConnection(pika.ConnectionParameters(host=host,
-                        port=port,
-                        credentials=credentials,
-                        virtual_host=virtual_host,
-                        ssl=ssl_options is not None,
-                        ssl_options=ssl_options),
-                    on_open_callback=on_open
-                    )
 
-    # Enter I/O loop
+    port = 5671 if ssl_options else 5672
+    connection = pika.SelectConnection(
+            pika.ConnectionParameters(
+                host=host,
+                port=port,
+                credentials=credentials,
+                virtual_host=virtual_host,
+                ssl=ssl_options is not None,
+                ssl_options=ssl_options),
+            on_open_callback=on_open)
     connection.ioloop.start()
+    if 'closed_unexpectedly' in state:
+        raise AMQPConnectionError
+
