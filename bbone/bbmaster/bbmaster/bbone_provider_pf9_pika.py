@@ -13,11 +13,12 @@ from bbcommon import constants
 from bbcommon.amqp import io_loop
 from bbcommon.exceptions import HostNotFound
 from bbcommon.utils import is_satisfied_by, get_ssl_options
+import base64
 import logging
 import json
+import os
 import pika
 import time
-from os import environ
 from pika.exceptions import AMQPConnectionError
 
 class bbone_provider_pf9(bbone_provider_memory):
@@ -31,14 +32,16 @@ class bbone_provider_pf9(bbone_provider_memory):
         super(bbone_provider_pf9, self).__init__()
         self.lock = threading.Lock()
         self.config = ConfigParser()
-        bbmaster_conf = environ.get('BBMASTER_CONFIG_FILE',
-                                    constants.BBMASTER_CONFIG_FILE)
+        bbmaster_conf = os.environ.get('BBMASTER_CONFIG_FILE',
+                                       constants.BBMASTER_CONFIG_FILE)
         self.config.read(bbmaster_conf)
         self.log = logging.getLogger('bbmaster')
         self.retry_period = int(self.config.get('bbmaster',
                                                 'connection_retry_period'))
         self.send_pending_msgs_period = int(self.config.get('bbmaster',
                                             'send_pending_msgs_period'))
+        self.support_dir_location = self.config.get('bbmaster',
+                                                    'support_file_store')
         self.pending_msgs = []
         t = threading.Thread(target=self._io_thread)
         t.daemon = True
@@ -105,10 +108,13 @@ class bbone_provider_pf9(bbone_provider_memory):
         Continually initiates connections to the broker, retrying upon failure.
         """
         def consume_msg(ch, method, properties, body):
-            self.log.info('Received: %s', body)
             try:
                 body = json.loads(body)
+                if body['opcode'] == 'support':
+                    handle_support_bundle(body)
+                    return
                 assert body['opcode'] == 'status'
+                self.log.info('Received: %s', body)
                 host_state = body['data']
                 host_state['timestamp'] = datetime.datetime.utcnow()
                 id = host_state['host_id']
@@ -121,6 +127,32 @@ class bbone_provider_pf9(bbone_provider_memory):
                 super(bbone_provider_pf9, self).set_host_agent_config(id, host_agent_state)
                 desired_apps = self.desired_apps.get(id)
             self._converge_host_if_necessary(host_state, desired_apps)
+
+        def handle_support_bundle(msg):
+            """
+            Evaluate the support msg on the broker and write the support file
+            """
+            self.log.info('Received support file from %s', msg['data']['info'])
+            if msg['status'] == 'error':
+                self.log.error('Support bundle generation failed %s',
+                               msg['error_message'])
+                return
+
+            # Currently, msg['status'] can only be success or error. Below
+            # would be the success case.
+            time_now = datetime.datetime.now()
+            host_name = msg['data']['info']['hostname']
+            host_id = msg['data']['host_id']
+            out_dir = os.path.join(self.support_dir_location, host_id)
+            if not os.path.exists(out_dir):
+                os.makedirs(out_dir)
+            outfile = os.path.join(out_dir, '%s-%s.tgz' % (host_name,
+                                   time_now.strftime("%Y-%m-%d-%H-%M-%S")))
+            try:
+                with open(outfile, 'wb') as f:
+                    f.write(base64.b64decode(msg['data']['contents']))
+            except:
+                self.log.exception('Writing out support bundle failed')
 
         def ping_slaves():
             self._send_msg(constants.BROADCAST_TOPIC, {'opcode': 'ping'})

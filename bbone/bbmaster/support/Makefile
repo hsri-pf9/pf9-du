@@ -66,6 +66,7 @@ ${BBMASTER_SRC_STAGE}: pre-reqs
 	mkdir -p ${PF9_OPT_DIR}/du-customize
 	cp ${BBMASTER_DIR}/support/60-customize-bbmaster ${PF9_OPT_DIR}/du-customize
 	cp ${BBMASTER_DIR}/support/05-generate-certs ${PF9_OPT_DIR}/du-customize
+	mkdir -p ${PF9_OPT_DIR}/support
 
 ${BBMASTER_SRC_TARBALL}: ${BBMASTER_SRC_STAGE}
 	cd ${BUILD_DIR}/srcstage;\

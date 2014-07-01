@@ -83,6 +83,11 @@ def _exercise_testroutine(test_data):
         global cur_desired_state, expecting_converging_state, retry_countdown
         log.info('Received: %s', body)
         body = json.loads(body)
+
+        # If the support message is received
+        if body['opcode'] == 'support':
+            return
+
         assert body['opcode'] == 'status'
 
         if expecting_converging_state:

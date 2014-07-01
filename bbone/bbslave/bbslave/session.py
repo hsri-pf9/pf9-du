@@ -3,10 +3,12 @@
 
 __author__ = 'leb'
 
+import base64
 import pika
 import json
 from bbcommon import constants
 from bbcommon.amqp import io_loop
+from datagatherer import datagatherer
 from logging import Logger
 from ConfigParser import ConfigParser
 from pf9app.app_db import AppDb
@@ -23,6 +25,7 @@ from os import makedirs, unlink
 _sys_info = get_sysinfo()
 _host_id = get_host_id()
 _desired_config_basedir_path = None
+_support_file_location = None
 _common_config_path = None
 _converge_attempts = 0
 _hostagent_info = {}
@@ -33,7 +36,7 @@ def _set_desired_config_basedir_path(config):
     a cached copy of the desired apps configuration.
     :param ConfigParser config: configuration object
     """
-    global _desired_config_basedir_path, _common_config_path
+    global _desired_config_basedir_path, _common_config_path, _support_file_location
     dir_path = config.get('hostagent', 'desired_config_basedir_path') if \
         config.has_option('hostagent', 'desired_config_basedir_path') else \
         '/var/opt/pf9/hostagent'
@@ -42,6 +45,7 @@ def _set_desired_config_basedir_path(config):
     if not exists(dir_path):
         makedirs(dir_path)
     _desired_config_basedir_path = join(dir_path, 'desired_apps.json')
+    _support_file_location = join(dir_path, 'pf9-support.tgz')
 
 def _persist_host_id():
     """
@@ -202,6 +206,36 @@ def start(config, log, app_db, agent_app_db, app_cache,
         # All error/exception case, reload the host agent info
         _load_host_agent_info(agent_app_db)
 
+    def process_support_request():
+        """
+        Handle the request to generate the support bundle and send the file
+        to the backbone master through rabbitmq broker.
+        """
+        msg = {
+            'opcode': 'support',
+            'data' : {
+                 'host_id': _host_id,
+                 'info': _sys_info,
+            }
+        }
+
+        try:
+            datagatherer.generate_support_bundle(_support_file_location, log)
+            with open(_support_file_location, 'rb') as f:
+                # Choose base64 encoding to transfer binary content
+                msg['data']['contents'] = base64.b64encode(f.read())
+            msg['status'] = 'success'
+            msg['error_message'] = ''
+        except Exception as e:
+            log.exception('Support bundle generation failed.')
+            msg['status'] = 'error'
+            msg['error_message'] = str(e)
+            msg['data']['contents'] = ''
+
+        channel = state['channel']
+        channel.basic_publish(exchange=constants.BBONE_EXCHANGE,
+                              routing_key=constants.MASTER_TOPIC,
+                              body=json.dumps(msg))
 
     def handle_msg(msg):
         """
@@ -212,7 +246,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
         desired_config = load_desired_config()
         try:
             if msg['opcode'] not in ('ping', 'heartbeat', 'set_config',
-                                     'set_agent', 'exit'):
+                                     'set_agent', 'exit', 'get_support'):
                 log.error('Invalid opcode: %s', msg['opcode'])
                 return
             if msg['opcode'] == 'exit':
@@ -229,6 +263,10 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 if desired_config is None:
                     desired_config = current_config
                 update_agent(msg['data'], current_config, desired_config)
+                return
+            if msg['opcode'] == 'get_support':
+                log.info('Received get_support message')
+                process_support_request()
                 return
             if msg['opcode'] == 'set_config':
                 desired_config = msg['data']
@@ -285,6 +323,9 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 log.error('Entering failed state after %d converge attempts',
                           _converge_attempts)
                 status = 'failed'
+                # This is the first time the status of the host is going into
+                # failed state. Generate and send the support bundle
+                process_support_request()
             else:
                 status = 'retrying'
             log.info('Converge failed')
