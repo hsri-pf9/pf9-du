@@ -10,8 +10,25 @@ from urlparse import urlsplit
 from pf9app.app_cache import AppCache
 from pf9app.exceptions import DownloadFailed
 import requests
+import platform
 
 DOWNLOAD_CHUNK_SIZE = 512 * 1024
+
+SUPPORTED_DEBIAN_DISTROS = set(['debian', 'ubuntu'])
+SUPPORTED_REDHAT_DISTROS = set(['redhat', 'centos'])
+
+def get_supported_distro(log=None):
+    """
+    Returns 'redhat' or 'debian' depending on the supported distro detected.
+    If no supported distro can be detected, returns 'redhat' and logs the error.
+    """
+    dist_name = platform.linux_distribution()[0].lower()
+    if dist_name in SUPPORTED_DEBIAN_DISTROS:
+        return 'debian'
+    else:
+        if log and (dist_name not in SUPPORTED_REDHAT_DISTROS):
+            log.warn("Could not detect OS distro. Defaulting to Red Hat Linux.")
+        return 'redhat'
 
 class Pf9AppCache(AppCache):
     """Class that implements the AppCache interface"""
@@ -47,6 +64,10 @@ class Pf9AppCache(AppCache):
         :raises DownloadFailed: when downloading the file fails
         """
         self.log.info("Downloading file %s to %s", srcurl, destfile)
+        if get_supported_distro(self.log) == "debian":
+            srcurl = "".join(os.path.splitext(srcurl)[:-1]) + ".deb"
+            destfile = "".join(os.path.splitext(destfile)[:-1]) + ".deb"
+
         try:
             with contextlib.closing(requests.get(srcurl,
                                                  verify=self.ca_certs,
@@ -88,6 +109,9 @@ class Pf9AppCache(AppCache):
             self.log.info("Downloading %s.%s from %s to %s",
                           name, version, url, localdest)
             self._download_file(url, localdest)
+            if get_supported_distro(self.log) == "debian":
+                localdest = "".join(os.path.splitext(localdest)[:-1]) + ".deb"
+
             self.downloads[key] = localdest
 
         self.log.debug("App cache state: %s", str(self.downloads))

@@ -7,13 +7,19 @@ import errno
 import logging
 import os
 import subprocess
-import yum
+import platform
 
 from app_db import AppDb
+from pf9_app_cache import get_supported_distro
 from pf9_app import Pf9App
 from exceptions import NotInstalled, UpdateOperationFailed, \
     RemoveOperationFailed, InstallOperationFailed
 
+if get_supported_distro() == 'debian':
+    import apt
+    import apt.debfile
+else:
+    import yum
 
 def _run_command(command):
     """
@@ -33,6 +39,89 @@ def _run_command(command):
 
     return code, out, err
 
+class AptPkgMgr(object):
+    """Class that interacts with the YUM package manager"""
+
+    def __init__(self, log = logging):
+        self.log = log
+        self.cache = apt.cache.Cache()
+
+    def query_pf9_apps(self):
+        """
+        Query the installed packages on the machine that are pf9 apps. Packages
+        that provide "pf9app" are considered as pf9 apps
+
+        :return: dict of pf9 apps mapped to its details (name, version)
+        :rtype: dict
+        """
+        self._update_apt_cache()
+        out = {}
+        for pkg in self.cache:
+            for version in pkg.versions:
+                if "pf9app" in version.provides:
+                    out[pkg.name] = {
+                        'name' : pkg.name,
+                        'version' : version.source_version
+                    }
+        return out
+
+    def query_pf9_agent(self):
+        """
+        Query the installed pf9 host agent details from the YUM repo
+        :return: dictionary of agent name and version
+        :rtype: dict
+        """
+        self._update_apt_cache()
+        pkg = self.cache["pf9-hostagent"]
+        versions = pkg.versions
+        # Returns the first hostagent version for now
+        return {
+            'name': pkg.name,
+            'version': versions[0].source_version
+        }
+
+    def remove_package(self, appname):
+        """
+        Removes an installed app.
+        :param appname: Name of  the app to remove
+        :raises NotInstalled: if the app is not found/installed
+        :raises RemoveOperationFailed: if the remove operation failed.
+        """
+        self._update_apt_cache()
+        if not self.cache.has_key(appname):
+            raise NotInstalled()
+        pkg = self.cache[appname]
+        pkg.mark_delete()
+        try:
+            self.cache.commit()
+        except:
+            raise RemoveOperationFailed()
+
+    def install_from_file(self, pkg_path):
+        """
+        Installs an app from the specified local path
+        :param pkg_path: Local path to the app to be installed
+        :raises OSError: if the file is not found.
+        :raises InstallOperationFailed: if the install operation failed
+        """
+        if not os.path.exists(pkg_path):
+            # File to install doesn't exist
+            raise OSError(errno.ENOENT, os.strerror(errno.ENOENT), pkg_path)
+        deb_package = apt.debfile.DebPackage(pkg_path, self.cache)
+        deb_package.install()
+
+    def update_from_file(self, pkg_path):
+        """
+        Updates a package from the specified local path
+        :param str pkg_path: Local path to the package to be upgraded
+        :raises OSError: if the file is not found
+        :raises UpdateOperationFailed: if the update operation failed.
+        """
+        self.install_from_file(pkg_path)
+
+    def _update_apt_cache(self):
+        self.cache.update()
+        self.cache.open()
 
 class YumPkgMgr(object):
     """Class that interacts with the YUM package manager"""
@@ -165,10 +254,17 @@ class Pf9AppDb(AppDb):
         :param Logger log: logger object for logging
         """
         self.apps = {}
-        # Currently, assumed that only YUM is supported. This will eventually
-        # have to be distro specific
-        self.pkgmgr = YumPkgMgr(log)
         self.log = log
+        self._get_package_manager()
+
+    def _get_package_manager(self):
+        """
+        Set the package manager depending on the distro being used.
+        """
+        if get_supported_distro(self.log) == 'debian':
+            self.pkgmgr = AptPkgMgr(self.log)
+        else:
+            self.pkgmgr = YumPkgMgr(self.log)
 
     def query_installed_apps(self):
         """

@@ -1,0 +1,56 @@
+#!/bin/sh
+# Copyright (c) 2014 Platform9 Systems Inc.
+
+# This script creates the host-agent rpm by expanding the tar file
+# followed by a call to embedded rpm build file
+# The RPM can be acccessed by the following URLS:
+# hostagent: http://<ip>/hostagent/pf9-hostagent-1.0.0-1.x86_64.rpm
+
+
+set -v
+set -u
+set -e
+
+VERSION=__VERSION__
+RELEASE=__BUILDNUM__.__GITHASH__
+VERSION=${HOST_AGENT_VERSION:-${VERSION}}
+RELEASE=${HOST_AGENT_RELEASE:-${RELEASE}}
+
+CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOT_DIR=$CURR_DIR/../
+HOSTAGENT_TARBALL=$ROOT_DIR/hostagent-tarball/redhat/pf9-hostagent.tar.gz
+RPMBUILD_DIR=$ROOT_DIR/hostagent-tarball/redhat/rpm-build
+
+HOST_AGENT_RPM_NAME=pf9-hostagent-$VERSION-$RELEASE.x86_64.rpm
+HOST_AGENT_RPM=$RPMBUILD_DIR/RPMS/x86_64/$HOST_AGENT_RPM_NAME
+HOST_AGENT_RPM_SYMLINK=pf9-hostagent.x86_64.rpm
+PRIVATE_FILES_DIR=$ROOT_DIR/www/private
+
+# Create a temporary directory to expand the tarball
+HOSTAGENT_TARBALL_EXPANDEDDIR=`mktemp -d -t pf9-XXX`
+
+# Expand the tarball
+tar -xzf $HOSTAGENT_TARBALL -C $HOSTAGENT_TARBALL_EXPANDEDDIR
+
+# Copy certificates
+mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs
+cp -r /etc/pf9/certs/hostagent $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/
+chmod 440 $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/hostagent/key.pem
+mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
+cp /etc/pf9/certs/ca/cert.pem $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
+
+#clean the RPMBUILD dir
+rm -fr $RPMBUILD_DIR
+mkdir $RPMBUILD_DIR
+
+# Create the RPM
+$HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-rpm-build.sh $RPMBUILD_DIR $HOSTAGENT_TARBALL_EXPANDEDDIR $DU_FQDN $VERSION $RELEASE
+
+# Copy the rpm over to a well known location
+mkdir -p $PRIVATE_FILES_DIR
+cp $HOST_AGENT_RPM $PRIVATE_FILES_DIR
+pushd $PRIVATE_FILES_DIR
+ln -sf $HOST_AGENT_RPM_NAME $HOST_AGENT_RPM_SYMLINK
+popd
+rm -fr $HOSTAGENT_TARBALL_EXPANDEDDIR
+rm -fr $RPMBUILD_DIR

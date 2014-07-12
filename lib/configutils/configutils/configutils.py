@@ -35,7 +35,6 @@ class NestedSectionError(Exception):
     def __str__(self):
         return "Nested sections found : %s" % self.section
 
-
 def ini_to_json(iniConfig):
     """
     Converts an iniConfig object into JSON object.
@@ -58,7 +57,7 @@ def ini_to_json(iniConfig):
 
     for section in iniConfig.sections():
         sectionvals = {}
-        tempset  = set(iniConfig.items(section, raw=True))
+        tempset = set(iniConfig.items(section, raw=True))
         for key, value in (tempset - defaultsset):
             sectionvals[key] = value
 
@@ -87,7 +86,7 @@ def json_to_ini(jsonConfig):
     """
     out = ConfigParser.ConfigParser()
     for section, sectionval in jsonConfig.items():
-        if not type(sectionval) == dict:
+        if not isinstance(sectionval, dict):
             # To satisfy the ini layout, the top level values in the JSON dict
             # should be dicts themselves. Else raise exception
             raise MissingSectionError(section)
@@ -99,7 +98,7 @@ def json_to_ini(jsonConfig):
             out.add_section(section)
 
         for key, val in sectionval.items():
-            if type(val) == dict:
+            if isinstance(val, dict):
                 # ini layouts cannot have nested sections. If we see multiple
                 # levels of dicts (i.e. other than first level), raise exception
                 raise NestedSectionError(key)
@@ -136,7 +135,7 @@ def is_dict_subset(dict1, dict2):
     :return: true if dict1 is subset of dict2
     :rtype: bool
     """
-    if type(dict1) is not dict or type(dict2) is not dict:
+    if not isinstance(dict1, dict) or not isinstance(dict2, dict):
         return False
 
     for key, val1 in dict1.items():
@@ -149,7 +148,7 @@ def is_dict_subset(dict1, dict2):
             # Currently we support only these datatypes as values in the dict
             return False
         val2 = dict2[key]
-        if type1 is dict and not is_dict_subset(val1, val2):
+        if issubclass(type1, dict) and not is_dict_subset(val1, val2):
             # If there is a nested dict, recurse the call. Should do this for
             # the strict comparison on types.
             return False

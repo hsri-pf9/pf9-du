@@ -24,8 +24,8 @@ Platform 9 Host Agent tarball
 %build
 
 %install
-mkdir -p ${RPM_BUILD_ROOT}/opt/pf9/hostagent-tarball
-cp %{SOURCE0} ${RPM_BUILD_ROOT}/opt/pf9/hostagent-tarball
+mkdir -p ${RPM_BUILD_ROOT}/opt/pf9/hostagent-tarball/redhat
+cp %{SOURCE0} ${RPM_BUILD_ROOT}/opt/pf9/hostagent-tarball/redhat
 mkdir -p ${RPM_BUILD_ROOT}/opt/pf9/du-customize
 cp %{SOURCE1} ${RPM_BUILD_ROOT}/opt/pf9/du-customize
 
@@ -34,7 +34,7 @@ rm -rf ${RPM_BUILD_ROOT}
 
 %files
 %defattr(-,root,root,-)
-/opt/pf9/hostagent-tarball
+/opt/pf9/hostagent-tarball/redhat
 /opt/pf9/du-customize
 
 %post

@@ -1,0 +1,110 @@
+#! /bin/sh
+#
+### BEGIN INIT INFO
+# Provides: pf9-hostagent
+# Required-Start: $network
+# Required-Stop: $network
+# Default-Start: 3 5
+# Default-Stop: 0 1 2 6
+# Description: Start the platform9 host agent
+### END INIT INFO
+
+# read & export proxy information
+. /etc/environment
+
+prog="pf9-hostagent"
+svcname="pf9-hostagent"
+
+SERVER_BIN="/opt/pf9/hostagent/bin/$prog"
+
+SERVER_OPTS=""
+
+SERVER_LOGFILE=/var/log/pf9-hostagent-daemon.log
+
+# Source function library.
+. /lib/lsb/init-functions
+
+
+RETVAL=0
+uid=`id | cut -d\( -f1 | cut -d= -f2`
+
+start() {
+
+    [ -f $SERVER_BIN ] || exit 5
+
+    # Make sure the pf9-hostagent is not already running.
+    if status > /dev/null ; then
+        exit 0
+    fi
+
+    # Only root can start the service
+    [ $uid -ne 0 ] && exit 4
+
+    echo -n $"Starting $svcname: "
+    touch "$SERVER_LOGFILE"
+    $SERVER_BIN $SERVER_OPTS >> $SERVER_LOGFILE 2>&1 &
+    RETVAL=$?
+    echo
+    if [ $RETVAL -eq 0 ] ; then
+        touch /var/lock/subsys/$svcname
+        [ ! -f /var/run/pf9-hostagent.pid ] &&
+            pidof -x $prog > /var/run/pf9-hostagent.pid
+    fi
+    return $RETVAL
+}
+
+stop() {
+    echo -n $"Stopping $svcname: "
+    killproc $prog
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && {
+        rm -f /var/lock/subsys/$svcname
+        rm -f /var/run/pf9-hostagent*
+    }
+    return $RETVAL
+}
+
+status() {
+    if [ -f /var/run/pf9-hostagent.pid ]; then
+        echo "pf9-hostagent is running (PID `pidof -x $prog -o %PPID`)"
+        return 0
+    else
+        echo "pf9-hostagent is not running"
+        return 1
+    fi
+}
+
+# See how we were called.
+case "$1" in
+    start)
+        start
+        RETVAL=$?
+        ;;
+    stop)
+        stop
+        RETVAL=$?
+        ;;
+    status)
+        status
+        RETVAL=$?
+        ;;
+    restart | reload | force-reload)
+        stop
+        start
+        RETVAL=$?
+        ;;
+    condrestart | try-restart)
+        if [ -f /var/lock/subsys/$svcname ]; then
+            stop
+            start
+            RETVAL=$?
+        fi
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart|try-restart}"
+        RETVAL=2
+        ;;
+esac
+
+exit $RETVAL

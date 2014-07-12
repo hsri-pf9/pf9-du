@@ -14,7 +14,7 @@ SPEC_FILE_DIR=`mktemp -d -t pf9-XXX`
 
 # Remove the .spec, the hostagent-rpmbuild.sh file from the BUILD_DIR
 mv $TARBALL_EXPANDED_LOCATION/hostagent.spec $SPEC_FILE_DIR/hostagent.spec
-mv $TARBALL_EXPANDED_LOCATION/hostagent-rpmbuild.sh $SPEC_FILE_DIR/hostagent-rpmbuild.sh
+mv $TARBALL_EXPANDED_LOCATION/hostagent-rpm-build.sh $SPEC_FILE_DIR/hostagent-rpm-build.sh
 
 sed -i -e "s/CHANGE_TO_YOUR_BROKER_IP/$HOST_IP/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 

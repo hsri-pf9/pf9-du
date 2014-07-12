@@ -13,7 +13,7 @@ from exceptions import ServiceCtrlError, ConfigOperationError
 from app import App, RemoteApp
 
 CFGSCRIPTCMD = "%s /opt/pf9/%s/config"
-SERVICECMD = "/sbin/service %s %s"
+SERVICECMD = "service %s %s"
 
 
 def _run_command(command):
@@ -146,9 +146,11 @@ class Pf9App(App):
         self.log.info("Setting config for %s.%s", self.name, self.version)
         code, out, err = _run_command("%s --set-config '%s'" % (cfgscript, json.dumps(config)))
         if code:
-            self.log.error("%s:set_config failed: %s %s", self.app_name, out, err)
+            self.log.error(("%s:set_config failed:\nout: %s\nerr: %s\ncommand: "
+                                "%s --set-config '%s'"),
+                           self.app_name, out, err, cfgscript,
+                           json.dumps(config))
             raise ConfigOperationError()
-
 
     def uninstall(self):
         """
