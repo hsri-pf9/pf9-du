@@ -17,7 +17,7 @@ import os
 import re
 import time
 from novaclient.v1_1 import client as nv_client
-from subprocess import call
+from subprocess import call, check_call
 
 keystone_endpoint = 'http://localhost:35357/v2.0'
 default_tenant = 'service'
@@ -138,19 +138,21 @@ except Exception as ex:
     log.error("Failed to update quota: %s" % ex)
     exit(1)
 
-# Set quota, add user and tenant info to nova.conf
-lines = ["[PF9]", ''.join(["pf9_project_id", "=", service_tenant.id]),
-         ''.join(["pf9_user_id", "=", user.id])]
+try:
+    # Set quota, add user and tenant info to nova.conf
+    check_call(['openstack-config', '--set', '/etc/nova/nova.conf',
+                'PF9', 'pf9_project_id', service_tenant.id])
+    check_call(['openstack-config', '--set', '/etc/nova/nova.conf',
+                'PF9', 'pf9_user_id', user.id])
+    log.info('Successfully added Platform9 user and system information to nova config')
 
-with open('/etc/nova/nova.conf', 'a') as novaCfg:
-    for line in lines:
-        novaCfg.write(line + '\n')
+    # Add tenant id information to janitor.conf
+    check_call(['openstack-config', '--set', '/etc/pf9/janitor.conf',
+                'PF9', 'pf9_project_id', service_tenant.id])
+    check_call(['openstack-config', '--set', '/etc/pf9/janitor.conf',
+                'PF9', 'pf9_user_id', user.id])
+    log.info('Successfully added Platform9 user and system information to janitor config')
+except:
+    log.exception('Failed to update user and tenant info')
+    exit(1)
 
-log.info('Successfully added Platform9 user and system information to nova config')
-
-# Add tenant id information to janitor.conf
-with open('/etc/pf9/janitor.conf', 'a') as f:
-    for line in lines:
-        f.write(line + '\n')
-
-log.info('Successfully added Platform9 user and system information to janitor config')
