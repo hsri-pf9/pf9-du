@@ -43,9 +43,8 @@ rm -rf $RPM_BUILD_ROOT
 %post
 if [ "$1" = "1" ]; then
     # Create the pf9 user and group
-    id pf9 &>/dev/null || useradd pf9
     grep ^pf9group: /etc/group &>/dev/null || groupadd pf9group
-    usermod -aG pf9group pf9
+    id pf9 &>/dev/null || useradd -g pf9group -d / -s /sbin/nologin -c "Platform9 user" pf9
     # Add root also to the pf9group
     usermod -aG pf9group root
 
