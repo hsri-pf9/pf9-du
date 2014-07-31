@@ -161,71 +161,16 @@ class ResMgrDB(object):
                     continue
         return metadata
 
-    def _determine_active_role_versions(self, new_roles):
-        """
-        Figure what is the active version for the roles in resource manager.
-        :param dict new_roles: roles that are read in from the metadata in the
-         filesystem
-        :return: dictionary of role names mapped to their active versions
-        :rtype: dict
-        """
-        active_roles = {}
-        active_roles_in_db_map = {}
-        # Get all the roles already present in the DB.
-        active_roles_in_db = self.query_roles()
-        for role in active_roles_in_db:
-            active_roles_in_db_map[role.rolename] = role.version
-
-        for role, role_details in new_roles.iteritems():
-            if role in active_roles_in_db_map:
-                # A version for this role is already present in our DB.
-                active_roles[role] = active_roles_in_db_map[role]
-                continue
-                # Note: there is a chance that the role versions in the filesystem
-                # are not what we have in the DB. These should be treated as
-                # not active roles
-            else:
-                # This role is not present in our DB. In this role's metadata (that
-                # was read in), pick the highest version of this role as the active
-                # role
-                active_version = None
-                for ver in role_details.keys():
-                    # Assumption is role version is made of digits of form like
-                    # a.b.c-d
-                    ver_tuple = tuple([int(x) for x in re.split('\.|\-', ver) if x.isdigit()])
-                    if not active_version:
-                        active_version = ver
-                        active_version_tuple = ver_tuple
-                        continue
-                    if cmp(ver_tuple, active_version_tuple) > 0:
-                        active_version = ver
-                        active_version_tuple = ver_tuple
-
-                active_roles[role] = active_version
-
-        return active_roles
-
     def setup_roles(self):
         """
         Pushes the roles related metadata into the database.
         """
         log.info('Setting up roles in the database')
-        roles = self._load_roles_from_files()
+        discovered_roles = self._load_roles_from_files()
 
-        active_roles = self._determine_active_role_versions(roles)
-
-        for k, v in roles.iteritems():
-            # Each role can have multiple versions associated with it.
-            for ver, ver_vals in v.iteritems():
-                config_str = self._setup_config(ver_vals['config'])
-                id = '%s_%s' % (k, ver)
-
-                if k in active_roles and active_roles[k] == ver:
-                    is_active = True
-                else:
-                    is_active = False
-                self.insert_update_role(id, k, ver, ver_vals['display_name'],
-                                    ver_vals['description'], config_str, is_active)
+        for role, role_info in discovered_roles.iteritems():
+            for version, version_details in role_info.items():
+                self.save_role_in_db(role, version, version_details)
 
     @property
     def dbengine(self):
@@ -360,35 +305,42 @@ class ResMgrDB(object):
                               '' if responding else 'not')
                 raise
 
-    def insert_update_role(self, id, role_name, version, display_name,
-                           description, desired_config, active):
+    def save_role_in_db(self, name, version, details):
         """
         Insert or update a role in the database. If the role already exists in
         database, an update is performed. Otherwise, the new role is inserted
         into the database.
-        :param str id: ID of the role
-        :param str role_name: Name of the role
+        Also, this role version is marked as active and all other versions of
+        the same role are marked as inactive in the DB.
+        :param str name: Name of the role
         :param str version: Version of the role
-        :param str display_name: User friendly name of the role
-        :param str description: Description of the role
-        :param dict desired_config: Actual configuration or the configuration
-        template of the role.
-        :param bool active: Indicates if this is the active version of the role
+        :param dict details: Details of role
         """
-        new_role = Role(id=id,
-                        rolename=role_name,
+        role_id = '%s_%s' % (name, version)
+        new_role = Role(id=role_id,
+                        rolename=name,
                         version=version,
-                        displayname=display_name,
-                        description=description,
-                        desiredconfig=desired_config,
-                        active=active)
+                        displayname=details['display_name'],
+                        description=details['description'],
+                        desiredconfig=self._setup_config(details['config']),
+                        active=True)
 
         with self.dbsession() as session:
             try:
-                log.info('Insert/updating role %s, active=%s', id, active)
+                result = session.query(Role).filter_by(rolename=name).all()
+                if result:
+                    # There are potentially other versions of the role in the DB
+                    for role in result:
+                        if role.version != version:
+                            # Role in DB which is not in the metadata file now,
+                            # tag such as inactive.
+                            role.active = False
+                # It is a new role which doesn't exist in the DB or
+                # It is a role in the DB but is same as that of the version
+                # to be considered active
                 session.merge(new_role)
             except:
-                log.exception('Role %s update in database failed', id)
+                log.exception('Role %s update in the database failed', role_id)
                 raise
 
     def query_role(self, role_name, active_only=True):
@@ -561,24 +513,6 @@ class ResMgrDB(object):
             except:
                 log.exception('DB error while removing role %s from host %s',
                               role_name, host_id)
-                raise
-
-
-    def mark_role_version_active(self, role_name, version):
-        """
-        Mark a particular role version as active. All other versions of that
-        role are marked as not active.
-        :param str role_name: Name of the role
-        :param str version: Version of the role to be marked active
-        """
-        with self.dbsession() as session:
-            try:
-                roles = session.query(Role).filter_by(rolename=role_name).all()
-                for role in roles:
-                    role.active = role.version == version
-            except:
-                log.exception('Setting active role %s, version %s failed',
-                               role_name, version)
                 raise
 
     def update_roles_for_host(self, host_id, roles):

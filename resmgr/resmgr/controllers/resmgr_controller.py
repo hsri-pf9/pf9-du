@@ -64,28 +64,6 @@ class RolesController(RestController):
 
         return out[name]
 
-    @enforce(required = ['admin'])
-    @expose('json')
-    def put(self, role_name):
-     """
-     Update the active version for a role. The active version should be
-     specified as part of the body of the request.
-     :param str role_name: Name of role
-     """
-
-     # NOTE: Need to figure out if this is the final destination of this API
-     req = pecan.core.state.request.json_body
-
-     # active_version field should be specified in the request
-     if 'active_version' not in req:
-         abort(400)
-
-     try:
-         _provider.set_active_role_version(role_name, req['active_version'])
-     except:
-         abort(404)
-
-
 class HostRolesController(RestController):
     """Controller for hosts' roles related requests"""
 

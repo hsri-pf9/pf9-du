@@ -105,23 +105,6 @@ class RolesMgr(object):
 
         return result
 
-    def set_active_role_version(self, role_name, version):
-        """
-        Set a version of the role as active
-        :param str role_name: Name of the role
-        :param str version: Version to be marked active
-        """
-        roles = self.db_handler.query_role(role_name, active_only=False)
-        # First ensure it is a valid role
-        if not roles:
-            raise RoleNotFound(role_name)
-
-        # Next check that the specified version exists for that role
-        if not any(role.version == version for role in roles):
-            raise RoleNotFound(role_name)
-
-        self.db_handler.mark_role_version_active(role_name, version)
-
     def active_role_config(self):
         """
         Get the details of all roles that are marked as active
@@ -685,17 +668,6 @@ class ResMgrPf9Provider(ResMgrProvider):
                  role_name, host_id)
         app_info = self.prepare_app_config(host_inst['roles'])
         self.roles_mgr.push_configuration(host_id, app_info)
-
-    def set_active_role_version(self, role_name, version):
-        """
-        Set a particular role version as active. All other versions of that
-        role are automatically marked as inactive.
-        :param str role_name: Name of the role
-        :param str version: Version of the role
-        """
-        self.roles_mgr.set_active_role_version(role_name, version)
-        # Update the active config cache
-        self.active_config = self.roles_mgr.active_role_config()
 
 
 def get_provider(config_file):

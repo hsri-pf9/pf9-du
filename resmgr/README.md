@@ -47,23 +47,6 @@ Example:
 }
 ```
 
-### PUT /v1/roles/__role_name__ ###
-
-Sets a particular version of a role as the active version of the role. The version
-of the role that is to be marked active is passed in the body of the request
-
-Example:
-```
-{
-    'active_version': '1.0.2-2'
-}
-```
-
-On setting a role version as active, new hosts where the role is applied will install
-this version of the role. However, existing hosts will continue to use the pre-existing
-version of the role. To move these hosts to this active version of the role, the role
-should be reapplied to these hosts.
-
 ### GET /v1/hosts ##
 
 Returns a dictionary of hosts in the pf9 system with assigned roles.
