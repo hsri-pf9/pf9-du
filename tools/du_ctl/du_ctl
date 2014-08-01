@@ -36,24 +36,6 @@ def _build_role_parser(subparsers):
     role_sub_parser = role_parser.add_subparsers(help='Host role sub-commands',
                                                  dest='role_subparser')
 
-    role_active_version_parser = role_sub_parser.add_parser('set_active',
-                                                            help='Set a version of role as active')
-    role_active_version_parser.add_argument('--role',
-                                            action='store',
-                                            dest='role',
-                                            required=True,
-                                            help='Name of the role whose version is be marked active')
-    role_active_version_parser.add_argument('--version',
-                                            action='store',
-                                            dest='version',
-                                            required=True,
-                                            help='Version of the role being marked active')
-    role_active_version_parser.add_argument('--user_token_file',
-                                            action='store',
-                                            dest='user_token_file',
-                                            required=True,
-                                            help='File containing user token for this operation')
-
     role_apply_parser = role_sub_parser.add_parser('apply',
                                                    help='Apply a role to a host')
     role_apply_parser.add_argument('--host_id',
@@ -148,10 +130,7 @@ def _process_cmd(args):
             return
 
     if args.subparser == 'hostrole':
-        if args.role_subparser == 'set_active':
-            do_set_active_role_version(args)
-            return
-        elif args.role_subparser == 'apply':
+        if args.role_subparser == 'apply':
             do_set_host_role(args)
             return
 
@@ -289,26 +268,6 @@ def do_agent_update(options):
 
     # push update
     _update_and_poll(options, resp['host_agent']['version'])
-
-def do_set_active_role_version(options):
-    """
-    Sets a particular version of the role as active
-    :param options: command line options that are passed in for this command
-    """
-    url = ''.join([_resmgr_endpoint, '/roles/', options.role])
-    log.info('Setting role %s version %s as active', options.role, options.version)
-    with open(options.user_token_file) as token_file:
-        auth_token = token_file.read()
-
-    headers = {
-        'X-Auth-Token': auth_token
-    }
-
-    body = {
-        'active_version': options.version
-    }
-
-    _do_put(url, body=body, headers=headers)
 
 def do_set_host_role(options):
     """
