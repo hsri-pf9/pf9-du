@@ -298,6 +298,12 @@ def start(config, log, app_db, agent_app_db, app_cache,
         log.info('--- Converging ---')
         send_status('converging', current_config, desired_config)
         _converge_attempts += 1
+        if _converge_attempts == max_converge_attempts:
+                # This is the last convergence attempt. Generate the support
+                # request and send it to the DU as part of the last
+                # convergence attempt
+                process_support_request()
+
         try:
             process_apps(app_db, app_cache, remote_app_class,
                          desired_config, log=log)
@@ -323,9 +329,6 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 log.error('Entering failed state after %d converge attempts',
                           _converge_attempts)
                 status = 'failed'
-                # This is the first time the status of the host is going into
-                # failed state. Generate and send the support bundle
-                process_support_request()
             else:
                 status = 'retrying'
             log.info('Converge failed')
