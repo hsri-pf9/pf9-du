@@ -6,7 +6,7 @@
 
 # Restart services post customization
 
-SERVICES="openstack-nova-conductor"
+SERVICES="openstack-nova-conductor pf9-resmgr"
 
 set -e -x
 

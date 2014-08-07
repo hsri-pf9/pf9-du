@@ -16,12 +16,14 @@ import logging
 import os
 import re
 import time
+import uuid
 from novaclient.v1_1 import client as nv_client
 from subprocess import call, check_call
 
 keystone_endpoint = 'http://localhost:35357/v2.0'
 default_tenant = 'service'
 default_role = 'admin'
+global_conf = '/etc/pf9/global.conf'
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
@@ -120,6 +122,59 @@ try :
     log.info("Created user %s" % admin_user)
 except Exception as ex:
     log.error('Failed to create user %s : %s' % (admin_user, ex))
+    exit(1)
+
+# create an imagelib user that allows the image library to validate user
+# auth tokens with keystone. Save the name, password and tenant in global.conf
+# so that resmgr can use it to configure the imagelibrary at role assign-time.
+# Make him part of the services tenant (not the service tenant).
+try:
+    # get the services tenant
+    tenants = ks.tenants.list()
+    services_tenant = None
+    for t in tenants:
+        if t.name == 'services':
+            services_tenant = t
+            break
+    if not services_tenant:
+        log.error('Could not find services tenant!')
+        exit(1)
+
+    # add the user
+    imglib_username = 'imagelib'
+    imglib_password = uuid.uuid1().hex
+    imglib_user = ks.users.create(name=imglib_username,
+                                  password=imglib_password,
+                                  tenant_id=services_tenant.id,
+                                  email='imagelib@localhost')
+    ks.roles.add_user_role(imglib_user, admin_role, services_tenant)
+    log.info("Created user %s" % imglib_user)
+
+    # now add the username, password and tenant name to global.conf
+    check_call(['openstack-config', '--set', global_conf, 'pf9-imagelibrary',
+                'auth_user', imglib_username])
+    check_call(['openstack-config', '--set', global_conf, 'pf9-imagelibrary',
+                'auth_pass', imglib_password])
+    check_call(['openstack-config', '--set', global_conf, 'pf9-imagelibrary',
+                'auth_tenant_name', 'services'])
+
+except Conflict:
+    # The user already exists. make sure that global.conf has values
+    res1 = call(['openstack-config', '--get', global_conf, 'pf9-imagelibrary',
+                 'auth_user'])
+    res2 = call(['openstack-config', '--get', global_conf, 'pf9-imagelibrary',
+                 'auth_pass'])
+    res3 = call(['openstack-config', '--get', global_conf, 'pf9-imagelibrary',
+                 'auth_tenant_name'])
+    if not all([res1 == 0, res2 == 0, res3 == 0]):
+        log.error("Found existing imagelib user, but global.conf doesn't "
+                "have username/password/service configuration")
+        exit(1)
+    else:
+        log.info("user 'imagelib' already exists, global.conf has values")
+
+except Exception as ex:
+    log.error("Failed to create imagelib user: %s" % ex)
     exit(1)
 
 log.info('Adding information on Platform9 users and projects')

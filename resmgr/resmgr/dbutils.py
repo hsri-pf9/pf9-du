@@ -120,6 +120,10 @@ class ResMgrDB(object):
         # TODO: Make this dynamic. May be read in from some file?
         param_vals = {
             'du_fqdn': self.config.get("DEFAULT", "DU_FQDN"),
+            'imglib_auth_user': self.config.get("pf9-imagelibrary", 'auth_user'),
+            'imglib_auth_pass': self.config.get("pf9-imagelibrary", 'auth_pass'),
+            'imglib_auth_tenant_name': self.config.get("pf9-imagelibrary",
+                'auth_tenant_name')
         }
         os_vars.update(param_vals)
         out = config_str % os_vars
