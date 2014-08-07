@@ -269,6 +269,11 @@ class BbonePoller(object):
             except BBMasterNotFound:
                 log.exception('Querying backbone for %s failed', host)
                 continue
+
+            if host_info['status'] == 'missing' or 'info' not in host_info.keys():
+                # If host status is missing, do nothing.
+                continue
+
             unauth_host = {
                 'id': host,
                 'roles': [],

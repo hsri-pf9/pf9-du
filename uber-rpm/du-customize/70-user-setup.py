@@ -23,6 +23,7 @@ from subprocess import call, check_call
 keystone_endpoint = 'http://localhost:35357/v2.0'
 default_tenant = 'service'
 default_role = 'admin'
+self_service_role = '_member_'
 global_conf = '/etc/pf9/global.conf'
 
 logging.basicConfig(level=logging.DEBUG,
@@ -111,14 +112,15 @@ except Exception as ex:
     log.error('Failed to get/create tenant: %s' % ex)
     exit(1)
 
-
 # create the user and make him an admin, conflict is an error
 try :
     user = ks.users.create(name=admin_user,
                            password=admin_pass,
                            tenant_id=service_tenant.id,
                            email=admin_email)
+    member_role = [r for r in roles if r.name == self_service_role][0]
     ks.roles.add_user_role(user, admin_role, service_tenant)
+    ks.roles.remove_user_role(user, member_role, service_tenant)
     log.info("Created user %s" % admin_user)
 except Exception as ex:
     log.error('Failed to create user %s : %s' % (admin_user, ex))

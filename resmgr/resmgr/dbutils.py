@@ -496,6 +496,10 @@ class ResMgrDB(object):
                 host = session.query(Host).filter_by(id=host_id).first()
                 role = session.query(Role).filter_by(rolename=role_name,
                                                      active=True).first()
+                # Remove any previous association between that host and
+                # the role name being associated here
+                host.roles = set([r for r in host.roles if r.rolename != role_name])
+                # Add the new role to that host
                 host.roles.add(role)
             except:
                 log.exception('DB error while associating host %s with role %s',
