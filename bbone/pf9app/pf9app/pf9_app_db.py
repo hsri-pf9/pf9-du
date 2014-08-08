@@ -6,14 +6,15 @@ __author__ = 'Platform9'
 import errno
 import logging
 import os
-import subprocess
 import platform
+import subprocess
+import time
 
 from app_db import AppDb
 from pf9_app_cache import get_supported_distro
 from pf9_app import Pf9App
 from exceptions import NotInstalled, UpdateOperationFailed, \
-    RemoveOperationFailed, InstallOperationFailed
+    RemoveOperationFailed, InstallOperationFailed, Pf9Exception
 
 if get_supported_distro() == 'debian':
     import apt
@@ -161,12 +162,24 @@ class YumPkgMgr(object):
         :return: dictionary of agent name and version
         :rtype: dict
         """
-        pkgs = self._find_installed_pkg('pf9-hostagent')
-        assert len(pkgs) == 1
-        return {
-            'name': pkgs[0].name,
-            'version': pkgs[0].printVer()
-        }
+        for i in range(20):
+            pkgs = self._find_installed_pkg('pf9-hostagent')
+            if len(pkgs) == 1:
+                return {
+                    'name': pkgs[0].name,
+                    'version': pkgs[0].printVer()
+                }
+            # Number of packages found is not 1.
+            # This can happen when the hostagent has restarted on update
+            # but the yum cache has not yet updated with the end of the
+            # transaction. It will report 2 hostagents in such a case.
+            self.log.info('Refreshing yum cache because of hostagent '
+                          'package count mismatch: %s.', pkgs)
+            time.sleep(6)
+            self.ybase.closeRpmDB()
+
+        self.log.error('Could not determine the agent version')
+        raise Pf9Exception('Querying pf9 agent version failed.')
 
     def _find_installed_pkg(self, appname):
         """
