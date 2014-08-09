@@ -14,6 +14,8 @@ import json
 import threading
 import time
 import requests
+import dict_subst
+import dict_tokens
 
 from bbcommon.utils import is_satisfied_by
 from dbutils import ResMgrDB
@@ -46,6 +48,14 @@ def call_remote_service(url):
     except requests.exceptions.RequestException as e:
         log.error('GET call on %s failed', url)
         raise BBMasterNotFound(e)
+
+
+def substitute_host_id(dictionary, host_id):
+    """
+    Replaces host ID tokens in a dictionary with actual host ID
+    """
+    token_map = {dict_tokens.HOST_ID_TOKEN: host_id}
+    return dict_subst.substitute(dictionary, token_map)
 
 
 class RolesMgr(object):
@@ -122,14 +132,18 @@ class RolesMgr(object):
 
         return result
 
-    def push_configuration(self, host_id, app_info):
+    def push_configuration(self, host_id, app_info,
+                           needs_hostid_subst=True):
         """
         Push app configuration to backbone service
         :param str host_id: host identifier
         :param dict app_info: app information that needs to be set in the configuration
+        :param bool needs_hostid_subst: replace host ID tokens with actual host ID
         :raises HostConfigFailed: if setting the configuration fails or times out
         :raises BBMasterNotFound: if communication to the backbone fails
         """
+        if needs_hostid_subst:
+            app_info = substitute_host_id(app_info, host_id)
         log.info('Applying configuration %s to %s', app_info, host_id)
         url = "%s/v1/hosts/%s/apps" % (self.bb_url, host_id)
         try:
@@ -377,12 +391,15 @@ class BbonePoller(object):
                     # Check if desired app status in result is same as app status
                     # in DB
                     # TODO: Cross check if this is intended design
-                    expected_cfg = authorized_hosts[host]['roles_config']
+                    expected_cfg = substitute_host_id(
+                        authorized_hosts[host]['roles_config'],
+                        host)
                     if not is_satisfied_by(expected_cfg, host_info[cfg_key]):
                         log.debug('Pushing new configuration for %s, config: %s. '
                                   'Expected config %s', host, host_info['apps'],
                                   expected_cfg)
-                        self.rolemgr.push_configuration(host, expected_cfg)
+                        self.rolemgr.push_configuration(host, expected_cfg,
+                                                        needs_hostid_subst=False)
                 except (BBMasterNotFound, HostConfigFailed):
                     log.exception('Backbone request for %s failed', host)
                     continue

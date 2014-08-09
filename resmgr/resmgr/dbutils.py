@@ -9,7 +9,7 @@ import glob
 import logging
 import json
 import os
-import re
+import dict_tokens
 
 from exceptions import HostNotFound
 
@@ -118,12 +118,15 @@ class ResMgrDB(object):
         os_vars = os.environ
 
         # TODO: Make this dynamic. May be read in from some file?
+        # Note: host_id becomes __HOST_ID__ token in the DB.
+        #       At run-time, it gets replaced with each host's ID
         param_vals = {
             'du_fqdn': self.config.get("DEFAULT", "DU_FQDN"),
             'imglib_auth_user': self.config.get("pf9-imagelibrary", 'auth_user'),
             'imglib_auth_pass': self.config.get("pf9-imagelibrary", 'auth_pass'),
             'imglib_auth_tenant_name': self.config.get("pf9-imagelibrary",
-                'auth_tenant_name')
+                'auth_tenant_name'),
+            'host_id': dict_tokens.HOST_ID_TOKEN
         }
         os_vars.update(param_vals)
         out = config_str % os_vars
