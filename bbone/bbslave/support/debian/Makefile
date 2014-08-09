@@ -62,6 +62,8 @@ install-bbslave: | $(BUILD_DIR) $(VENV_DIR)
 $(HOSTAGENT_TARBALL): | $(HOSTAGENT_TARBALL_SRCDIR) install-bbslave
 	cp $(SRC_DIR)/support/debian/hostagent-deb-build.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/debian/after-install.sh $(HOSTAGENT_TARBALL_SRCDIR)
+	cp $(SRC_DIR)/support/debian/before-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
+	cp $(SRC_DIR)/support/debian/after-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/scripts/pf9-hostagent $(VENV_DIR)/bin
 	cd $(HOSTAGENT_TARBALL_SRCDIR);\
 	tar -czf $(HOSTAGENT_TARBALL) *

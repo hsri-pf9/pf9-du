@@ -23,13 +23,19 @@ HOST_AGENT_DEB_SYMLINK=pf9-hostagent.x86_64.deb
 
 # Remove after-install.sh and hostagent-deb-build from the BUILD_DIR
 mv $TARBALL_EXPANDED_LOCATION/after-install.sh $SPEC_FILE_DIR
+mv $TARBALL_EXPANDED_LOCATION/after-remove.sh $SPEC_FILE_DIR
+mv $TARBALL_EXPANDED_LOCATION/before-remove.sh $SPEC_FILE_DIR
 mv $TARBALL_EXPANDED_LOCATION/hostagent-deb-build.sh $SPEC_FILE_DIR
 
 sed -i -e "s/CHANGE_TO_YOUR_BROKER_IP/$HOST_IP/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 
 mkdir -p $PRIVATE_FILES_DIR
 
-fpm -t deb -s dir --provides "pf9-hostagent" --provides "pf9-bbslave" -d "sudo" -d "python-setuptools" --after-install $SPEC_FILE_DIR/after-install.sh -p $DEB_FILE -n pf9-hostagent -C $TARBALL_EXPANDED_LOCATION .
+fpm -t deb -s dir --provides "pf9-hostagent" --provides "pf9-bbslave" -d "sudo" \
+        -d "python-setuptools" --after-install $SPEC_FILE_DIR/after-install.sh \
+        --after-remove $SPEC_FILE_DIR/after-remove.sh --before-remove $SPEC_FILE_DIR/before-remove.sh \
+        --license "Commercial" --architecture all --url "http://www.platform9.net" --vendor Platform9 \
+        -v $VERSION -p $DEB_FILE -n pf9-hostagent -C $TARBALL_EXPANDED_LOCATION .
 
 # Symlink the rpm to a well known location
 pushd $PRIVATE_FILES_DIR

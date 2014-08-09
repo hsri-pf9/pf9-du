@@ -19,6 +19,7 @@ Requires: pf9-ostackhost-wrapper-debian
 Requires: pf9-authproxy
 Requires: pf9-janitor
 Requires: pf9-imagelibrary-wrapper
+Requires: pf9-imagelibrary-wrapper-debian
 
 %description
 Platform9 deployment unit.
