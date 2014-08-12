@@ -191,8 +191,12 @@ try:
     nova_status_code = call(["service", "openstack-nova-api", "status"])
     log.info("openstack-nova-api status code: %s" % nova_status_code)
     log.info('Completed nova quota update.')
+    nc.flavors.create('pf9.unknown', 1, 1, 0, flavorid=94086)
+    nova_status_code = call(["service", "openstack-nova-api", "status"])
+    log.info("openstack-nova-api status code: %s" % nova_status_code)
+    log.info('Completed flavor creation')
 except Exception as ex:
-    log.error("Failed to update quota: %s" % ex)
+    log.error("Failed to update quota or create flavor: %s" % ex)
     exit(1)
 
 try:
@@ -201,8 +205,9 @@ try:
                 'PF9', 'pf9_project_id', service_tenant.id])
     check_call(['openstack-config', '--set', '/etc/nova/nova.conf',
                 'PF9', 'pf9_user_id', user.id])
-    log.info('Successfully added Platform9 user and system information to nova config')
-
+    check_call(['openstack-config', '--set', '/etc/nova/nova.conf',
+                'PF9', 'pf9_flavor', 'pf9.unknown'])
+    log.info('Successfully added Platform9 user, system and flavor information to nova config')
     # Add tenant id information to janitor.conf
     check_call(['openstack-config', '--set', '/etc/pf9/janitor.conf',
                 'PF9', 'pf9_project_id', service_tenant.id])
