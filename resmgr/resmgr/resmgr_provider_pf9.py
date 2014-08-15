@@ -494,9 +494,6 @@ class ResMgrPf9Provider(ResMgrProvider):
         self.host_inventory_mgr = HostInventoryMgr(config, self.res_mgr_db)
         self.roles_mgr = RolesMgr(config, self.res_mgr_db)
         notifier.init(log, config)
-        # Active configurations can be in memory right now, instead of going to
-        # the DB every time.
-        self.active_config = self.roles_mgr.active_role_config()
 
         # Setup a thread to poll backbone state regularly to detect changes to
         # hosts.
@@ -572,20 +569,6 @@ class ResMgrPf9Provider(ResMgrProvider):
                       host_id)
             self.roles_mgr.push_configuration(host_id, app_info={})
 
-
-    def prepare_app_config(self, roles):
-        """
-        Build the app config object based on the provided roles
-        :param list roles: List of roles
-        :return: JSON of the application configuration
-        :rtype: dict
-        """
-        app_cfg = {}
-        for role in roles:
-            app_cfg[role] = self.active_config[role]['config']
-
-        return app_cfg
-
     def add_role(self, host_id, role_name):
         """
         Add a role to a particular host
@@ -597,7 +580,8 @@ class ResMgrPf9Provider(ResMgrProvider):
         :raises BBMasterNotFound: if communication to the backbone fails
         """
         log.info('Assigning role %s to %s', role_name, host_id)
-        if role_name not in self.active_config:
+        active_role_in_db = self.res_mgr_db.query_role(role_name)
+        if not active_role_in_db:
             log.error('Role %s is not found in list of active roles', role_name)
             raise RoleNotFound(role_name)
 
@@ -607,8 +591,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             raise HostNotFound(host_id)
 
         host_roles = self.res_mgr_db.query_host(host_id, fetch_role_ids=True)
-        if host_roles and \
-            self.active_config[role_name]['role_id'] in host_roles['roles']:
+        if host_roles and active_role_in_db.id in host_roles['roles']:
             log.info('Role %s is already assigned to %s', role_name, host_id)
             return
 
@@ -638,9 +621,11 @@ class ResMgrPf9Provider(ResMgrProvider):
                 _unauthorized_host_status_time.pop(host_id, None)
 
             log.debug('Sending request to backbone to add role %s to %s',
-                 role_name, host_id)
-            app_info = self.prepare_app_config(host_inst['roles'])
-            self.roles_mgr.push_configuration(host_id, app_info)
+                       role_name, host_id)
+            # Rely on the role config values set in the DB to send to bbmaster
+            host_details = self.res_mgr_db.query_host_details(host_id)
+            self.roles_mgr.push_configuration(host_id,
+                                 host_details[host_id]['roles_config'])
         except:
             if initially_inactive:
                 host_inst['state'] = RState.inactive
@@ -659,7 +644,8 @@ class ResMgrPf9Provider(ResMgrProvider):
         :raises BBMasterNotFound: if communication to the backbone fails
         """
         log.info('Removing role %s from %s', role_name, host_id)
-        if role_name not in self.active_config:
+        active_role_in_db = self.res_mgr_db.query_role(role_name)
+        if not active_role_in_db:
             log.error('Role %s is not found in list of active roles', role_name)
             raise RoleNotFound(role_name)
 
@@ -688,8 +674,9 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         log.debug('Sending request to backbone to remove role %s from %s',
                  role_name, host_id)
-        app_info = self.prepare_app_config(host_inst['roles'])
-        self.roles_mgr.push_configuration(host_id, app_info)
+        host_details = self.res_mgr_db.query_host_details(host_id)
+        self.roles_mgr.push_configuration(host_id,
+                             host_details[host_id]['roles_config'])
 
 
 def get_provider(config_file):

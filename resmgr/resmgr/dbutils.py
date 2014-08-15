@@ -457,18 +457,26 @@ class ResMgrDB(object):
 
         return out
 
-    def query_host_details(self):
+    def query_host_details(self, host_id=None):
         """
-        Query all host details and returns a JSON serializable dictionary and not
+        Query host details and returns a JSON serializable dictionary and not
         the ORM object. Use this to reference the host data beyond the database
-        session
+        session. If host_id is not provided, all hosts are queried.
+        :param str host_id: ID of the host.
         :return: list of hosts' properties in JSON format
         :rtype: dict
         """
-        log.info('Querying all hosts details')
+        log.info('Querying host details for %s', host_id if host_id else 'all hosts')
         out = {}
+        results = None
         with self.dbsession() as session:
-            results = session.query(Host).all()
+            if host_id:
+                try:
+                    results = [session.query(Host).filter_by(id=host_id).first()]
+                except NoResultFound:
+                    log.exception('No host found for id %s', host_id)
+            else:
+                results = session.query(Host).all()
             for host in results:
                 assigned_roles = {}
                 for role in host.roles:
