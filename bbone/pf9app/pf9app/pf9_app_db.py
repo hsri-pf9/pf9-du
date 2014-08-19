@@ -46,6 +46,10 @@ class AptPkgMgr(object):
     def __init__(self, log = logging):
         self.log = log
         self.cache = apt.cache.Cache()
+        # To install packages noninteractively, we change the environment
+        # variables. There may be additional steps needed in the pf9app
+        # post-install scripts to take this into account.
+        os.environ.update(DEBIAN_FRONTEND='noninteractive')
 
     def query_pf9_apps(self):
         """
@@ -109,6 +113,16 @@ class AptPkgMgr(object):
             # File to install doesn't exist
             raise OSError(errno.ENOENT, os.strerror(errno.ENOENT), pkg_path)
         deb_package = apt.debfile.DebPackage(pkg_path, self.cache)
+        # Checks if the file is installable. Needed before call to missing_deps.
+        deb_package.check()
+
+        for missing_package in deb_package.missing_deps:
+            self._update_apt_cache()
+            missing_package = self.cache[missing_package]
+            missing_package.mark_install()
+            self.cache.commit()
+
+        self._update_apt_cache()
         deb_package.install()
 
     def update_from_file(self, pkg_path):
