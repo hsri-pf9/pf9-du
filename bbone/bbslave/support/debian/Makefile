@@ -6,71 +6,13 @@
 
 include ../../../../common-defs.mk
 
-SRC_DIR := $(SRC_ROOT)/bbone/bbslave
 BUILD_DIR := $(BUILD_ROOT)/hostagent/debian
+PYTHON_VERSION = 2.7
 
-VERSION ?= 1.0.0
-BUILD_NUMBER ?= 0
-GITHASH=$(shell git rev-parse --short HEAD)
-SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(VERSION)/"
+# This defines SRC_DIR, HOSTAGENT_TARBALL and SED_CMD
+include ../common-hostagent-defs.mk
 
-HOSTAGENT_TARBALL_SRCDIR := $(BUILD_DIR)/hostagent-tarball-src
-
-OPT_PF9_DIR := $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9
-
-VENV_DIR := $(OPT_PF9_DIR)/hostagent
-
-HOSTAGENT_TARBALL := $(BUILD_DIR)/pf9-hostagent.tar.gz
-
-RPM_DIR := $(BUILD_DIR)/rpmbuild
-
-VENV_INSTALL_CMD=$(VENV_DIR)/bin/python setup.py install
-
-BBSLAVE_DIR :=$(SRC_DIR)
-PF9APP_DIR :=$(SRC_ROOT)/bbone/pf9app
-BBLIBCOMMON_DIR :=$(SRC_ROOT)/bbone/lib
-CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
-
-
-$(BUILD_DIR):
-	mkdir -p $@
-
-$(OPT_PF9_DIR):
-	mkdir -p $@
-
-# Site packages required: bbslave needs 'yum' which is not available on PyPi
-$(VENV_DIR): | $(OPT_PF9_DIR) $(BUILD_DIR)
-	virtualenv --system-site-packages $@
-
-$(HOSTAGENT_TARBALL_SRCDIR):
-	rm -fr $@
-	mkdir -p $@/etc/init.d
-	mkdir -p $@/etc/pf9
-	cp $(BBSLAVE_DIR)/etc/init.d/pf9-hostagent-debian $@/etc/init.d/pf9-hostagent
-	cp $(BBSLAVE_DIR)/etc/pf9/hostagent.conf $@/etc/pf9
-
-install-bbslave: | $(BUILD_DIR) $(VENV_DIR)
-	cd $(CONFIGUTILS_DIR);\
-	$(VENV_INSTALL_CMD)
-	cd $(PF9APP_DIR);\
-	$(VENV_INSTALL_CMD)
-	cd $(BBLIBCOMMON_DIR);\
-	$(VENV_INSTALL_CMD)
-	cd $(BBSLAVE_DIR);\
-	$(VENV_INSTALL_CMD)
-
-$(HOSTAGENT_TARBALL): | $(HOSTAGENT_TARBALL_SRCDIR) install-bbslave
-	cp $(SRC_DIR)/support/debian/hostagent-deb-build.sh $(HOSTAGENT_TARBALL_SRCDIR)
-	cp $(SRC_DIR)/support/debian/after-install.sh $(HOSTAGENT_TARBALL_SRCDIR)
-	cp $(SRC_DIR)/support/debian/before-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
-	cp $(SRC_DIR)/support/debian/after-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
-	cp $(SRC_DIR)/scripts/pf9-hostagent $(VENV_DIR)/bin
-	cd $(HOSTAGENT_TARBALL_SRCDIR);\
-	tar -czf $(HOSTAGENT_TARBALL) *
-
-hostagent-tarball: $(HOSTAGENT_TARBALL)
-
-hostagent-tarball-rpm-debian: hostagent-tarball
+hostagent-tarball-rpm-debian: $(HOSTAGENT_TARBALL)
 	$(SED_CMD) ${SRC_DIR}/support/debian/46-customize-hostagent-deb > ${BUILD_DIR}/46-customize-hostagent-deb
 	chmod +x ${BUILD_DIR}/46-customize-hostagent-deb
 	$(SED_CMD)  hostagent-tarball-rpm.spec > ${BUILD_DIR}/hostagent-tarball-rpm.spec
@@ -79,40 +21,5 @@ hostagent-tarball-rpm-debian: hostagent-tarball
 	mv ${BUILD_DIR}/../SOURCES ${BUILD_DIR}
 	rpmbuild -bb $(BUILD_DIR)/hostagent-tarball-rpm.spec --define "_topdir $(BUILD_DIR)"
 
-
-# These additional modules need to be setup in order for our tests to run
-TEST_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${SRC_ROOT}/bbone/bbmaster ${PF9APP_DIR} ${CONFIGUTILS_DIR}
-TEST_VENV = ${BUILD_DIR}/hostagent_venv
-TEST_VENV_DEVELOP_CMD=${TEST_VENV}/bin/python setup.py develop
-COVERAGE_ZIP = ${SRC_ROOT}/coverage.zip
-DISTUTILS_DEBUG = 1
-
-${TEST_VENV}: ${BUILD_DIR}
-	virtualenv ${TEST_VENV}
-
-pre-reqs : ${TEST_VENV}
-	for pkg in ${TEST_SETUP_DEPS}; do \
-		cd $${pkg};\
-		${TEST_VENV_DEVELOP_CMD};\
-	done;\
-	cd ${BBSLAVE_DIR};\
-	${TEST_VENV_DEVELOP_CMD};
-
-unit-test-setup: pre-reqs
-	# Setup up nose and coverage in addition to pre-reqs
-	source ${TEST_VENV}/bin/activate;\
-	pip install nose;\
-	pip install coverage;\
-	deactivate
-
-unit-test: unit-test-setup
-	cd ${BBSLAVE_DIR};\
-	HOSTAGENT_HOST_ID_BASEDIR=${BUILD_DIR} ${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
-			--cover-package=bbslave --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/test_slave.py;
-	cd ${BUILD_DIR}/coverage;\
-	zip -q ${COVERAGE_ZIP} *;
-
-
 clean:
 	rm -rf $(BUILD_DIR)
-	rm -rf ${COVERAGE_ZIP}

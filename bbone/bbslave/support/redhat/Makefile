@@ -10,73 +10,16 @@
 
 include ../../../../common-defs.mk
 
-SRC_DIR := $(SRC_ROOT)/bbone/bbslave
 BUILD_DIR := $(BUILD_ROOT)/hostagent/redhat
+PYTHON_VERSION = 2.6
 
-VERSION ?= 1.0.0
-BUILD_NUMBER ?= 0
-GITHASH=$(shell git rev-parse --short HEAD)
-SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(VERSION)/"
-
-HOSTAGENT_TARBALL_SRCDIR := $(BUILD_DIR)/hostagent-tarball-src
-
-OPT_PF9_DIR := $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9
-
-VENV_DIR := $(OPT_PF9_DIR)/hostagent
-
-HOSTAGENT_TARBALL := $(BUILD_DIR)/pf9-hostagent.tar.gz
+# This defines SRC_DIR, HOSTAGENT_TARBALL and SED_CMD
+include ../common-hostagent-defs.mk
 
 RPM_DIR := $(BUILD_DIR)/rpmbuild
-
 MOCK = /usr/bin/mock -r epel-6-x86_64
 
-VENV_INSTALL_CMD=$(VENV_DIR)/bin/python setup.py install
-
-BBSLAVE_DIR :=$(SRC_DIR)
-PF9APP_DIR :=$(SRC_ROOT)/bbone/pf9app
-BBLIBCOMMON_DIR :=$(SRC_ROOT)/bbone/lib
-CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
-
-
-$(BUILD_DIR):
-	mkdir -p $@
-
-$(OPT_PF9_DIR):
-	mkdir -p $@
-
-# Site packages required: bbslave needs 'yum' which is not available on PyPi
-$(VENV_DIR): | $(OPT_PF9_DIR) $(BUILD_DIR)
-	virtualenv --system-site-packages $@
-
-$(HOSTAGENT_TARBALL_SRCDIR):
-	rm -fr $@
-	mkdir -p $@/etc/rc.d/init.d
-	mkdir -p $@/etc/pf9
-	cp $(BBSLAVE_DIR)/etc/init.d/pf9-hostagent-redhat $@/etc/rc.d/init.d/pf9-hostagent
-	cp $(BBSLAVE_DIR)/etc/pf9/hostagent.conf $@/etc/pf9
-
-install-bbslave: | $(BUILD_DIR) $(VENV_DIR)
-	cd $(CONFIGUTILS_DIR);\
-	$(VENV_INSTALL_CMD)
-	cd $(PF9APP_DIR);\
-	$(VENV_INSTALL_CMD)
-	cd $(BBLIBCOMMON_DIR);\
-	$(VENV_INSTALL_CMD)
-	cd $(BBSLAVE_DIR);\
-	$(VENV_INSTALL_CMD)
-
-$(HOSTAGENT_TARBALL): | $(HOSTAGENT_TARBALL_SRCDIR) install-bbslave
-	cp $(SRC_DIR)/support/redhat/hostagent.spec $(HOSTAGENT_TARBALL_SRCDIR)
-	cp $(SRC_DIR)/support/redhat/hostagent-rpm-build.sh $(HOSTAGENT_TARBALL_SRCDIR)
-	cp $(SRC_DIR)/scripts/pf9-hostagent $(VENV_DIR)/bin
-	cd $(HOSTAGENT_TARBALL_SRCDIR);\
-	tar -czf $(HOSTAGENT_TARBALL) *
-
-hostagent-tarball: $(HOSTAGENT_TARBALL)
-
-# Because the hostagent depends on the virtualenv created here,
-# we need to have different hostagent tarball rpms.
-hostagent-tarball-rpm-redhat: hostagent-tarball
+hostagent-tarball-rpm-redhat: $(HOSTAGENT_TARBALL)
 	$(SED_CMD) ${SRC_DIR}/support/redhat/45-customize-hostagent-rpm > ${BUILD_DIR}/45-customize-hostagent-rpm
 	chmod +x ${BUILD_DIR}/45-customize-hostagent-rpm
 	$(SED_CMD) hostagent-tarball-rpm.spec > ${BUILD_DIR}/hostagent-tarball-rpm.spec
@@ -100,7 +43,7 @@ pre-reqs : ${TEST_VENV}
 		cd $${pkg};\
 		${TEST_VENV_DEVELOP_CMD};\
 	done;\
-	cd ${BBSLAVE_DIR};\
+	cd ${SRC_DIR};\
 	${TEST_VENV_DEVELOP_CMD};
 
 unit-test-setup: pre-reqs
@@ -111,7 +54,7 @@ unit-test-setup: pre-reqs
 	deactivate
 
 unit-test: unit-test-setup
-	cd ${BBSLAVE_DIR};\
+	cd ${SRC_DIR};\
 	HOSTAGENT_HOST_ID_BASEDIR=${BUILD_DIR} ${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
 			--cover-package=bbslave --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/test_slave.py;
 	cd ${BUILD_DIR}/coverage;\
