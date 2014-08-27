@@ -39,6 +39,6 @@ $(VENV_DIR): | $(HOSTAGENT_TARBALL_SRCDIR)
 	cd $(BBLIBCOMMON_DIR) && $(VENV_INSTALL_CMD)
 	cd $(SRC_DIR) && $(VENV_INSTALL_CMD)
 	# Inherit global packages to use 'yum' or 'apt' which are not on PyPi
-	rm -f $(VENV_DIR)/lib/$(PYTHON_VERSION)/no-global-site-packages.txt
+	rm -f $(VENV_DIR)/lib/python$(PYTHON_VERSION)/no-global-site-packages.txt
 	cp $(SRC_DIR)/scripts/pf9-hostagent $(VENV_DIR)/bin
 
