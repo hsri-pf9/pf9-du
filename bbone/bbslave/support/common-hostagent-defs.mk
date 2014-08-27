@@ -7,7 +7,9 @@
 #
 # Output: the following variables are defined:
 # SRC_DIR
+# VENV_DIR
 # HOSTAGENT_TARBALL
+# HOSTAGENT_TARBALL_SRCDIR
 # SED_CMD
 
 SRC_DIR := $(SRC_ROOT)/bbone/bbslave
@@ -27,8 +29,7 @@ SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" 
 
 $(HOSTAGENT_TARBALL_SRCDIR):
 	mkdir -p $@
-	mkdir -p $@/etc/rc.d/init.d
-	mkdir $@/etc/pf9
+	mkdir -p $@/etc/pf9
 	cp $(SRC_DIR)/etc/pf9/hostagent.conf $@/etc/pf9
 
 $(VENV_DIR): | $(HOSTAGENT_TARBALL_SRCDIR)
@@ -41,9 +42,3 @@ $(VENV_DIR): | $(HOSTAGENT_TARBALL_SRCDIR)
 	rm -f $(VENV_DIR)/lib/$(PYTHON_VERSION)/no-global-site-packages.txt
 	cp $(SRC_DIR)/scripts/pf9-hostagent $(VENV_DIR)/bin
 
-$(HOSTAGENT_TARBALL): | $(VENV_DIR)
-	cp $(SRC_DIR)/etc/init.d/pf9-hostagent-redhat $(HOSTAGENT_TARBALL_SRCDIR)/etc/rc.d/init.d/pf9-hostagent
-	cp $(SRC_DIR)/support/redhat/hostagent.spec $(HOSTAGENT_TARBALL_SRCDIR)
-	cp $(SRC_DIR)/support/redhat/hostagent-rpm-build.sh $(HOSTAGENT_TARBALL_SRCDIR)
-	cd $(HOSTAGENT_TARBALL_SRCDIR);\
-	tar -czf $(HOSTAGENT_TARBALL) *

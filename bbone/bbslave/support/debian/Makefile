@@ -9,8 +9,20 @@ include ../../../../common-defs.mk
 BUILD_DIR := $(BUILD_ROOT)/hostagent/debian
 PYTHON_VERSION = 2.7
 
-# This defines SRC_DIR, HOSTAGENT_TARBALL and SED_CMD
+# This defines SRC_DIR, VENV_DIR, HOSTAGENT_TARBALL,
+# HOSTAGENT_TARBALL_SRCDIR and SED_CMD
 include ../common-hostagent-defs.mk
+
+$(HOSTAGENT_TARBALL): | $(VENV_DIR)
+	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/init.d
+	cp $(SRC_DIR)/etc/init.d/pf9-hostagent-debian $(HOSTAGENT_TARBALL_SRCDIR)/etc/init.d/pf9-hostagent
+	cp $(SRC_DIR)/support/debian/hostagent-deb-build.sh $(HOSTAGENT_TARBALL_SRCDIR)
+	cp $(SRC_DIR)/support/debian/after-install.sh $(HOSTAGENT_TARBALL_SRCDIR)
+	cp $(SRC_DIR)/support/debian/before-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
+	cp $(SRC_DIR)/support/debian/after-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
+	cp $(SRC_DIR)/scripts/pf9-hostagent $(VENV_DIR)/bin
+	cd $(HOSTAGENT_TARBALL_SRCDIR);\
+	tar -czf $(HOSTAGENT_TARBALL) *
 
 hostagent-tarball-rpm-debian: $(HOSTAGENT_TARBALL)
 	$(SED_CMD) ${SRC_DIR}/support/debian/46-customize-hostagent-deb > ${BUILD_DIR}/46-customize-hostagent-deb

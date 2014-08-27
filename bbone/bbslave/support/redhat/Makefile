@@ -13,11 +13,20 @@ include ../../../../common-defs.mk
 BUILD_DIR := $(BUILD_ROOT)/hostagent/redhat
 PYTHON_VERSION = 2.6
 
-# This defines SRC_DIR, HOSTAGENT_TARBALL and SED_CMD
+# This defines SRC_DIR, VENV_DIR, HOSTAGENT_TARBALL,
+# HOSTAGENT_TARBALL_SRCDIR and SED_CMD
 include ../common-hostagent-defs.mk
 
 RPM_DIR := $(BUILD_DIR)/rpmbuild
 MOCK = /usr/bin/mock -r epel-6-x86_64
+
+$(HOSTAGENT_TARBALL): | $(VENV_DIR)
+	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/rc.d/init.d
+	cp $(SRC_DIR)/etc/init.d/pf9-hostagent-redhat $(HOSTAGENT_TARBALL_SRCDIR)/etc/rc.d/init.d/pf9-hostagent
+	cp $(SRC_DIR)/support/redhat/hostagent.spec $(HOSTAGENT_TARBALL_SRCDIR)
+	cp $(SRC_DIR)/support/redhat/hostagent-rpm-build.sh $(HOSTAGENT_TARBALL_SRCDIR)
+	cd $(HOSTAGENT_TARBALL_SRCDIR);\
+	tar -czf $(HOSTAGENT_TARBALL) *
 
 hostagent-tarball-rpm-redhat: $(HOSTAGENT_TARBALL)
 	$(SED_CMD) ${SRC_DIR}/support/redhat/45-customize-hostagent-rpm > ${BUILD_DIR}/45-customize-hostagent-rpm
