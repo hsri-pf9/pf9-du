@@ -1,10 +1,9 @@
 __author__ = 'Platform9'
 
-from janitor.nova_cleanup import NovaCleanup
-from ConfigParser import ConfigParser
+from janitor import serve
+import logging
 
-if __name__ == "__main__":
-    cfg = ConfigParser()
-    cfg.read('/etc/pf9/janitor.conf')
-    nv = NovaCleanup(cfg)
-    nv.cleanup_hosts()
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M')
+serve('/etc/pf9/janitor.conf')

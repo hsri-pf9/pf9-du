@@ -6,8 +6,7 @@ __author__ = 'Platform9'
 
 import requests
 import logging
-from ConfigParser import ConfigParser
-import json
+from janitor import utils
 
 LOG = logging.getLogger('janitor-daemon')
 
@@ -22,43 +21,9 @@ class NovaCleanup(object):
         self._req_timeout = conf.get('DEFAULT', 'requestTimeout')
         self._wait = conf.get('DEFAULT', 'requestWaitPeriod')
         self._nova_url = conf.get('nova', 'endpointURI')
-        self._nova_conf = NovaCleanup._parse_nova_conf(conf.get('nova', 'configfile'))
-
-    @staticmethod
-    def _parse_nova_conf(configfile):
-        cfg = ConfigParser()
-        cfg.read(configfile)
-
-        nova_conf = dict()
-        nova_conf['tenant'] = cfg.get('keystone_authtoken', 'admin_tenant_name')
-        nova_conf['admin_name'] = cfg.get('keystone_authtoken', 'admin_user')
-        nova_conf['password'] = cfg.get('keystone_authtoken', 'admin_password')
-
-        return nova_conf
-
-    # FIXME: Move all these utility methods to library
-
-    @staticmethod
-    def _get_auth_token(tenant, user, password):
-        # FIXME: Make this reuse tokens
-        data = {
-            "auth": {
-                "tenantName": tenant,
-                "passwordCredentials": {
-                    "username": user,
-                    "password": password
-                }
-            }
-        }
-
-        url = 'http://localhost:35357/v2.0/tokens'
-
-        r = requests.post(url, json.dumps(data), verify=False, headers={'Content-Type': 'application/json'})
-
-        if r.status_code != requests.codes.ok:
-            raise RuntimeError('Token request returned: %d' % r.status_code)
-
-        return r.json()['access']['token']['id'], r.json()['access']['token']['tenant']['id']
+        nova_config = conf.get('nova', 'configfile')
+        self._auth_user, self._auth_pass, self._auth_tenant = \
+                utils.get_keystone_credentials(nova_config)
 
     def _nova_request(self, namespace, token, proj_id, req_type='get'):
         url = '/'.join([self._nova_url, 'v2', proj_id, namespace])
@@ -81,26 +46,15 @@ class NovaCleanup(object):
 
         return resp
 
-    def _resmgr_request(self, token):
-        url = '/'.join([self._resmgr_url, 'v1', 'hosts'])
-        headers = {'X-Auth-Token': token, 'Content-Type': 'application/json'}
-
-        resp = requests.get(url, verify=False, headers=headers)
-
-        if resp.status_code not in (requests.codes.ok, 204):
-            LOG.error('Resource manager query failed: %d', resp.status_code)
-
-        return resp
-
     def cleanup(self):
         """Remove hypervisor and instance information from Nova for
         hosts which have been removed from resmgr
         """
-        token, project_id = self._get_auth_token(self._nova_conf['tenant'],
-                                                 self._nova_conf['admin_name'],
-                                                 self._nova_conf['password'])
+        token, project_id = utils.get_auth_token(self._auth_tenant,
+                                                 self._auth_user,
+                                                 self._auth_pass)
 
-        resp = self._resmgr_request(token)
+        resp = utils.get_resmgr_hosts(self._resmgr_url, token)
 
         if resp.status_code != requests.codes.ok:
             return
