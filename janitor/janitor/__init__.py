@@ -4,6 +4,7 @@ from ConfigParser import ConfigParser
 from nova_cleanup import NovaCleanup
 from time import sleep
 from requests import exceptions
+import requests.packages.urllib3.exceptions as urllib_exceptions
 import logging
 
 LOG = logging.getLogger('janitor-daemon')
@@ -28,7 +29,7 @@ def serve(config_file):
     while True:
         try:
             nova_obj.cleanup()
-        except exceptions.ConnectionError:
+        except (exceptions.ConnectionError, urllib_exceptions.ProtocolError):
             LOG.info('Keystone service unavailable, will retry in a bit')
         except RuntimeError as e:
             LOG.error('Unexpected error %s', e)
