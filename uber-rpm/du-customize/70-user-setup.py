@@ -62,7 +62,7 @@ if not admin_token:
 
 # keystone client
 log.info('Connecting to keystone at %s' % keystone_endpoint)
-ks = client.Client(token=admin_token, endpoint=keystone_endpoint)
+ks = client.Client(token=admin_token, endpoint=keystone_endpoint, insecure=True)
 
 # make sure the keystone API is ready:
 max_wait = 300
@@ -183,7 +183,7 @@ log.info('Adding information on Platform9 users and projects')
 
 try:
     nc = nv_client.Client(admin_user, admin_pass, default_tenant,
-                          auth_url=keystone_endpoint, http_log_debug=True)
+                          auth_url=keystone_endpoint, insecure=True, http_log_debug=True)
     log.info('Completed nova client initialization.')
     nova_status_code = call(["service", "openstack-nova-api", "status"])
     log.info("openstack-nova-api status code: %s" % nova_status_code)
