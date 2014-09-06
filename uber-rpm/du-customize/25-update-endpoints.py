@@ -61,13 +61,13 @@ if __name__ == "__main__":
     fqdn = os.environ['DU_FQDN']
     default_url_prefix = 'http://127.0.0.1'
     new_url_prefix = 'https://%s' % fqdn
-    endpoint_updates = [('5000', 'keystone'),
-                        ('35357', 'keystone_admin'),
-                        ('8774', 'nova'),
+    endpoint_updates = [('5000/', 'keystone'),
+                        ('35357/', 'keystone_admin'),
+                        ('8774/', 'nova'),
                         ('9292', 'glance')]
 
     for endpoint in endpoint_updates:
-        old_endpoint = '%s:%s/' % (default_url_prefix, endpoint[0])
+        old_endpoint = '%s:%s' % (default_url_prefix, endpoint[0])
         new_endpoint = '%s/%s/' % (new_url_prefix, endpoint[1])
         update_query = 'update endpoint set url = REPLACE(url, \'%s\', \'%s\') where ' \
                        'interface in (\'public\', \'admin\')' % (old_endpoint, new_endpoint)
