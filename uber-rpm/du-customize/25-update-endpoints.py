@@ -63,8 +63,8 @@ if __name__ == "__main__":
     new_url_prefix = 'https://%s' % fqdn
     endpoint_updates = [('5000/', 'keystone'),
                         ('35357/', 'keystone_admin'),
-                        ('8774/', 'nova'),
-                        ('9292', 'glance')]
+                        ('8774/', 'nova')]
+#                       ('9292', 'glance')]
 
     for endpoint in endpoint_updates:
         old_endpoint = '%s:%s' % (default_url_prefix, endpoint[0])
