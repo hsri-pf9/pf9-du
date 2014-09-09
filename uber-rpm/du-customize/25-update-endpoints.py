@@ -40,8 +40,8 @@ if __name__ == "__main__":
 
     sql_conn_str = p.stdout.readline()
 
-    # mysql://<user>:<password>@<host>/<database>[;port]
-    pattern = r'mysql://([^:]+):([^/]+)@([^:$]+)/(.+)(?::(\d+))?'
+    # mysql://<user>:<password>@<host>[:port]/<database>
+    pattern = r'mysql://(.+):(.+)@([^:/]+)(?::(\d+))?/(.+)'
     matches = re.match(pattern, sql_conn_str)
 
     if not matches or len(matches.groups()) < 5:
@@ -49,14 +49,9 @@ if __name__ == "__main__":
         log.error(msg)
         raise ValueError(msg)
 
-    (user, passwd, host, db_name) = matches.groups()[:4]
+    (user, passwd, host, port, db_name) = matches.groups()
 
-    if len(matches.groups()) == 5 and matches.groups()[4]:
-        port = int(matches.groups()[4])
-        log.info("Initiating database customization for {0}@{1}:{2}".format(user, host, port))
-    else:
-        port = None
-        log.info("Initiating database customization for {0}@{1}".format(user, host))
+    log.info("Initiating database customization for {0}@{1}:{2}".format(user, host, port))
 
     fqdn = os.environ['DU_FQDN']
     default_url_prefix = 'http://127.0.0.1'
@@ -72,5 +67,8 @@ if __name__ == "__main__":
         update_query = 'update endpoint set url = REPLACE(url, \'%s\', \'%s\') where ' \
                        'interface in (\'public\', \'admin\')' % (old_endpoint, new_endpoint)
         log.debug('Executing: %s', update_query)
-        update_cmd = ['mysql', '-h'+ host, '-u' + user, '-p' + passwd, '-e' + update_query, db_name]
+        if port:
+            update_cmd = ['mysql', '-h' + host, '-P'+ port, '-u' + user, '-p' + passwd, '-e' + update_query, db_name]
+        else:
+            update_cmd = ['mysql', '-h' + host, '-u' + user, '-p' + passwd, '-e' + update_query, db_name]
         subprocess.check_call(update_cmd)
