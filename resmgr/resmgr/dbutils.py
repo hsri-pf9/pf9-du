@@ -18,6 +18,7 @@ from sqlalchemy import Boolean, DateTime, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import IntegrityError
 
 
 log = logging.getLogger('resmgr')
