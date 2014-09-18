@@ -6,6 +6,7 @@
 #
 # Requires: fpm
 
+set -e
 set -v
 
 RPMBUILD_DIR="$1"
@@ -35,7 +36,8 @@ fpm -t deb -s dir --provides "pf9-hostagent" --provides "pf9-bbslave" -d "sudo" 
         -d "python-setuptools" --after-install $SPEC_FILE_DIR/after-install.sh \
         --after-remove $SPEC_FILE_DIR/after-remove.sh --before-remove $SPEC_FILE_DIR/before-remove.sh \
         --license "Commercial" --architecture all --url "http://www.platform9.net" --vendor Platform9 \
-        -v $VERSION -p $DEB_FILE -n pf9-hostagent -C $TARBALL_EXPANDED_LOCATION .
+        -v $VERSION-$RELEASE -p $DEB_FILE -n pf9-hostagent --description "Platform9 host agent" \
+        --force -C $TARBALL_EXPANDED_LOCATION .
 
 # Symlink the rpm to a well known location
 pushd $PRIVATE_FILES_DIR
