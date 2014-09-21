@@ -13,10 +13,10 @@ setup(
     author='',
     author_email='',
     install_requires=[
+        "python-daemon",
         "Paste",
         "PasteDeploy",
         "pecan",
-        "python-daemon",
         "sqlalchemy",
         'requests'
     ],
