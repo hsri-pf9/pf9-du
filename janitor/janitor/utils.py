@@ -7,11 +7,13 @@ import logging
 import requests
 
 from ConfigParser import ConfigParser
+import time
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger('janitor-daemon')
 
-def get_auth_token(tenant, user, password):
-    # FIXME: Make this reuse tokens
+_TOKEN = None
+
+def _get_auth_token(tenant, user, password):
     data = {
         "auth": {
             "tenantName": tenant,
@@ -30,8 +32,32 @@ def get_auth_token(tenant, user, password):
     if r.status_code != requests.codes.ok:
         raise RuntimeError('Token request returned: %d' % r.status_code)
 
-    return r.json()['access']['token']['id'],\
-           r.json()['access']['token']['tenant']['id']
+    return r.json()['access']['token']
+
+def _need_refresh():
+    """
+    Return True if token should be refreshed.
+    """
+
+    # TODO check if token is valid by querying keystone
+    global _TOKEN
+
+    str_exp_time = _TOKEN['expires']
+    token_time = time.strptime(str_exp_time, '%Y-%m-%dT%H:%M:%SZ')
+    current_time = time.gmtime()
+
+    return True if time.mktime(token_time) - time.mktime(current_time) < 60 * 5\
+        else False
+
+def get_auth_token(tenant, user, password):
+
+    global _TOKEN
+
+    if not _TOKEN or _need_refresh():
+        LOG.debug('Refreshing token...')
+        _TOKEN = _get_auth_token(tenant, user, password)
+
+    return _TOKEN['id'], _TOKEN['tenant']['id']
 
 def get_resmgr_hosts(resmgr_url, token):
     url = '/'.join([resmgr_url, 'v1', 'hosts'])

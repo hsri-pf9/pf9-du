@@ -10,6 +10,13 @@ import logging
 
 LOG = logging.getLogger('janitor-daemon')
 
+LOG_LEVELS = {
+    'CRITICAL': logging.CRITICAL,
+    'ERROR': logging.ERROR,
+    'WARN': logging.WARNING,
+    'INFO': logging.INFO,
+    'DEBUG': logging.DEBUG,
+}
 
 def _parse_config(config_file):
     config = ConfigParser()
@@ -17,6 +24,14 @@ def _parse_config(config_file):
 
     return config
 
+def _setup_logging(config):
+    level = config.get('log', 'level')
+    level = level.upper()
+
+    if level in LOG_LEVELS.keys():
+        LOG.setLevel(LOG_LEVELS[level])
+    else:
+        LOG.warning('Ignoring invalid level %s', level)
 
 def serve(config_file):
     """
@@ -25,6 +40,8 @@ def serve(config_file):
     :param: config_file Janitor config file
     """
     cfg = _parse_config(config_file)
+    _setup_logging(cfg)
+
     nova_obj = NovaCleanup(conf=cfg)
     glance_obj = GlanceCleanup(conf=cfg)
 
