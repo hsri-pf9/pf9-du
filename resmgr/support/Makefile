@@ -52,8 +52,8 @@ ${VENV}: ${BUILD_DIR}
 	virtualenv ${VENV}
 
 ${RESMGR_SRC_STAGE}: pre-reqs
-	source ${VENV}/bin/activate;\
-	pip install MySQL-python; \
+	source ${VENV}/bin/activate && \
+	pip install MySQL-python &&  \
 	deactivate
 
 	mkdir -p ${RESMGR_SRC_STAGE}/var/log/pf9
@@ -63,17 +63,17 @@ ${RESMGR_SRC_STAGE}: pre-reqs
 	cp ${RESMGR_DIR}/etc/pf9/resmgr_config.py ${RESMGR_SRC_STAGE}/etc/pf9/
 	cp ${RESMGR_DIR}/etc/pf9/resmgr-paste.ini ${RESMGR_SRC_STAGE}/etc/pf9/
 
-	mkdir -p ${VENV}/bin; \
+	mkdir -p ${VENV}/bin
 	cp ${RESMGR_DIR}/bin/resmgr-daemon.py ${VENV}/bin/
 
-	mkdir -p ${RESMGR_SRC_STAGE}/etc/rc.d/init.d; \
+	mkdir -p ${RESMGR_SRC_STAGE}/etc/rc.d/init.d
 	cp -r ${RESMGR_DIR}/etc/init.d/pf9-resmgr ${RESMGR_SRC_STAGE}/etc/rc.d/init.d/
 
-	mkdir -p ${PF9_OPT_DIR}/du-customize; \
+	mkdir -p ${PF9_OPT_DIR}/du-customize
 	cp ${RESMGR_DIR}/support/50-customize-resmgr ${PF9_OPT_DIR}/du-customize
 
 ${RESMGR_SRC_TARBALL}: ${RESMGR_SRC_STAGE}
-	cd ${BUILD_DIR}/srcstage;\
+	cd ${BUILD_DIR}/srcstage && \
 	tar -czf ${RESMGR_SRC_TARBALL} *
 
 rpm: ${RESMGR_SRC_TARBALL}
@@ -87,34 +87,34 @@ rpm: ${RESMGR_SRC_TARBALL}
 
 pre-reqs: ${VENV}
 	for pkg in ${SETUP_DEPS}; do \
-		cd $${pkg};\
-		${VENV_CMD};\
-		done;\
-	cd ${RESMGR_DIR};\
-	${VENV_CMD};
+		cd $${pkg} && \
+		${VENV_CMD}; \
+	done
+	cd ${RESMGR_DIR} && \
+	${VENV_CMD}
 
 	# the keystone client has to be installed with pip. Installing with setuptools exposes
 	# https://bitbucket.org/pypa/setuptools/issue/73/typeerror-dist-must-be-a-distribution
-	source ${VENV}/bin/activate; \
-	pip install python-keystoneclient; \
+	source ${VENV}/bin/activate &&  \
+	pip install python-keystoneclient &&  \
 	deactivate
 
 
 unit-test-setup: pre-reqs
 	# Setup up nose and coverage in addition to pre-reqs
-	source ${TEST_VENV}/bin/activate;\
-	pip install nose;\
-	pip install coverage;\
-	pip install httpretty; \
+	source ${TEST_VENV}/bin/activate && \
+	pip install nose && \
+	pip install coverage && \
+	pip install httpretty &&  \
 	deactivate
 
 unit-test: unit-test-setup
-	cd ${RESMGR_DIR};\
+	cd ${RESMGR_DIR} && \
 	${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
 			--cover-package=resmgr --cover-package=bbcommon --verbosity=2 --with-xunit \
-			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app;
-	cd ${BUILD_DIR}/coverage;\
-	zip -q ${COVERAGE_ZIP} *;
+			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app && \
+	cd ${BUILD_DIR}/coverage && \
+	zip -q ${COVERAGE_ZIP} *
 
 clean:
 	rm -rf $(BUILD_DIR)

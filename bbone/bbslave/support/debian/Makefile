@@ -21,7 +21,7 @@ $(HOSTAGENT_TARBALL): | $(VENV_DIR)
 	cp $(SRC_DIR)/support/debian/before-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/debian/after-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/scripts/pf9-hostagent $(VENV_DIR)/bin
-	cd $(HOSTAGENT_TARBALL_SRCDIR);\
+	cd $(HOSTAGENT_TARBALL_SRCDIR) && \
 	tar -czf $(HOSTAGENT_TARBALL) *
 
 hostagent-tarball-rpm-debian: $(HOSTAGENT_TARBALL)

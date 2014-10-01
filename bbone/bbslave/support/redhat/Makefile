@@ -25,7 +25,7 @@ $(HOSTAGENT_TARBALL): | $(VENV_DIR)
 	cp $(SRC_DIR)/etc/init.d/pf9-hostagent-redhat $(HOSTAGENT_TARBALL_SRCDIR)/etc/rc.d/init.d/pf9-hostagent
 	cp $(SRC_DIR)/support/redhat/hostagent.spec $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/redhat/hostagent-rpm-build.sh $(HOSTAGENT_TARBALL_SRCDIR)
-	cd $(HOSTAGENT_TARBALL_SRCDIR);\
+	cd $(HOSTAGENT_TARBALL_SRCDIR) && \
 	tar -czf $(HOSTAGENT_TARBALL) *
 
 hostagent-tarball-rpm-redhat: $(HOSTAGENT_TARBALL)
@@ -49,25 +49,24 @@ ${TEST_VENV}: ${BUILD_DIR}
 
 pre-reqs : ${TEST_VENV}
 	for pkg in ${TEST_SETUP_DEPS}; do \
-		cd $${pkg};\
+		cd $${pkg} && \
 		${TEST_VENV_DEVELOP_CMD};\
-	done;\
-	cd ${SRC_DIR};\
-	${TEST_VENV_DEVELOP_CMD};
+	done
+	cd ${SRC_DIR} && \
+	${TEST_VENV_DEVELOP_CMD}
 
 unit-test-setup: pre-reqs
 	# Setup up nose and coverage in addition to pre-reqs
-	source ${TEST_VENV}/bin/activate;\
-	pip install nose;\
-	pip install coverage;\
-	deactivate
+	source ${TEST_VENV}/bin/activate && \
+	pip install nose && \
+	pip install coverage
 
 unit-test: unit-test-setup
-	cd ${SRC_DIR};\
+	cd ${SRC_DIR} && \
 	HOSTAGENT_HOST_ID_BASEDIR=${BUILD_DIR} ${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
-			--cover-package=bbslave --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/test_slave.py;
-	cd ${BUILD_DIR}/coverage;\
-	zip -q ${COVERAGE_ZIP} *;
+			--cover-package=bbslave --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/test_slave.py
+	cd ${BUILD_DIR}/coverage && \
+	zip -q ${COVERAGE_ZIP} *
 
 
 clean:

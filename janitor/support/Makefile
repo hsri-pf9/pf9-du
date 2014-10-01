@@ -45,10 +45,10 @@ ${JANITOR_SRC_STAGE}: pre-reqs
 	mkdir -p ${JANITOR_SRC_STAGE}/etc/pf9
 	cp ${JANITOR_DIR}/etc/pf9/janitor.conf ${JANITOR_SRC_STAGE}/etc/pf9/
 
-	mkdir -p ${VENV}/bin; \
+	mkdir -p ${VENV}/bin
 	cp ${JANITOR_DIR}/bin/janitor-daemon.py ${VENV}/bin/
 
-	mkdir -p ${JANITOR_SRC_STAGE}/etc/rc.d/init.d; \
+	mkdir -p ${JANITOR_SRC_STAGE}/etc/rc.d/init.d
 	cp -r ${JANITOR_DIR}/etc/init.d/pf9-janitor ${JANITOR_SRC_STAGE}/etc/rc.d/init.d/
 
 

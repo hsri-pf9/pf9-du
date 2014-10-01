@@ -69,7 +69,7 @@ ${BBMASTER_SRC_STAGE}: pre-reqs
 	mkdir -p ${PF9_OPT_DIR}/support
 
 ${BBMASTER_SRC_TARBALL}: ${BBMASTER_SRC_STAGE}
-	cd ${BUILD_DIR}/srcstage;\
+	cd ${BUILD_DIR}/srcstage && \
 	tar -czf ${BBMASTER_SRC_TARBALL} *
 
 rpm: ${BBMASTER_SRC_TARBALL}
@@ -84,30 +84,29 @@ rpm: ${BBMASTER_SRC_TARBALL}
 
 pre-reqs : ${VENV}
 	for pkg in ${SETUP_DEPS}; do \
-		cd $${pkg};\
+		cd $${pkg} && \
 		${VENV_CMD};\
-		done;\
-	cd ${BBMASTER_DIR};\
-	${VENV_CMD};
+	done
+	cd ${BBMASTER_DIR} && \
+	${VENV_CMD}
 
 unit-test-setup: pre-reqs
 	# Setup up nose and coverage in addition to pre-reqs
-	source ${TEST_VENV}/bin/activate;\
-	pip install nose;\
-	pip install coverage;\
-	deactivate
+	source ${TEST_VENV}/bin/activate && \
+	pip install nose && \
+	pip install coverage
 
 unit-test: unit-test-setup
-	cd ${BBMASTER_DIR};\
+	cd ${BBMASTER_DIR} && \
 	${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
 			--cover-package=bbmaster --cover-package=bbcommon --verbosity=2 --with-xunit \
-			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app bbmaster/tests/test_master.py;
-	cd ${BBMASTER_DIR};\
+			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app bbmaster/tests/test_master.py
+	cd ${BBMASTER_DIR} && \
 	${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
 			--cover-package=bbmaster --cover-package=bbcommon --verbosity=2 --with-xunit \
-			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app bbmaster/tests/test_controller.py;
-	cd ${BUILD_DIR}/coverage;\
-	zip -q ${COVERAGE_ZIP} *;
+			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app bbmaster/tests/test_controller.py
+	cd ${BUILD_DIR}/coverage && \
+	zip -q ${COVERAGE_ZIP} *
 
 clean:
 	rm -rf $(BUILD_DIR)

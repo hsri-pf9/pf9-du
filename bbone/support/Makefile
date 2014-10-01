@@ -26,20 +26,20 @@ ${TEST_VENV}: ${BUILD_DIR}
 
 pre-reqs : ${TEST_VENV}
 	for pkg in ${TEST_SETUP_DEPS}; do \
-		cd $${pkg};\
+		cd $${pkg} && \
 		${TEST_VENV_DEVELOP_CMD};\
-	done;
+	done
 
 integration-test-setup: pre-reqs
 	# Setup nose in addition to the pre-reqs
-	source ${TEST_VENV}/bin/activate;\
-	pip install nose;\
+	source ${TEST_VENV}/bin/activate && \
+	pip install nose && \
 	deactivate
 
 integration-test: integration-test-setup
-	cd ${SRC_DIR};\
-	source ${TEST_VENV}/bin/activate;\
-	${TEST_VENV}/bin/nosetests --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/bbone_integration_test.py;\
+	cd ${SRC_DIR} && \
+	source ${TEST_VENV}/bin/activate && \
+	${TEST_VENV}/bin/nosetests --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/bbone_integration_test.py && \
 	deactivate
 
 clean:
