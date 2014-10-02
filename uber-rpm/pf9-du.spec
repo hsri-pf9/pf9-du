@@ -16,7 +16,7 @@ Requires: pf9-hostagent-tarball
 Requires: pf9-hostagent-tarball-debian
 Requires: pf9-ostackhost-wrapper
 Requires: pf9-ostackhost-wrapper-debian
-Requires: pf9-authproxy
+Requires: pf9-notifications
 Requires: pf9-janitor
 Requires: pf9-imagelibrary-wrapper
 Requires: pf9-imagelibrary-wrapper-debian
