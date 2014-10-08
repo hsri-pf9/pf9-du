@@ -7,7 +7,9 @@ from time import sleep
 from requests import exceptions
 import requests.packages.urllib3.exceptions as urllib_exceptions
 import logging
+import logging.handlers
 
+logfile = '/var/log/pf9/janitor-daemon.log'
 LOG = logging.getLogger('janitor-daemon')
 
 LOG_LEVELS = {
@@ -32,6 +34,15 @@ def _setup_logging(config):
         LOG.setLevel(LOG_LEVELS[level])
     else:
         LOG.warning('Ignoring invalid level %s', level)
+
+    file_size_kb = config.get('log', 'size', 20)
+    backup_files = config.get('log', 'rotate', 1024)
+
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler = logging.handlers.RotatingFileHandler(logfile, maxBytes=file_size_kb * 1024,
+                                                   backupCount=backup_files)
+    handler.setFormatter(formatter)
+    LOG.addHandler(handler)
 
 def serve(config_file):
     """
