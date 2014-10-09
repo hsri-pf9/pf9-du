@@ -1,5 +1,5 @@
 FROM centos:centos6
-MAINTAINER: dev@platform9.net
+MAINTAINER dev@platform9.net
 
 RUN yum install -y gcc python-setuptools
 ADD  etc /etc
