@@ -18,7 +18,8 @@ setup(
         "PasteDeploy",
         "pecan",
         "sqlalchemy",
-        'requests'
+        'requests',
+        'alembic'
     ],
     test_suite='resmgr',
     zip_safe=False,

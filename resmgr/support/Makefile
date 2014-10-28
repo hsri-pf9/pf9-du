@@ -53,7 +53,7 @@ ${VENV}: ${BUILD_DIR}
 
 ${RESMGR_SRC_STAGE}: pre-reqs
 	source ${VENV}/bin/activate && \
-	pip install MySQL-python &&  \
+	pip install MySQL-python && \
 	deactivate
 
 	mkdir -p ${RESMGR_SRC_STAGE}/var/log/pf9
@@ -64,6 +64,7 @@ ${RESMGR_SRC_STAGE}: pre-reqs
 	cp ${RESMGR_DIR}/etc/pf9/resmgr-paste.ini ${RESMGR_SRC_STAGE}/etc/pf9/
 
 	mkdir -p ${VENV}/bin
+	cp ${RESMGR_DIR}/bin/db_sync.py ${VENV}/bin
 	cp ${RESMGR_DIR}/bin/resmgr-daemon.py ${VENV}/bin/
 
 	mkdir -p ${RESMGR_SRC_STAGE}/etc/rc.d/init.d
@@ -119,3 +120,4 @@ unit-test: unit-test-setup
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -rf ${COVERAGE_ZIP}
+	rm -rf $(SRC_DIR)/build/ $(SRC_DIR)/dist/ $(SRC_DIR)/resmgr.egg-info/

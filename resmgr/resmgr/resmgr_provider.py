@@ -63,7 +63,7 @@ class ResMgrProvider(object):
         pass
 
     @abstractmethod
-    def add_role(self, host_id, role_id):
+    def add_role(self, host_id, role_id, host_settings):
         """
         Adds a role to a host
         :param host_id: ID of the host

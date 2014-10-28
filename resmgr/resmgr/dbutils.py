@@ -3,16 +3,16 @@
 
 __author__ = 'Platform9'
 
-from contextlib import contextmanager
 import datetime
-import glob
-import logging
-import json
-import os
 import dict_tokens
+import glob
+import json
+import logging
+import os
+import threading
 
-from exceptions import HostNotFound
-
+from contextlib import contextmanager
+from exceptions import HostNotFound, HostConfigFailed
 from sqlalchemy import create_engine, Column, String, ForeignKey, Table
 from sqlalchemy import Boolean, DateTime, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
@@ -30,6 +30,7 @@ sqlalchemy python module for all DB interactions.
 #Globals
 Base = declarative_base()
 engineHandle = None
+_host_lock = threading.Lock()
 
 # Association table between hosts and roles
 role_host_assoc_table = Table('host_role_map', Base.metadata,
@@ -50,13 +51,15 @@ class Role(Base):
     description = Column(String(256))
     desiredconfig = Column(String(2048))
     active = Column(Boolean()) # indicates if this is the active version of the role
+    customizable_settings = Column(String(2048))
     UniqueConstraint('rolename', 'version', name='constraint1')
 
     def __repr__(self):
         return "<Role(id = '%s', rolename='%s',version='%s',displayname='%s'," \
-               "description='%s',desiredconfig='%s', active='%s')>" % \
+               "description='%s',desiredconfig='%s', active='%s', customizable_settings='%s')>" % \
                 (self.id, self.rolename, self.version, self.displayname,
-                 self.description, self.desiredconfig, self.active)
+                 self.description, self.desiredconfig, self.active,
+                 self.customizable_settings)
 
 
 class Host(Base):
@@ -70,14 +73,16 @@ class Host(Base):
     hostosinfo = Column(String(256))
     lastresponsetime = Column(DateTime(), default=None) # timestamp when last status was recorded
     responding = Column(Boolean)
+    role_settings = Column(String(2048))
     roles = relationship("Role", secondary=role_host_assoc_table,
                          backref='hosts', collection_class=set)
 
     def __repr__(self):
         return "<Host(id='%s', hostname='%s', hostosfamily='%s', hostarch='%s', " \
-               "hostosinfo='%s, lastresponsetime='%s', responding='%s')>" %\
+               "hostosinfo='%s, lastresponsetime='%s', responding='%s', role_settings='%s')>" %\
                (self.id, self.hostname, self.hostosfamily, self.hostarch,
-                self.hostosinfo, self.lastresponsetime, self.responding)
+                self.hostosinfo, self.lastresponsetime, self.responding,
+                self.role_settings)
 
 
 class ResMgrDB(object):
@@ -98,8 +103,12 @@ class ResMgrDB(object):
     def _init_db(self):
         """
         Initializes the database tables for Resource Manager
+        NOTE Ensure that the db migration scripts have been run prior
+             to starting resmgr
         """
         log.info('Setting up the database for resource manager')
+        # TODO Add retry logic whenever mysql could be down
+        # TODO Remove the next line once the migration scripts are run by Ansible
         Base.metadata.create_all(self.dbengine)
         # Populate/Update the roles table, if needed.
         self.setup_roles()
@@ -228,7 +237,66 @@ class ResMgrDB(object):
         finally:
             session.close()
 
-    def insert_update_host(self, host_id, host_details):
+    def get_custom_settings(self, host_id, role_name):
+        """
+        Gets the custom config stored in customized_config column in hosts
+        table. If the host does not exist, returns the default settings
+        for the specified role.
+        """
+        with self.dbsession() as session:
+            try:
+                host = session.query(Host).filter_by(id=host_id).first()
+                if host:
+                    role_settings = json.loads(host.role_settings)
+                    if role_name not in role_settings:
+                        log.error('Host %s does not have role %s', host_id, role_name)
+                        raise RoleNotFound(role_name)
+                    return role_settings[role_name]
+                else:
+                    log.error('Host %s is not a recognized host', host_id)
+                    raise HostNotFound(host_id)
+            except Exception as ex:
+                log.exception('DB exception [%s] while getting customized config for %s'
+                              ' host and role %s', ex, host_id, role_name)
+                raise
+
+    def _get_default_settings(self, role_name):
+        """
+        Requires that the role exists in the database.
+        """
+        role = self.query_role(role_name)
+        default_settings = {}
+        for default_setting_name, default_setting in json.loads(role.customizable_settings).iteritems():
+                default_settings[default_setting_name] = default_setting['default']
+        return default_settings
+
+
+    def _check_settings(self, settings_to_add, default_settings):
+        """
+        :param settings_to_add: Specified by the json body of the REST API call
+        :type dict:
+        :param default_settings: Returned from the _get_default_settings call
+        :type dict:
+        """
+        if settings_to_add == None:
+            return
+        for key in settings_to_add:
+            if key not in default_settings:
+                log.error('Invalid key for role %s: ' % key)
+                raise HostConfigFailed('Json body for host authorization has an invalid key: %s' % key)
+        if len(settings_to_add) == 0:
+            raise HostConfigFailed('Host %s custom settings are empty for role %s'
+                                   % (host_id, role_name))
+
+    def _update_settings_with_defaults(self, settings, default_settings, role_name):
+        """
+        Update with defaults if they were not overwritten
+        """
+        for key, val in default_settings.iteritems():
+            if key not in settings[role_name]:
+                settings[role_name][key] = val
+
+    def insert_update_host(self, host_id, host_details, role_name, settings_to_add):
         """
         Add a new host into the database or update the entries for an
         existing host in the database. The host details passed is a
@@ -237,26 +305,48 @@ class ResMgrDB(object):
         :param str host_id: ID of the host to be added
         :param dict host_details: Dictionary of the host details that
          needs to be added.
+        :param dict settings_to_add: The json body of the request.
+            If this is None, the host will use all of the default settings
         """
-        new_host = Host(id=host_id,
-                        hostname=host_details['hostname'],
-                        hostosfamily=host_details['os_family'],
-                        hostarch=host_details['arch'],
-                        hostosinfo=host_details['os_info'],
-                        responding=True)
-
         max_tries = 4
         for attempt in range(max_tries):
             try:
-                with self.dbsession() as session:
-                    try:
-                        log.info('Adding/updating host %s', host_id)
-                        session.merge(new_host)
-                    except:
-                        # log and raise
-                        log.exception('Host %s update in database failed', host_id)
-                        raise
+                with _host_lock:
+                    with self.dbsession() as session:
+                        host = session.query(Host).filter_by(id=host_id).first()
+                        default_settings = self._get_default_settings(role_name)
+                        self._check_settings(settings_to_add, default_settings)
 
+                        # settings_to_add is either a non-zero length dict with
+                        # valid keys, or None. Handle the None case here
+                        if not settings_to_add:
+                            settings_to_add = default_settings
+
+                        if host:
+                            # Merge the specified custom settings
+                            # with the existing custom settings.
+                            settings = json.loads(host.role_settings)
+                            if role_name not in settings:
+                                settings[role_name] = {}
+                            settings[role_name].update(settings_to_add)
+                        else:
+                            settings = {role_name: settings_to_add}
+                        self._update_settings_with_defaults(settings, default_settings, role_name)
+
+                        new_host = Host(id=host_id,
+                                        hostname=host_details['hostname'],
+                                        hostosfamily=host_details['os_family'],
+                                        hostarch=host_details['arch'],
+                                        hostosinfo=host_details['os_info'],
+                                        responding=True,
+                                        role_settings=json.dumps(settings))
+                        try:
+                            log.info('Adding/updating host %s', host_id)
+                            session.merge(new_host)
+                        except:
+                            # log and raise
+                            log.exception('Host %s update in database failed', host_id)
+                            raise
                 # Commit was successful (session went out of scope successfully)
                 break
             except IntegrityError as e:
@@ -331,7 +421,8 @@ class ResMgrDB(object):
                         displayname=details['display_name'],
                         description=details['description'],
                         desiredconfig=self._setup_config(details['config']),
-                        active=True)
+                        active=True,
+                        customizable_settings=json.dumps(details['customizable_settings']))
 
         with self.dbsession() as session:
             try:
@@ -491,6 +582,7 @@ class ResMgrDB(object):
                     'lastresponsetime': host.lastresponsetime,
                     'responding': host.responding,
                     'roles_config': assigned_roles,
+                    'role_settings': host.role_settings
                     }
 
         return out

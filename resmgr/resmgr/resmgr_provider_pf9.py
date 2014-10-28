@@ -58,6 +58,31 @@ def substitute_host_id(dictionary, host_id):
     return dict_subst.substitute(dictionary, token_map)
 
 
+def _update_custom_role_settings(app_info, role_settings, roles):
+    """
+    :param app_info: The app configuration returned from
+                     ResMgrDB.query_host_details()[host_id]['roles_config']
+    :type dict:
+    :param role_settings: Contains info that specifies custom role settings
+                          From the DB. Updated on the call to add_role.
+    :type dict:
+    :param roles: Active roles in the database
+    """
+    new_roles = dict((role.rolename, json.loads(role.customizable_settings)) for role in roles)
+
+    for role_name, settings in new_roles.iteritems():
+        for setting_name, setting in settings.iteritems():
+            if role_name not in app_info:
+                continue
+            path = setting['path'].split('/')
+            # Traverse the config according to the path of the default setting.
+            # Then, insert the custom role setting into the app info
+            app_info_temp = app_info[role_name]
+            for key in path:
+                app_info_temp = app_info_temp[key]
+            app_info_temp[setting_name] = role_settings[role_name][setting_name]
+
+
 class RolesMgr(object):
     """
     Keeps track of available roles in the system, specific configuration needed, etc.
@@ -83,11 +108,15 @@ class RolesMgr(object):
         query_op = self.db_handler.query_roles()
         result = {}
         for role in query_op:
+            default_settings = dict((setting_name, setting['default'])
+                                    for (setting_name, setting)
+                                    in json.loads(role.customizable_settings).iteritems())
             role_attrs = {
                 'name': role.rolename,
                 'display_name': role.displayname,
                 'description': role.description,
-                'active_version': role.version
+                'active_version': role.version,
+                'default_settings': default_settings
             }
             result[role.rolename] = role_attrs
 
@@ -102,12 +131,16 @@ class RolesMgr(object):
         """
         role = self.db_handler.query_role(role_name)
         if role:
+            default_settings = dict((setting_name, setting['default'])
+                                    for (setting_name, setting)
+                                    in json.loads(role.customizable_settings).iteritems())
             result = {
                 role.rolename: {
                     'name': role.rolename,
                     'display_name': role.displayname,
                     'description': role.description,
-                    'active_version': role.version
+                    'active_version': role.version,
+                    'default_settings': default_settings
                 }
             }
         else:
@@ -394,6 +427,9 @@ class BbonePoller(object):
                     expected_cfg = substitute_host_id(
                         authorized_hosts[host]['roles_config'],
                         host)
+                    role_settings = authorized_hosts[host]['role_settings']
+                    roles = self.rolemgr.db_handler.query_roles()
+                    _update_custom_role_settings(expected_cfg, json.loads(role_settings), roles)
                     if not is_satisfied_by(expected_cfg, host_info[cfg_key]):
                         log.debug('Pushing new configuration for %s, config: %s. '
                                   'Expected config %s', host, host_info['apps'],
@@ -409,7 +445,7 @@ class BbonePoller(object):
                 # See http://effbot.org/pyfaq/what-kinds-of-global-value-mutation-are-thread-safe.htm
                 _unauthorized_host_status_time[host] = status_time
                 # TODO: Is there a need to update the unauthorized hosts with the data
-                # returned from bbone
+                # returned from bbone?
 
     def _cleanup_unauthorized_hosts(self):
         """
@@ -569,17 +605,21 @@ class ResMgrPf9Provider(ResMgrProvider):
                       host_id)
             self.roles_mgr.push_configuration(host_id, app_info={})
 
-    def add_role(self, host_id, role_name):
+    def add_role(self, host_id, role_name, host_settings):
         """
         Add a role to a particular host
         :param str host_id: ID of the host
         :param str role_name: Name of the role
+        :param dict host_settings: Custom settings for the host
+            if host_settings is None, all of the host's custom settings
+            will be replaced with the defaults
         :raises RoleNotFound: if the role is not present
         :raises HostNotFound: if the host is not present
         :raises HostConfigFailed: if setting the configuration fails or times out
         :raises BBMasterNotFound: if communication to the backbone fails
         """
-        log.info('Assigning role %s to %s', role_name, host_id)
+        log.info('Assigning role %s to %s with host settings %s',
+                 role_name, host_id, host_settings)
         active_role_in_db = self.res_mgr_db.query_role(role_name)
         if not active_role_in_db:
             log.error('Role %s is not found in list of active roles', role_name)
@@ -591,6 +631,8 @@ class ResMgrPf9Provider(ResMgrProvider):
             raise HostNotFound(host_id)
 
         host_roles = self.res_mgr_db.query_host(host_id, fetch_role_ids=True)
+        # Invalid role_settings will be resolved when updating the DB
+        host_inst['role_settings'] = host_settings
         if host_roles and active_role_in_db.id in host_roles['roles']:
             log.info('Role %s is already assigned to %s', role_name, host_id)
             return
@@ -612,7 +654,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             # a converged state eventually.
             log.debug('Updating host %s state after %s role association',
                       host_id, role_name)
-            self.res_mgr_db.insert_update_host(host_id, host_inst['info'])
+            self.res_mgr_db.insert_update_host(host_id, host_inst['info'], role_name, host_inst['role_settings'])
             self.res_mgr_db.associate_role_to_host(host_id, role_name)
 
             with _host_lock:
@@ -620,12 +662,15 @@ class ResMgrPf9Provider(ResMgrProvider):
                 _unauthorized_hosts.pop(host_id, None)
                 _unauthorized_host_status_time.pop(host_id, None)
 
-            log.debug('Sending request to backbone to add role %s to %s',
-                       role_name, host_id)
             # Rely on the role config values set in the DB to send to bbmaster
             host_details = self.res_mgr_db.query_host_details(host_id)
-            self.roles_mgr.push_configuration(host_id,
-                                 host_details[host_id]['roles_config'])
+            app_info = host_details[host_id]['roles_config']
+            role_settings = json.loads(host_details[host_id]['role_settings'])
+            roles = self.roles_mgr.db_handler.query_roles()
+            _update_custom_role_settings(app_info, role_settings, roles)
+            log.info('Sending request to backbone to add role %s to %s with config %s',
+                     role_name, host_id, app_info)
+            self.roles_mgr.push_configuration(host_id, app_info)
         except:
             if initially_inactive:
                 host_inst['state'] = RState.inactive
@@ -677,6 +722,9 @@ class ResMgrPf9Provider(ResMgrProvider):
         host_details = self.res_mgr_db.query_host_details(host_id)
         self.roles_mgr.push_configuration(host_id,
                              host_details[host_id]['roles_config'])
+
+    def get_custom_settings(self, host_id, role_name):
+        return self.res_mgr_db.get_custom_settings(host_id, role_name)
 
 
 def get_provider(config_file):

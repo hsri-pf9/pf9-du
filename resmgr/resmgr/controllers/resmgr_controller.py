@@ -76,9 +76,15 @@ class HostRolesController(RestController):
         :param str host_id: ID of the host
         :param str role_name: Name of the role being assigned
         """
-        log.debug('Assigning role %s to host %s', role_name, host_id)
+        if hasattr(pecan.core.state, "request") and hasattr(pecan.core.state.request, "json_body"):
+            msg_body = pecan.core.state.request.json_body
+        else:
+            msg_body = None
+
+        log.debug('Assigning role %s to host %s with message body %s',
+                  role_name, host_id, msg_body)
         try:
-            _provider.add_role(host_id, role_name)
+            _provider.add_role(host_id, role_name, msg_body)
         except (RoleNotFound, HostNotFound):
             log.exception('Role %s or Host %s not found', role_name, host_id)
         except (HostConfigFailed, BBMasterNotFound):
@@ -103,6 +109,23 @@ class HostRolesController(RestController):
         except (HostConfigFailed, BBMasterNotFound):
             log.exception('Role removal failed')
             abort(500)
+
+    @expose('json')
+    def get(self, host_id, role_name):
+        """
+        Handles requests of type GET /v1/hosts/<host_id>/roles/<role_name>
+        Returns the custom role settings of the specified host
+        :param str host_id: ID of the host
+        :param str role_name: Name of the role to get settings for
+        """
+        try:
+            return _provider.get_custom_settings(host_id, role_name)
+        except (RoleNotFound, HostNotFound):
+            log.exception('Role %s or Host %s not found', role_name, host_id)
+            abort(404)
+        except (HostConfigFailed, BBMasterNotFound):
+            log.exception('Getting custom settings failed')
+            abort(404)
 
 
 class HostsController(RestController):

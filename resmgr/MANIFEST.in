@@ -1,1 +1,2 @@
-recursive-include public *
+include resmgr/alembic.ini
+recursive-include resmgr/alembic *

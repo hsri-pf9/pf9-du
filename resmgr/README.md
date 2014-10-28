@@ -23,13 +23,19 @@ Example:
         "name": "roleA",
         "display_name": "Role A",
         "description": "Simple role A",
-        "active_version": "3.0.9-1"
+        "active_version": "3.0.9-1",
+        "default_settings": {
+            "setting_name": "setting_value"
+        },
     },
     {
         "name": "roleB",
         "display_name": "Role B",
         "description": "Another role B",
-        "active_version": "1.0.2-5"
+        "active_version": "1.0.2-5",
+        "default_settings": {
+            "setting_name": "setting_value"
+        },
     }
 ]
 ```
@@ -44,6 +50,9 @@ Example:
     "display_name": "Role A",
     "description": "Simple role A",
     "active_version": "3.0.9-1"
+    "default_settings": {
+        "setting_name": "setting_value"
+    }
 }
 ```
 
@@ -142,9 +151,49 @@ is same as the active version of the role, no action is performed on the host
 is not the same as the active version of the role, the role on the host is updated to the
 active version of the role.
 
+A json body can be specified to add custom settings for a host.
+Each key of the json dict is optional, but the keys must be valid and the
+dictionary cannot be empty.
+
+Dictionary for pf9-ostackhost:
+```
+{
+    "instances_path": "</custom/instances/path/>"
+}
+```
+
+Dictionary for pf9-imagelibrary:
+```
+{
+    "data_directory": "</custom/imglib/directory/>"
+}
+```
+
+The host will use the specifed values for its custom config.
+If no value is specified, it uses these defaults:
+
+```
+instances_path = /opt/pf9/data/instances
+```
+
+```
+data_directory = /var/opt/pf9/imagelibrary/data/
+```
+
+If no json body is given, the host will use all of the defaults.
+
+After the first put request, subsequent requests with the same url will be
+ignored.
+
 ### DELETE /v1/hosts/__id__/roles/__role_name__ ###
 
 Removes the assigned role. Expects name of the role to remove. After removing
 last role of a host, the host will not be used for pf9 purpose,
 and reverts back to "inactive" state
+
+
+### GET /v1/hosts/__id__/roles/__role_name__ ###
+Returns a json dict with the host's custom role settings.
+Returns an error code if the host does not exist or if the host does not have
+the specified role
 
