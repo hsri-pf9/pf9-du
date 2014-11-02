@@ -12,6 +12,7 @@ import json
 import logging
 import argparse
 import requests
+import os
 import sys
 import time
 
@@ -21,9 +22,36 @@ log = logging.getLogger('du-ctl')
 
 _bbmaster_endpoint = 'http://localhost:8082/v1/hosts'
 _resmgr_endpoint = 'http://localhost:8083/v1'
+_keystone_endpoint = 'http://localhost:5000/v2.0/tokens'
 
 _parser = argparse.ArgumentParser()
 
+def login(username, password, tenant):
+    """
+    Login using username, password, tenant
+    :param username: user name
+    :param password: password for user
+    :param tenant: tenant to login
+    :return: Keystone login response json
+    """
+    """
+    Login using username, password, tenant
+    """
+    data = {
+        "auth": {
+            "tenantName": tenant,
+            "passwordCredentials": {
+            "username": username,
+            "password": password
+            }
+        }
+    }
+    r = requests.post(_keystone_endpoint,
+                      json.dumps(data),
+                      verify=False,
+                      headers={'Content-Type': 'application/json'})
+    r.raise_for_status()
+    return r.json()
 
 def _build_role_parser(subparsers):
     """
@@ -99,6 +127,44 @@ def _build_hostagent_parser(subparsers):
                       help='ID of the specific host to be queried. If not specified, '
                            'all hosts are queried')
 
+def _build_host_parser(subparsers):
+    """
+    Build subparser for host related operations
+    :param subparsers: Subparsers object which is used to build the host
+    subparser
+    """
+    host_parser = subparsers.add_parser('host',
+                                        help='Host commands')
+    host_sub_parser = host_parser.add_subparsers(help='Host sub-commands',
+                                                 dest='host_subparser')
+
+    host_list_parser = host_sub_parser.add_parser('list',
+                                                  help='List hosts information')
+    host_list_parser.add_argument("--user",
+                                  action='store',
+                                  dest='user',
+                                  help='User account to use. Optional if OS_USERNAME is set.')
+    host_list_parser.add_argument("--password",
+                                  action='store',
+                                  dest='password',
+                                  help='User account password. Optional if OS_PASSWORD is set.')
+
+    host_role_reset_parser = host_sub_parser.add_parser('role-reset',
+                                                        help='Reset host roles')
+    host_role_reset_parser.add_argument("--host_id",
+                                        action='store',
+                                        dest='host_id',
+                                        required=True,
+                                        help='Host ID of host where its roles should be cleared')
+    host_role_reset_parser.add_argument("--user",
+                                        action='store',
+                                        dest='user',
+                                        help='User account to use. Optional if OS_USERNAME is set.')
+    host_role_reset_parser.add_argument("--password",
+                                        action='store',
+                                        dest='password',
+                                        help='User account password. Optional if OS_PASSWORD is set.')
+
 def _build_parsers():
     """
     Build the command line parser hierarchy based on the control script actions
@@ -107,6 +173,7 @@ def _build_parsers():
                                         dest='subparser')
     _build_role_parser(subparsers)
     _build_hostagent_parser(subparsers)
+    _build_host_parser(subparsers)
 
 def _process_cmd(args):
     """
@@ -134,18 +201,75 @@ def _process_cmd(args):
             do_set_host_role(args)
             return
 
+    if args.subparser == 'host':
+        if args.host_subparser == 'list':
+            do_host_list(args)
+            return
+        elif args.host_subparser == 'role-reset':
+            do_host_role_reset(args)
+            return
+
     # Did not match any known command. Should not hit this because argparse
     # should do everything for us.
     _parser.print_help()
 
-def _do_get(url):
+
+def get_user_pass(args):
+    """
+    Get username, password from command line args, if provided. Otherwise,
+    use the environment variables to pick up these values. Else error out.
+    :param args: Command line args
+    :return: Tuple of username and password
+    """
+    if not args.user:
+        args.user = os.getenv('OS_USERNAME')
+    if not args.password:
+        args.password = os.getenv('OS_PASSWORD')
+
+    if not args.password or not args.user:
+        log.info('Username/password is missing')
+        _parser.print_help()
+        sys.exit(1)
+
+    return args.user, args.password
+
+def do_host_list(args):
+    """
+    Retrieve information for all hosts
+    :param args: Command line args
+    """
+    user, password = get_user_pass(args)
+    login_resp = login(user, password, 'service')
+    token = login_resp['access']['token']['id']
+    headers = {'X-Auth-Token': token}
+    resp = _do_get('%s/hosts' % _resmgr_endpoint, headers=headers)
+    log.info('%s', json.dumps(resp, indent=3))
+
+def do_host_role_reset(args):
+    """
+    Remove all roles associated with a host
+    :param args: Command line args
+    """
+    user, password = get_user_pass(args)
+    login_resp = login(user, password, 'service')
+    token = login_resp['access']['token']['id']
+    headers = {'Content-type': 'json',
+               'X-Auth-Token': token}
+    resp = requests.delete('%s/hosts/%s' % (_resmgr_endpoint, args.host_id),
+                           headers=headers)
+    resp.raise_for_status()
+    log.info('All roles reset for host %s. It will take a few minutes for'
+             ' the role reset to be synchronized across all services.', args.host_id)
+
+def _do_get(url, headers={}):
     """
     Execute the GET http call
     :param str url: URL to run the GET call on
     :return: JSON response
     :rtype: JSON encoded dict
     """
-    resp = requests.get(url)
+    headers['Content-type'] = 'json'
+    resp = requests.get(url, headers=headers)
     resp.raise_for_status()
     return resp.json()
 
