@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 #
 ### BEGIN INIT INFO
 # Provides: pf9-hostagent
@@ -19,7 +19,9 @@ SERVER_BIN="/opt/pf9/hostagent/bin/$prog"
 
 SERVER_OPTS=""
 
-SERVER_LOGFILE=/var/log/pf9-hostagent-daemon.log
+SERVER_LOGFILE=/var/log/${svcname}-daemon.log
+
+PIDFILE=/var/run/${svcname}.pid
 
 # Source function library.
 . /lib/lsb/init-functions
@@ -32,47 +34,45 @@ start() {
 
     [ -f $SERVER_BIN ] || exit 5
 
-    # Make sure the pf9-hostagent is not already running.
+    # Make sure the service is not already running.
     if status > /dev/null ; then
+        log_success_msg "${svcname} is already up (PID `pidofproc -p $PIDFILE`)"
         exit 0
     fi
 
     # Only root can start the service
     [ $uid -ne 0 ] && exit 4
 
-    echo -n $"Starting $svcname: "
-    touch "$SERVER_LOGFILE"
-    $SERVER_BIN $SERVER_OPTS >> $SERVER_LOGFILE 2>&1 &
+    /sbin/start-stop-daemon --start --oknodo --background --make-pidfile \
+            --pidfile $PIDFILE  --quiet --startas /bin/bash -- \
+            -c "exec $SERVER_BIN $SERVER_OPTS >> $SERVER_LOGFILE 2>&1"
+
     RETVAL=$?
-    echo
-    if [ $RETVAL -eq 0 ] ; then
-        touch /var/lock/subsys/$svcname
-        [ ! -f /var/run/pf9-hostagent.pid ] &&
-            pidof -x $prog > /var/run/pf9-hostagent.pid
+    if [ "$RETVAL" -eq "0" ]; then
+        log_success_msg "Started:" "$svcname"
+    else
+        log_failure_msg "Failed to start:" "$svcname"
     fi
     return $RETVAL
 }
 
 stop() {
-    echo -n $"Stopping $svcname: "
-    killproc $prog
+    /sbin/start-stop-daemon --stop --oknodo --make-pidfile \
+            --pidfile $PIDFILE --quiet --startas /bin/bash -- \
+            -c "exec $SERVER_BIN $SERVER_OPTS >> $SERVER_LOGFILE 2>&1"
+
     RETVAL=$?
-    echo
-    [ $RETVAL -eq 0 ] && {
-        rm -f /var/lock/subsys/$svcname
-        rm -f /var/run/pf9-hostagent*
-    }
+    if [ "$RETVAL" -eq "0" ]; then
+        log_success_msg "Stopped:" "$svcname"
+    else
+        log_failure_msg "Failed to stop:" "$svcname"
+    fi
+    rm -f $PIDFILE
     return $RETVAL
 }
 
 status() {
-    if [ -f /var/run/pf9-hostagent.pid ]; then
-        echo "pf9-hostagent is running (PID `pidof -x $prog -o %PPID`)"
-        return 0
-    else
-        echo "pf9-hostagent is not running"
-        return 1
-    fi
+    status_of_proc -p $PIDFILE $SERVER_BIN $svcname
 }
 
 # See how we were called.
@@ -95,14 +95,14 @@ case "$1" in
         RETVAL=$?
         ;;
     condrestart | try-restart)
-        if [ -f /var/lock/subsys/$svcname ]; then
+        if status > /dev/null; then
             stop
             start
             RETVAL=$?
         fi
         ;;
     *)
-        echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart|try-restart}"
+        echo "Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart|try-restart}"
         RETVAL=2
         ;;
 esac
