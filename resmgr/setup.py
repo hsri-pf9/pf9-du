@@ -14,12 +14,10 @@ setup(
     author_email='',
     install_requires=[
         "python-daemon",
-        "Paste",
-        "PasteDeploy",
+        "alembic",
         "pecan",
         "sqlalchemy",
-        'requests',
-        'alembic'
+        'requests'
     ],
     test_suite='resmgr',
     zip_safe=False,
