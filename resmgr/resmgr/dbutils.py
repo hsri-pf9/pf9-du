@@ -98,19 +98,8 @@ class ResMgrDB(object):
         self.config = config
         self.connectstr = config.get('database', 'sqlconnectURI')
         self.session_maker = sessionmaker(bind=self.dbengine)
-        self._init_db()
-
-    def _init_db(self):
-        """
-        Initializes the database tables for Resource Manager
-        NOTE Ensure that the db migration scripts have been run prior
-             to starting resmgr
-        """
-        log.info('Setting up the database for resource manager')
-        # TODO Add retry logic whenever mysql could be down
-        # TODO Remove the next line once the migration scripts are run by Ansible
-        Base.metadata.create_all(self.dbengine)
         # Populate/Update the roles table, if needed.
+        log.info('Setting up roles in the database')
         self.setup_roles()
 
     def _setup_config(self, config):
