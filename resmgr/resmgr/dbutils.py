@@ -12,7 +12,7 @@ import os
 import threading
 
 from contextlib import contextmanager
-from exceptions import HostNotFound, HostConfigFailed
+from exceptions import HostNotFound, HostConfigFailed, RoleNotFound
 from sqlalchemy import create_engine, Column, String, ForeignKey, Table
 from sqlalchemy import Boolean, DateTime, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
