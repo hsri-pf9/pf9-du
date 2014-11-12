@@ -37,14 +37,20 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 /opt/pf9
 /etc/rc.d/init.d/pf9-hostagent
+%dir /var/cache/pf9apps
+%attr(0440, root, root) /etc/sudoers.d/pf9-hostagent
+%attr(0550, root, root) /opt/pf9/hostagent/bin/pf9-yum
+%dir /var/opt/pf9
 %config /etc/pf9/hostagent.conf
 /etc/pf9/certs
 /var/log/pf9
 
 %post
 change_file_permissions() {
-    chgrp -R pf9group /etc/pf9/certs
     chown -R pf9:pf9group /var/log/pf9
+    chown -R pf9:pf9group /etc/pf9/
+    chown -R pf9:pf9group /var/opt/pf9/
+    chown -R pf9:pf9group /var/cache/pf9apps
 }
 
 if [ "$1" = "1" ]; then
@@ -56,19 +62,17 @@ if [ "$1" = "1" ]; then
     usermod -aG pf9group pf9
     # Add root also to the pf9group
     usermod -aG pf9group root
-
-    # Make the certs and log files belong to the pf9group
     change_file_permissions
-
     chkconfig --add pf9-hostagent
     service pf9-hostagent start
 elif [ "$1" = "2" ]; then
     # During an upgrade, hostagent files are reverted to the default owner and
-    # group. So, pf9group must be assigned again.
+    # group. So, permissions must be reassigned.
     change_file_permissions
     # In case of an upgrade, only restart the service if it's already running
     service pf9-hostagent condrestart
 fi
+
 %preun
 # $1==0: remove the last version of the package
 # $1==1: install the first time

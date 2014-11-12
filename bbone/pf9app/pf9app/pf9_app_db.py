@@ -41,15 +41,16 @@ def _run_command(command):
     return code, out, err
 
 class AptPkgMgr(object):
-    """Class that interacts with the YUM package manager"""
+    """Class that interacts with APT"""
 
     def __init__(self, log = logging):
         self.log = log
-        self.cache = apt.cache.Cache()
+        self.apt_rootwrap_path = '/opt/pf9/hostagent/bin/pf9-apt'
         # To install packages noninteractively, we change the environment
         # variables. There may be additional steps needed in the pf9app
         # post-install scripts to take this into account.
         os.environ.update(DEBIAN_FRONTEND='noninteractive')
+        self.cache = apt.cache.Cache()
 
     def query_pf9_apps(self):
         """
@@ -92,51 +93,40 @@ class AptPkgMgr(object):
         :raises NotInstalled: if the app is not found/installed
         :raises RemoveOperationFailed: if the remove operation failed.
         """
-        self._update_apt_cache()
+        self.cache.open()
         if not self.cache.has_key(appname):
             raise NotInstalled()
-        pkg = self.cache[appname]
-        pkg.mark_delete()
-        try:
-            self.cache.commit()
-        except:
+        erase_cmd = 'sudo %s erase %s' % (self.apt_rootwrap_path, appname)
+        code, out, err = _run_command(erase_cmd)
+        if code:
+            self.log.error('Erase command failed : %s. Return code: %d, '
+                           'stdout: %s, stderr: %s', erase_cmd, code, out, err)
             raise RemoveOperationFailed()
+
 
     def install_from_file(self, pkg_path):
         """
         Installs an app from the specified local path
-        :param pkg_path: Local path to the app to be installed
-        :raises OSError: if the file is not found.
+        :param pkg_path: path to the package to be installed
         :raises InstallOperationFailed: if the install operation failed
         """
-        if not os.path.exists(pkg_path):
-            # File to install doesn't exist
-            raise OSError(errno.ENOENT, os.strerror(errno.ENOENT), pkg_path)
-        deb_package = apt.debfile.DebPackage(pkg_path, self.cache)
-        # Checks if the file is installable. Needed before call to missing_deps.
-        deb_package.check()
-
-        for missing_package in deb_package.missing_deps:
-            self._update_apt_cache()
-            missing_package = self.cache[missing_package]
-            missing_package.mark_install()
-            self.cache.commit()
-
-        self._update_apt_cache()
-        deb_package.install()
+        install_cmd = 'sudo %s install %s' % (self.apt_rootwrap_path, pkg_path)
+        code, out, err = _run_command(install_cmd)
+        if code:
+            self.log.error('Install command failed: %s. Return code: %d, '
+                           'stdout: %s, stderr: %s', install_cmd, code, out, err)
+            raise InstallOperationFailed()
 
     def update_from_file(self, pkg_path):
         """
-        Updates a package from the specified local path
-        :param str pkg_path: Local path to the package to be upgraded
-        :raises OSError: if the file is not found
-        :raises UpdateOperationFailed: if the update operation failed.
+        Updates a package from the specified local path.
+        Deb packages use the same command to install or upgrade a package, so
+        this follows the same code path as an installation.
+        :param str pkg_path: local path to the package to be upgraded
+        :raises IntallOperationFailed: if the update operation failed.
         """
         self.install_from_file(pkg_path)
 
-    def _update_apt_cache(self):
-        self.cache.update()
-        self.cache.open()
 
 class YumPkgMgr(object):
     """Class that interacts with the YUM package manager"""
@@ -147,6 +137,7 @@ class YumPkgMgr(object):
     def __init__(self, log = logging):
         self.ybase = yum.YumBase()
         self.log = log
+        self.yum_rootwrap_path = '/opt/pf9/hostagent/bin/pf9-yum'
 
     def query_pf9_apps(self):
         """
@@ -225,7 +216,7 @@ class YumPkgMgr(object):
         # TODO: verify if this is an issue if same app has 2 versions installed
         assert len(pkgs) == 1
 
-        erase_cmd = 'yum -y erase %s' % appname
+        erase_cmd = 'sudo %s erase %s' % (self.yum_rootwrap_path, appname)
         code, out, err = _run_command(erase_cmd)
         if code:
             self.log.error('Erase command failed : %s. Return code: %d, '
@@ -235,15 +226,10 @@ class YumPkgMgr(object):
     def install_from_file(self, pkg_path):
         """
         Installs an app from the specified local path
-        :param pkg_path: Local path to the app to be installed
-        :raises OSError: if the file is not found.
+        :param pkg_path: local path to the app to be installed
         :raises InstallOperationFailed: if the install operation failed
         """
-        if not os.path.exists(pkg_path):
-            # File to install doesn't exist
-            raise OSError(errno.ENOENT, os.strerror(errno.ENOENT), pkg_path)
-
-        install_cmd = 'yum -y install %s' % pkg_path
+        install_cmd = 'sudo %s install %s' % (self.yum_rootwrap_path, pkg_path)
         code, out, err = _run_command(install_cmd)
         if code:
             self.log.error('Install command failed : %s. Return code: %d, '
@@ -257,15 +243,7 @@ class YumPkgMgr(object):
         :raises OSError: if the file is not found
         :raises UpdateOperationFailed: if the update operation failed.
         """
-        if not os.path.exists(pkg_path):
-            # File to update doesn't exist
-            raise OSError(errno.ENOENT, os.strerror(errno.ENOENT), pkg_path)
-
-        # Ideally, we want to use YUM API for this. However, we are using this
-        # for in place update of the host agent only. That operation will not
-        # work cleanly with YUM API (end up with multiple host agents because
-        # YUM marks the removal of previous host agent as incomplete)
-        update_cmd = 'yum -y update %s' % pkg_path
+        update_cmd = 'sudo %s update %s' % (self.yum_rootwrap_path, pkg_path)
         code, out, err = _run_command(update_cmd)
         if code:
             self.log.error('Update command failed : %s. Return code: %d, '

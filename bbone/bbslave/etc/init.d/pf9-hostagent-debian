@@ -12,15 +12,15 @@
 # read & export proxy information
 . /etc/environment
 
-prog="pf9-hostagent"
-svcname="pf9-hostagent"
-REALLY_SHORT_NAME="hostagent"
+progname="pf9-hostd"
+SHORT_NAME="hostagent"
+svcname="pf9-${SHORT_NAME}"
 
-SERVER_BIN="/opt/pf9/hostagent/bin/$prog"
+SERVER_BIN="/opt/pf9/${SHORT_NAME}/bin/${progname}"
 
 SERVER_OPTS=""
 
-SERVER_LOGFILE=/var/log/pf9/hostagent-daemon.log
+SERVER_LOGFILE=/var/log/pf9/${SHORT_NAME}-daemon.log
 
 PIDFILE=/var/run/${svcname}.pid
 
@@ -37,17 +37,18 @@ start() {
 
     # Make sure the service is not already running.
     if status > /dev/null ; then
-        log_success_msg "${svcname} is already up (PID `pidofproc -p $PIDFILE`)"
+        log_success_msg "${svcname} is already up (PID `pidofproc $progname`)"
         exit 0
     fi
 
     # Only root can start the service
     [ $uid -ne 0 ] && exit 4
 
-    /sbin/start-stop-daemon --start --oknodo --background --make-pidfile \
-            --pidfile $PIDFILE  --quiet --startas /bin/bash -- \
-            -c "exec $SERVER_BIN $SERVER_OPTS >> $SERVER_LOGFILE 2>&1"
-
+    touch $PIDFILE
+    chown pf9:pf9group $PIDFILE
+    /sbin/start-stop-daemon --start --name $progname --oknodo --chuid pf9:pf9group \
+            --quiet --startas /bin/bash -- -c \
+            "$SERVER_BIN $SERVER_OPTS >> $SERVER_LOGFILE 2>&1 & echo \$! > $PIDFILE"
     RETVAL=$?
     if [ "$RETVAL" -eq "0" ]; then
         log_success_msg "Started:" "$svcname"
@@ -58,22 +59,20 @@ start() {
 }
 
 stop() {
-    /sbin/start-stop-daemon --stop --oknodo --make-pidfile \
-            --pidfile $PIDFILE --quiet --startas /bin/bash -- \
-            -c "exec $SERVER_BIN $SERVER_OPTS >> $SERVER_LOGFILE 2>&1"
+    /sbin/start-stop-daemon --stop --oknodo --quiet --retry 10 --name $progname
 
     RETVAL=$?
     if [ "$RETVAL" -eq "0" ]; then
         log_success_msg "Stopped:" "$svcname"
+        rm -f $PIDFILE
     else
         log_failure_msg "Failed to stop:" "$svcname"
     fi
-    rm -f $PIDFILE
     return $RETVAL
 }
 
 status() {
-    status_of_proc -p $PIDFILE $SERVER_BIN $svcname
+    status_of_proc $progname $svcname
 }
 
 # See how we were called.

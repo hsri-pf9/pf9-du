@@ -1,0 +1,4 @@
+pf9	ALL = NOPASSWD: /opt/pf9/hostagent/bin/pf9-apt install /var/cache/pf9apps/*.deb, \
+          NOPASSWD: /opt/pf9/hostagent/bin/pf9-apt erase pf9-*, \
+          NOPASSWD: /usr/sbin/service pf9-* *
+Defaults:pf9 !requiretty

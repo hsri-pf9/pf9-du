@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# Copyright (c) 2014 Platform9 Systems Inc.
+# All Rights reserved
+
+# This script requires root privileges. Since hostagent runs as pf9, this script
+# is invoked using sudo.
+#
+# When installing a package, the absolute path of the package must start with:
+#     /var/cache/pf9apps/
+#
+# When deleting a package, the name of the package must start with "pf9-".
+#
+
+set -e
+
+package_action=$1
+
+app_cache_dir=/var/cache/pf9apps/
+package_name_prefix="pf9-"
+
+usage() {
+    echo "Usage: $0 install PACKAGE_PATH " 1>&2
+    echo "       $0 erase PACKAGE_NAME " 1>&2
+    exit 1
+}
+
+# Returns 0 if file starts with prefix.
+# Otherwise, returns 1.
+starts_with() {
+    local file=$1
+    local prefix=$2
+    if [[ ${file} == ${prefix}* ]]; then
+        return 0
+    fi
+    return 1
+}
+
+
+if [[ $# != 2 ]]; then
+    usage
+fi
+
+case "$package_action" in
+    install)
+        package_path=$2
+        abs_package_path=$(readlink -f ${package_path})
+        starts_with $abs_package_path $app_cache_dir
+        if [[ "$?" != "0" ]]; then
+            echo "Invalid package path: $abs_package_path" 1>&2
+            exit 1
+        fi
+        yum -y install $abs_package_path
+        retval=$?
+        ;;
+    update)
+        package_path=$2
+        abs_package_path=$(readlink -f ${package_path})
+        starts_with $abs_package_path $app_cache_dir
+        if [[ "$?" != "0" ]]; then
+            echo "Invalid package path: $abs_package_path" 1>&2
+            exit 1
+        fi
+        yum -y update $abs_package_path
+        retval=$?
+        ;;
+    erase)
+        package_name=$2
+        starts_with $package_name $package_name_prefix
+        if [[ "$?" != "0" ]]; then
+            echo "Invalid package name: $package_name" 1>&2
+            exit 1
+        fi
+        yum -y erase $package_name
+        retval=$?
+        ;;
+    *)
+        usage
+esac
+
+exit $retval

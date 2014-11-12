@@ -42,4 +42,8 @@ $(VENV_DIR): | $(HOSTAGENT_TARBALL_SRCDIR)
 	# Inherit global packages to use 'yum' or 'apt' which are not on PyPi
 	rm -f $(VENV_DIR)/lib/python$(PYTHON_VERSION)/no-global-site-packages.txt
 	cp $(SRC_DIR)/scripts/pf9-hostagent $(VENV_DIR)/bin
+	# Create a symlink so that the program names of the hostagent and the
+	# init script are different. This will allow the start-stop-daemon to
+	# determine if the imagelibrary is running by looking at the program names.
+	cd $(VENV_DIR)/bin && ln -s pf9-hostagent pf9-hostd
 

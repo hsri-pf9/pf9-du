@@ -64,10 +64,6 @@ class Pf9AppCache(AppCache):
         :raises DownloadFailed: when downloading the file fails
         """
         self.log.info("Downloading file %s to %s", srcurl, destfile)
-        if get_supported_distro(self.log) == "debian":
-            srcurl = "".join(os.path.splitext(srcurl)[:-1]) + ".deb"
-            destfile = "".join(os.path.splitext(destfile)[:-1]) + ".deb"
-
         try:
             with contextlib.closing(requests.get(srcurl,
                                                  verify=self.ca_certs,
@@ -108,10 +104,12 @@ class Pf9AppCache(AppCache):
             localdest = os.path.join(localdir, filename)
             self.log.info("Downloading %s.%s from %s to %s",
                           name, version, url, localdest)
-            self._download_file(url, localdest)
+
             if get_supported_distro(self.log) == "debian":
+                url = "".join(os.path.splitext(url)[:-1]) + ".deb"
                 localdest = "".join(os.path.splitext(localdest)[:-1]) + ".deb"
 
+            self._download_file(url, localdest)
             self.downloads[key] = localdest
 
         self.log.debug("App cache state: %s", str(self.downloads))

@@ -15,12 +15,17 @@ include ../common-hostagent-defs.mk
 
 $(HOSTAGENT_TARBALL): | $(VENV_DIR)
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/init.d
+	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/sudoers.d
+	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/var/opt/pf9
+	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/var/cache/pf9apps
 	cp $(SRC_DIR)/etc/init.d/pf9-hostagent-debian $(HOSTAGENT_TARBALL_SRCDIR)/etc/init.d/pf9-hostagent
+	cp $(SRC_DIR)/etc/sudoers.d/pf9-hostagent-debian $(HOSTAGENT_TARBALL_SRCDIR)/etc/sudoers.d/pf9-hostagent
 	cp $(SRC_DIR)/support/debian/hostagent-deb-build.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/debian/after-install.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/debian/before-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/debian/after-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/scripts/pf9-hostagent $(VENV_DIR)/bin
+	cp $(SRC_DIR)/scripts/pf9-apt $(VENV_DIR)/bin
 	cd $(HOSTAGENT_TARBALL_SRCDIR) && \
 	tar -czf $(HOSTAGENT_TARBALL) *
 

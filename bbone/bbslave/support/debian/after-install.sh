@@ -6,8 +6,12 @@ script_step=$1
 configured_version=$2
 
 change_file_permissions() {
-    chgrp -R pf9group /etc/pf9/certs
     chown -R pf9:pf9group /var/log/pf9
+    chown -R pf9:pf9group /etc/pf9/
+    chown -R pf9:pf9group /var/opt/pf9/
+    chown -R pf9:pf9group /var/cache/pf9apps
+    chmod 0440 /etc/sudoers.d/pf9-hostagent
+    chmod 0550 /opt/pf9/hostagent/bin/pf9-apt
 }
 
 if [ "$script_step" = "configure" ] && [ -z $configured_version ]; then
@@ -25,7 +29,7 @@ if [ "$script_step" = "configure" ] && [ -z $configured_version ]; then
     service pf9-hostagent start
 elif [ "$script_step" = "configure" ]; then
     # During an upgrade, hostagent files are reverted to the default owner and
-    # group. So, pf9group must be assigned again.
+    # group. So, permissions must be reassigned.
     change_file_permissions
     # In case of an upgrade, restart the service
     service pf9-hostagent restart

@@ -13,7 +13,7 @@ from exceptions import ServiceCtrlError, ConfigOperationError
 from app import App, RemoteApp
 
 CFGSCRIPTCMD = "%s /opt/pf9/%s/config"
-SERVICECMD = "service %s %s"
+SERVICECMD = "sudo service %s %s"
 
 
 def _run_command(command):
@@ -182,7 +182,7 @@ class Pf9RemoteApp(Pf9App, RemoteApp):
         :param AppCache app_cache: Instance of the AppCache
         :param Logger log: Log handler object.
         """
-        Pf9App.__init__(self, name=name, version=version, app_db=app_db,  installed=False, log=log)
+        Pf9App.__init__(self, name=name, version=version, app_db=app_db, installed=False, log=log)
         self.url = url
         self.appcache = app_cache
 

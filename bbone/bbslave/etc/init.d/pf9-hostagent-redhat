@@ -12,14 +12,15 @@
 # read & export proxy information
 . /etc/environment
 
-prog="pf9-hostagent"
-svcname="pf9-hostagent"
+SHORT_NAME="hostagent"
+progname="pf9-hostd"
+svcname="pf9-${SHORT_NAME}"
 
-SERVER_BIN="/opt/pf9/hostagent/bin/$prog"
+SERVER_BIN="/opt/pf9/${SHORT_NAME}/bin/$progname"
 
 SERVER_OPTS=""
 
-SERVER_LOGFILE=/var/log/pf9/hostagent-daemon.log
+SERVER_LOGFILE=/var/log/pf9/${SHORT_NAME}-daemon.log
 
 PIDFILE=/var/run/${svcname}.pid
 LOCKFILE=/var/lock/subsys/$svcname
@@ -33,71 +34,70 @@ uid=`id | cut -d\( -f1 | cut -d= -f2`
 
 start() {
 
-	[ -f $SERVER_BIN ] || exit 5
+    [ -f $SERVER_BIN ] || exit 5
 
-	# Make sure the pf9-hostagent is not already running.
-	if status $prog > /dev/null ; then
-		exit 0
-	fi
+    # Make sure the service is not already running.
+    if status $progname > /dev/null ; then
+        exit 0
+    fi
 
-	# Only root can start the service
-	[ $uid -ne 0 ] && exit 4
+    # Only root can start the service
+    [ $uid -ne 0 ] && exit 4
 
-	echo -n $"Starting $svcname: "
-        touch "$SERVER_LOGFILE"
-        $SERVER_BIN $SERVER_OPTS >> $SERVER_LOGFILE 2>&1 &
-	RETVAL=$?
-	echo
-	if [ $RETVAL -eq 0 ] ; then
-		touch $LOCKFILE
-		[ ! -f $PIDFILE ] &&
-			/sbin/pidof $prog > $PIDFILE
-	fi
-	return $RETVAL
+    echo -n $"Starting $svcname: "
+    touch $PIDFILE
+    chown pf9:pf9group $PIDFILE
+    daemon --user pf9 "$SERVER_BIN $SERVER_OPTS >> $SERVER_LOGFILE 2>&1 & echo \$! > $PIDFILE"
+    RETVAL=$?
+    echo
+    if [ $RETVAL -eq 0 ] ; then
+        touch $LOCKFILE
+    fi
+    return $RETVAL
 }
 
 stop() {
-	echo -n $"Stopping $svcname: "
-	killproc $prog
-	RETVAL=$?
-	echo
-	[ $RETVAL -eq 0 ] && {
-		rm -f $LOCKFILE
-		rm -f $PIDFILE
-	}
-	return $RETVAL
+    echo -n $"Stopping $svcname: "
+    killproc $progname
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && {
+        rm -f $LOCKFILE
+        rm -f $PIDFILE
+    }
+    return $RETVAL
 }
 
 # See how we were called.
 case "$1" in
   start)
-	start
-	RETVAL=$?
-	;;
+    start
+    RETVAL=$?
+    ;;
   stop)
-	stop
-	RETVAL=$?
-	;;
+    stop
+    RETVAL=$?
+    ;;
   status)
-	status $prog
-	RETVAL=$?
-	;;
+    status $progname
+    RETVAL=$?
+    ;;
   restart | reload | force-reload)
-	stop
-	start
-	RETVAL=$?
-	;;
+    stop
+    start
+    RETVAL=$?
+    ;;
   condrestart | try-restart)
-	if [ -f $LOCKFILE ]; then
-		stop
-		start -w
-		RETVAL=$?
-	fi
-	;;
+    if status $progname > /dev/null; then
+        stop
+        start
+        RETVAL=$?
+    fi
+    ;;
   *)
-	echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart|try-restart}"
-	RETVAL=2
-	;;
+    echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart|try-restart}"
+    RETVAL=2
+    ;;
 esac
 
 exit $RETVAL
