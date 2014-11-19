@@ -19,7 +19,10 @@ SERVER_BIN="/opt/pf9/hostagent/bin/$prog"
 
 SERVER_OPTS=""
 
-SERVER_LOGFILE=/var/log/pf9-hostagent-daemon.log
+SERVER_LOGFILE=/var/log/pf9/hostagent-daemon.log
+
+PIDFILE=/var/run/${svcname}.pid
+LOCKFILE=/var/lock/subsys/$svcname
 
 # Source function library.
 . /etc/init.d/functions
@@ -46,9 +49,9 @@ start() {
 	RETVAL=$?
 	echo
 	if [ $RETVAL -eq 0 ] ; then
-		touch /var/lock/subsys/$svcname
-		[ ! -f /var/run/pf9-hostagent.pid ] &&
-			/sbin/pidof $prog > /var/run/pf9-hostagent.pid
+		touch $LOCKFILE
+		[ ! -f $PIDFILE ] &&
+			/sbin/pidof $prog > $PIDFILE
 	fi
 	return $RETVAL
 }
@@ -59,8 +62,8 @@ stop() {
 	RETVAL=$?
 	echo
 	[ $RETVAL -eq 0 ] && {
-		rm -f /var/lock/subsys/$svcname
-		rm -f /var/run/pf9-hostagent*
+		rm -f $LOCKFILE
+		rm -f $PIDFILE
 	}
 	return $RETVAL
 }
@@ -79,13 +82,13 @@ case "$1" in
 	status $prog
 	RETVAL=$?
 	;;
-  restart | reload| force-reload)
+  restart | reload | force-reload)
 	stop
 	start
 	RETVAL=$?
 	;;
   condrestart | try-restart)
-	if [ -f /var/lock/subsys/$svcname ]; then
+	if [ -f $LOCKFILE ]; then
 		stop
 		start -w
 		RETVAL=$?

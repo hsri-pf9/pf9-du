@@ -14,12 +14,13 @@
 
 prog="pf9-hostagent"
 svcname="pf9-hostagent"
+REALLY_SHORT_NAME="hostagent"
 
 SERVER_BIN="/opt/pf9/hostagent/bin/$prog"
 
 SERVER_OPTS=""
 
-SERVER_LOGFILE=/var/log/${svcname}-daemon.log
+SERVER_LOGFILE=/var/log/pf9/hostagent-daemon.log
 
 PIDFILE=/var/run/${svcname}.pid
 

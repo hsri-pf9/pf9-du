@@ -29,6 +29,7 @@ SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" 
 
 $(HOSTAGENT_TARBALL_SRCDIR):
 	mkdir -p $@
+	mkdir -p $@/var/log/pf9
 	mkdir -p $@/etc/pf9
 	cp $(SRC_DIR)/etc/pf9/hostagent.conf $@/etc/pf9
 

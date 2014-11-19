@@ -39,8 +39,14 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/pf9-hostagent
 %config /etc/pf9/hostagent.conf
 /etc/pf9/certs
+/var/log/pf9
 
 %post
+change_file_permissions() {
+    chgrp -R pf9group /etc/pf9/certs
+    chown -R pf9:pf9group /var/log/pf9
+}
+
 if [ "$1" = "1" ]; then
     # Create the pf9 user and group
     grep ^pf9group: /etc/group &>/dev/null || groupadd pf9group
@@ -51,15 +57,15 @@ if [ "$1" = "1" ]; then
     # Add root also to the pf9group
     usermod -aG pf9group root
 
-    # Make the certs file belong to the pf9group
-    chgrp -R pf9group /etc/pf9/certs/*
+    # Make the certs and log files belong to the pf9group
+    change_file_permissions
 
     chkconfig --add pf9-hostagent
     service pf9-hostagent start
 elif [ "$1" = "2" ]; then
     # During an upgrade, hostagent files are reverted to the default owner and
     # group. So, pf9group must be assigned again.
-    chgrp -R pf9group /etc/pf9/certs/*
+    change_file_permissions
     # In case of an upgrade, only restart the service if it's already running
     service pf9-hostagent condrestart
 fi
