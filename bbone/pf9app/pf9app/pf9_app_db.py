@@ -59,7 +59,7 @@ class AptPkgMgr(object):
         :return: dict of pf9 apps mapped to its details (name, version)
         :rtype: dict
         """
-        self._update_apt_cache()
+        self.cache.open()
         out = {}
         for pkg in self.cache:
             for version in pkg.versions:
@@ -76,7 +76,7 @@ class AptPkgMgr(object):
         :return: dictionary of agent name and version
         :rtype: dict
         """
-        self._update_apt_cache()
+        self.cache.open()
         pkg = self.cache["pf9-hostagent"]
         versions = pkg.versions
         # Returns the first hostagent version for now
