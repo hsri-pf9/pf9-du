@@ -6,6 +6,7 @@ import platform
 import ConfigParser
 import uuid
 import os
+import socket
 
 def get_sysinfo():
     """
@@ -14,7 +15,7 @@ def get_sysinfo():
     """
 
     return {
-        'hostname': platform.node(),
+        'hostname': socket.getfqdn(),
         'os_info': ' '.join(platform.dist()),
         'arch': platform.machine(),
         'os_family': platform.system()
