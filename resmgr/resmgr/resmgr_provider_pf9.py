@@ -71,14 +71,24 @@ def _update_custom_role_settings(app_info, role_settings, roles):
     """
     new_roles = dict((role.rolename, json.loads(role.customizable_settings)) for role in roles)
 
+    app_names = app_info.keys()
+    if len(app_names) == 0:
+        # Nothing to do - there are no apps to look for custom settings for
+        return
+
+    # Get app name from app_info (because apps are not implicitly the same as roles now)
+    # Assumption is that there is only 1 app provided in app_info, as is the case today
+    # If this changes in the future, we will need to iterate over apps and find their associated roles
+    given_app_name = app_names[0]
+
     for role_name, settings in new_roles.iteritems():
         for setting_name, setting in settings.iteritems():
-            if role_name not in app_info:
+            if role_name not in role_settings:
                 continue
             path = setting['path'].split('/')
             # Traverse the config according to the path of the default setting.
             # Then, insert the custom role setting into the app info
-            app_info_temp = app_info[role_name]
+            app_info_temp = app_info[given_app_name]
             for key in path:
                 app_info_temp = app_info_temp[key]
             app_info_temp[setting_name] = role_settings[role_name][setting_name]
@@ -426,7 +436,7 @@ class BbonePoller(object):
                     # in DB
                     # TODO: Cross check if this is intended design
                     expected_cfg = substitute_host_id(
-                        authorized_hosts[host]['roles_config'],
+                        authorized_hosts[host]['apps_config'],
                         host)
                     role_settings = authorized_hosts[host]['role_settings']
                     roles = self.rolemgr.db_handler.query_roles()
@@ -480,7 +490,7 @@ class BbonePoller(object):
         else:
             # Get authorized host ids and unauthorized host ids and store it
             # in all_ids
-            authorized_hosts = self.db_handle.query_host_details()
+            authorized_hosts = self.db_handle.query_host_and_app_details()
             all_ids = set(authorized_hosts.keys() + _unauthorized_hosts.keys())
             new_ids = bbone_ids - all_ids
             del_ids = all_ids - bbone_ids
@@ -677,8 +687,8 @@ class ResMgrPf9Provider(ResMgrProvider):
                 _unauthorized_host_status_time.pop(host_id, None)
 
             # Rely on the role config values set in the DB to send to bbmaster
-            host_details = self.res_mgr_db.query_host_details(host_id)
-            app_info = host_details[host_id]['roles_config']
+            host_details = self.res_mgr_db.query_host_and_app_details(host_id)
+            app_info = host_details[host_id]['apps_config']
             role_settings = json.loads(host_details[host_id]['role_settings'])
             roles = self.roles_mgr.db_handler.query_roles()
             _update_custom_role_settings(app_info, role_settings, roles)
@@ -733,9 +743,9 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         log.debug('Sending request to backbone to remove role %s from %s',
                  role_name, host_id)
-        host_details = self.res_mgr_db.query_host_details(host_id)
+        host_details = self.res_mgr_db.query_host_and_app_details(host_id)
         self.roles_mgr.push_configuration(host_id,
-                             host_details[host_id]['roles_config'])
+                             host_details[host_id]['apps_config'])
 
     def get_custom_settings(self, host_id, role_name):
         return self.res_mgr_db.get_custom_settings(host_id, role_name)

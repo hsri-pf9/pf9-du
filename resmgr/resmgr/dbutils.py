@@ -152,9 +152,9 @@ class ResMgrDB(object):
                                   'of expected dict format. Ignoring it', file)
                         continue
                     role_name = data['role_name']
-                    role_version = data['config']['version']
+                    role_version = data['role_version']
                     log.info('Reading role data for %s, version %s',
-                             role_name, data['config']['version'])
+                             role_name, role_version)
                     if not role_name in metadata:
                         metadata[role_name] = {
                             role_version: data
@@ -538,7 +538,7 @@ class ResMgrDB(object):
 
         return out
 
-    def query_host_details(self, host_id=None):
+    def query_host_and_app_details(self, host_id=None):
         """
         Query host details and returns a JSON serializable dictionary and not
         the ORM object. Use this to reference the host data beyond the database
@@ -559,9 +559,9 @@ class ResMgrDB(object):
             else:
                 results = session.query(Host).all()
             for host in results:
-                assigned_roles = {}
+                assigned_apps = {}
                 for role in host.roles:
-                    assigned_roles[role.rolename] = json.loads(role.desiredconfig)
+                    assigned_apps.update(json.loads(role.desiredconfig))
 
                 out[host.id] = {
                     'hostname': host.hostname,
@@ -570,7 +570,7 @@ class ResMgrDB(object):
                     'hostosinfo': host.hostosinfo,
                     'lastresponsetime': host.lastresponsetime,
                     'responding': host.responding,
-                    'roles_config': assigned_roles,
+                    'apps_config': assigned_apps,
                     'role_settings': host.role_settings
                     }
 
