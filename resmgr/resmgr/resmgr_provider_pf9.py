@@ -19,7 +19,8 @@ import dict_tokens
 
 from bbcommon.utils import is_satisfied_by
 from dbutils import ResMgrDB
-from exceptions import BBMasterNotFound, HostNotFound, RoleNotFound, HostConfigFailed
+from exceptions import (BBMasterNotFound, HostNotFound, RoleNotFound,
+                        HostConfigFailed, SupportRequestFailed)
 import notifier
 from resmgr_provider import ResMgrProvider, RState
 
@@ -530,6 +531,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         self.host_inventory_mgr = HostInventoryMgr(config, self.res_mgr_db)
         self.roles_mgr = RolesMgr(config, self.res_mgr_db)
         notifier.init(log, config)
+        self.bb_url = config.get('backbone', 'endpointURI')
 
         # Setup a thread to poll backbone state regularly to detect changes to
         # hosts.
@@ -538,6 +540,18 @@ class ResMgrPf9Provider(ResMgrProvider):
         t = threading.Thread(target=self.bbone_poller.run)
         t.daemon = True
         t.start()
+
+    def request_support_bundle(self, host_id):
+        url = "%s/v1/hosts/%s/support" % (self.bb_url, host_id)
+        try:
+            r = requests.post(url)
+            if r.status_code != requests.codes.ok:
+                raise SupportRequestFailed('Error in POST request response: %d, host %s' %
+                                           (r.status_code, host_id))
+
+        except requests.exceptions.RequestException as exc:
+            log.error('Getting support for host %s failed: %s', host_id, exc)
+            raise BBMasterNotFound(exc)
 
     def get_all_roles(self):
         """

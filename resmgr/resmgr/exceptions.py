@@ -37,3 +37,7 @@ class HostConfigFailed(ResMgrException):
     def __init__(self, reason):
         super(HostConfigFailed, self).__init__('Role configuration failed: %s'% reason)
 
+class SupportRequestFailed(ResMgrException):
+    def __init__(self, reason):
+        super(SupportRequestFailed, self).__init__('Support request failed: %s' % reason)
+

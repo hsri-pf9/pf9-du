@@ -16,7 +16,8 @@ import logging
 import pecan
 from pecan import abort, expose
 from pecan.rest import RestController
-from resmgr.exceptions import RoleNotFound, HostNotFound, HostConfigFailed, BBMasterNotFound
+from resmgr.exceptions import (RoleNotFound, HostNotFound, HostConfigFailed,
+                               BBMasterNotFound, SupportRequestFailed)
 from enforce_policy import enforce
 
 
@@ -127,10 +128,35 @@ class HostRolesController(RestController):
             log.exception('Getting custom settings failed')
             abort(404)
 
+class HostSupportController(RestController):
+    """Controller for hosts' support related requests"""
+
+    @enforce(required= ['admin'])
+    @expose('json')
+    def post(self, host_id):
+        """
+        Handles requests of type POST /v1/hosts/<host_id>/support
+        Sends a request to the host agent on the specified host to generate and
+        return a support bundle to the deployment unit. The request is
+        asynchronous and not guaranteed to succeed.
+        Returns a 404 error code if the specified host does not exist.
+        :param str host_id: ID of the host
+        """
+        if not _provider.get_host(host_id):
+            log.error('Unable to request support bundle. No matching host found: %s',
+                      host_id)
+            abort(404)
+        try:
+            _provider.request_support_bundle(host_id)
+        except (SupportRequestFailed, BBMasterNotFound):
+            log.exception("Request to generate support bundle failed.")
+            abort(503)
+
 
 class HostsController(RestController):
     """ Controller for hosts related requests"""
     roles = HostRolesController()
+    support = HostSupportController()
 
     @expose('json')
     def get_all(self):

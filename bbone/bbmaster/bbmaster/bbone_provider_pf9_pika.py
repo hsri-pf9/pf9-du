@@ -49,6 +49,9 @@ class bbone_provider_pf9(bbone_provider_memory):
 
     # ----- these methods execute in an arbitrary http server thread -----
 
+    def request_support_bundle(self, host_id):
+        self._send_msg(host_id, {'opcode': 'get_support'})
+
     def get_host_ids(self):
         # thread safe (I think!)
         return super(bbone_provider_pf9, self).get_host_ids()

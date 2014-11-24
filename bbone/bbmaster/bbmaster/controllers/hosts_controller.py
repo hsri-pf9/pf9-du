@@ -94,12 +94,25 @@ class HostAgentController(RestController):
         except HostNotFound:
             abort(404)
 
+class SupportController(RestController):
+    """ Controller for the .../support/ request"""
+
+    @expose('json')
+    def post(self, host_id):
+        """
+        Handles request of type: POST /v1/hosts/<host_id>/support/
+        """
+        if not _provider.get_hosts([host_id]):
+            abort(404)
+        _provider.request_support_bundle(host_id)
+
 class HostsController(RestController):
     """ Controller for the .../hosts endpoint"""
 
     ids = IdsController()
     apps = AppsController()
     hostagent = HostAgentController()
+    support = SupportController()
 
     @expose('json')
     def get_all(self):
