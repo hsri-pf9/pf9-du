@@ -8,11 +8,12 @@ Usage:
 #./du_ctl [options]
 """
 
+import argparse
 import json
 import logging
-import argparse
-import requests
 import os
+import re
+import requests
 import sys
 import time
 
@@ -52,6 +53,11 @@ def login(username, password, tenant):
                       headers={'Content-Type': 'application/json'})
     r.raise_for_status()
     return r.json()
+
+def _get_login_token(args):
+    user, password = get_user_pass(args)
+    login_resp = login(user, password, 'service')
+    return login_resp['access']['token']['id']
 
 def _build_role_parser(subparsers):
     """
@@ -127,6 +133,16 @@ def _build_hostagent_parser(subparsers):
                       help='ID of the specific host to be queried. If not specified, '
                            'all hosts are queried')
 
+def _add_credential_arguments(parser):
+    parser.add_argument("--user",
+		        action='store',
+		        dest='user',
+		        help='User account to use. Optional if OS_USERNAME is set.')
+    parser.add_argument("--password",
+                        action='store',
+                        dest='password',
+                        help='User account password. Optional if OS_PASSWORD is set.')
+
 def _build_host_parser(subparsers):
     """
     Build subparser for host related operations
@@ -140,14 +156,7 @@ def _build_host_parser(subparsers):
 
     host_list_parser = host_sub_parser.add_parser('list',
                                                   help='List hosts information')
-    host_list_parser.add_argument("--user",
-                                  action='store',
-                                  dest='user',
-                                  help='User account to use. Optional if OS_USERNAME is set.')
-    host_list_parser.add_argument("--password",
-                                  action='store',
-                                  dest='password',
-                                  help='User account password. Optional if OS_PASSWORD is set.')
+    _add_credential_arguments(host_list_parser)
 
     host_role_reset_parser = host_sub_parser.add_parser('role-reset',
                                                         help='Reset host roles')
@@ -156,14 +165,19 @@ def _build_host_parser(subparsers):
                                         dest='host_id',
                                         required=True,
                                         help='Host ID of host where its roles should be cleared')
-    host_role_reset_parser.add_argument("--user",
-                                        action='store',
-                                        dest='user',
-                                        help='User account to use. Optional if OS_USERNAME is set.')
-    host_role_reset_parser.add_argument("--password",
-                                        action='store',
-                                        dest='password',
-                                        help='User account password. Optional if OS_PASSWORD is set.')
+    _add_credential_arguments(host_role_reset_parser)
+
+    host_support_parser = host_sub_parser.add_parser('support',
+                                                     help='Get support bundle from hosts')
+    host_support_sub_parser = host_support_parser.add_subparsers(help='Host support sub-commands',
+                                                                 dest='host_support_subparser')
+    host_support_bundle_parser = host_support_sub_parser.add_parser('bundle',
+                                                                    help='Get support bundle')
+    host_support_bundle_parser.add_argument("--host_id",
+                                            required=True,
+                                            help='ID of host to get support bundle from. ')
+    _add_credential_arguments(host_support_bundle_parser)
+
 
 def _build_parsers():
     """
@@ -208,6 +222,10 @@ def _process_cmd(args):
         elif args.host_subparser == 'role-reset':
             do_host_role_reset(args)
             return
+        elif args.host_subparser == 'support':
+            if args.host_support_subparser == 'bundle':
+                do_support_bundle(args)
+                return
 
     # Did not match any known command. Should not hit this because argparse
     # should do everything for us.
@@ -238,10 +256,7 @@ def do_host_list(args):
     Retrieve information for all hosts
     :param args: Command line args
     """
-    user, password = get_user_pass(args)
-    login_resp = login(user, password, 'service')
-    token = login_resp['access']['token']['id']
-    headers = {'X-Auth-Token': token}
+    headers = {'X-Auth-Token': _get_login_token(args)}
     resp = _do_get('%s/hosts' % _resmgr_endpoint, headers=headers)
     log.info('%s', json.dumps(resp, indent=3))
 
@@ -250,16 +265,62 @@ def do_host_role_reset(args):
     Remove all roles associated with a host
     :param args: Command line args
     """
-    user, password = get_user_pass(args)
-    login_resp = login(user, password, 'service')
-    token = login_resp['access']['token']['id']
     headers = {'Content-type': 'json',
-               'X-Auth-Token': token}
+               'X-Auth-Token': _get_login_token(args)}
     resp = requests.delete('%s/hosts/%s' % (_resmgr_endpoint, args.host_id),
                            headers=headers)
     resp.raise_for_status()
     log.info('All roles reset for host %s. It will take a few minutes for'
              ' the role reset to be synchronized across all services.', args.host_id)
+
+def _get_bundles(bundle_dir):
+    """
+    Return a set of the paths of the bundles in bundle_dir.
+    A bundle name should be of the form:
+        <hostname>-<time>.tgz
+    where time is generated by datetime.strftime("%Y-%m-%d-%H-%M-%S").
+    We will NOT consider hostnames when looking for bundles.
+    Logs a warning if bundle_dir is not a directory.
+    """
+    bundle_pattern = re.compile('.*-(\d{4})' + '(-\d{2})' * 5 + '.tgz$')
+    bundles = set()
+    try:
+        bundle_dir_list = os.listdir(bundle_dir)
+    except OSError:
+        log.exception("Could not access bundle dir: %s" % bundle_dir)
+        return bundles
+    for bundle_name in bundle_dir_list:
+        bundle = os.path.join(bundle_dir, bundle_name)
+        if bundle_pattern.match(bundle):
+            bundles.add(bundle)
+    return bundles
+
+def do_support_bundle(args):
+    headers = {'X-Auth-Token': _get_login_token(args)}
+    support_dir = os.path.join('/opt', 'pf9', 'support', args.host_id)
+
+    bundles_before = _get_bundles(support_dir)
+
+    resp = requests.post('%s/hosts/%s/support' % (_resmgr_endpoint, args.host_id),
+                         headers=headers)
+    resp.raise_for_status()
+
+    # Number of attempts to check for creation of the support bundle
+    attempts = 60
+    interval = 5
+    for _ in xrange(attempts):
+        time.sleep(interval)
+        bundles_after = _get_bundles(support_dir)
+        new_bundles = bundles_after - bundles_before
+        if len(new_bundles):
+            if len(new_bundles) != 1:
+                log.warn('Multiple bundles written!')
+            log.info('Wrote new bundle: %s' % new_bundles.pop())
+            return
+        log.info("Waiting for support bundle...")
+
+    log.error("Failed while waiting for support bundle")
+    sys.exit(1)
 
 def _do_get(url, headers={}):
     """

@@ -151,9 +151,11 @@ class bbone_provider_pf9(bbone_provider_memory):
                 os.makedirs(out_dir)
             outfile = os.path.join(out_dir, '%s-%s.tgz' % (host_name,
                                    time_now.strftime("%Y-%m-%d-%H-%M-%S")))
+            outfile_temp = outfile + '.part'
             try:
-                with open(outfile, 'wb') as f:
+                with open(outfile_temp, 'wb') as f:
                     f.write(base64.b64decode(msg['data']['contents']))
+                os.rename(outfile_temp, outfile)
             except:
                 self.log.exception('Writing out support bundle failed')
 
