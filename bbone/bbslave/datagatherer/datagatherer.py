@@ -8,8 +8,11 @@ Module that builds a bundle of all support information from a host
 __author__ = 'Platform 9'
 
 import glob
+import logging
 import os
 import tarfile
+
+from subprocess import CalledProcessError, check_call
 
 """
 Want to be able to do the following eventually:
@@ -28,13 +31,26 @@ file_list = [
     '/var/log/pf9/*'
 ]
 
+support_logging_dir = '/var/log/pf9/support'
+support_script = '/opt/pf9/hostagent/bin/run_support_scripts.sh'
 
-def generate_support_bundle(out_tgz_file, logger):
-    # Clear out any previous file
-    # Generate tgz file in /var/opt/pf9/hostagent
-
-    # Opening the file in 'w' mode, which will overwrite the previous file
+def generate_support_bundle(out_tgz_file, logger=logging):
+    """
+    Run the support scripts and generate a tgz file in
+    /var/opt/pf9/hostagent. Overwrites the previously generated
+    tgz file if it exists.
+    """
     logger.info('Writing out support file %s', out_tgz_file)
+    try:
+        if not os.path.isdir(support_logging_dir):
+            os.makedirs(support_logging_dir)
+
+        support_logfile = os.path.join(support_logging_dir, 'support.txt')
+        with open(support_logfile, 'w') as f:
+            check_call([support_script, support_logging_dir], stdout=f, stderr=f)
+    except:
+        logger.exception("Failed to run the support scripts.")
+
     tgzfile = tarfile.open(out_tgz_file, 'w:gz')
     for pattern in file_list:
         expanded_pattern = os.path.expandvars(
