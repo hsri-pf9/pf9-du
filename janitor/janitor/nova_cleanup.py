@@ -1,5 +1,6 @@
 #
-# Copyright (c) Platform9 Systems. All rights reserved
+# Copyright (c) 2014 Platform9 Systems.
+# All rights reserved
 #
 
 __author__ = 'Platform9'
@@ -7,44 +8,19 @@ __author__ = 'Platform9'
 import requests
 import logging
 from janitor import utils
+from janitor.base import Base
 
 LOG = logging.getLogger('janitor-daemon')
 
 
-class NovaCleanup(object):
+class NovaCleanup(Base):
     """
     Perform maintenance tasks for Nova
     """
 
     def __init__(self, conf):
+        super(NovaCleanup, self).__init__(conf)
         self._resmgr_url = conf.get('resmgr', 'endpointURI')
-        self._req_timeout = conf.get('DEFAULT', 'requestTimeout')
-        self._wait = conf.get('DEFAULT', 'requestWaitPeriod')
-        self._nova_url = conf.get('nova', 'endpointURI')
-        nova_config = conf.get('nova', 'configfile')
-        self._auth_user, self._auth_pass, self._auth_tenant = \
-                utils.get_keystone_credentials(nova_config)
-
-    def _nova_request(self, namespace, token, proj_id, req_type='get'):
-        url = '/'.join([self._nova_url, 'v2', proj_id, namespace])
-
-        headers = {'X-Auth-Token': token, 'Content-Type': 'application/json'}
-
-        assert(req_type in ('get', 'delete'))
-
-        resp = None
-
-        if req_type == 'get':
-            resp = requests.get(url, verify=False, headers=headers)
-        elif req_type == 'delete':
-            resp = requests.delete(url, verify=False, headers=headers)
-
-        if not resp:
-            LOG.error("No response")
-        elif resp.status_code not in (requests.codes.ok, 204):
-            LOG.error('Nova hypervisor query failed: %d', resp.status_code)
-
-        return resp
 
     def cleanup(self):
         """Remove hypervisor and instance information from Nova for

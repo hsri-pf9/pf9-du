@@ -3,6 +3,8 @@ __author__ = 'Platform9'
 from ConfigParser import ConfigParser
 from janitor.nova_cleanup import NovaCleanup
 from janitor.glance_cleanup import GlanceCleanup
+from janitor.network_cleanup import NetworkCleanup
+
 from time import sleep
 from requests import exceptions
 import requests.packages.urllib3.exceptions as urllib_exceptions
@@ -55,11 +57,12 @@ def serve(config_file):
 
     nova_obj = NovaCleanup(conf=cfg)
     glance_obj = GlanceCleanup(conf=cfg)
-
+    nw_obj = NetworkCleanup(conf=cfg)
     while True:
         try:
             nova_obj.cleanup()
             glance_obj.cleanup()
+            nw_obj.cleanup()
         except (exceptions.ConnectionError, urllib_exceptions.ProtocolError):
             LOG.info('Keystone service unavailable, will retry in a bit')
         except RuntimeError as e:
