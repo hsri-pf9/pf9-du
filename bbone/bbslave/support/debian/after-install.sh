@@ -28,6 +28,12 @@ if [ "$script_step" = "configure" ] && [ -z $configured_version ]; then
     update-rc.d pf9-hostagent defaults > /dev/null 2>&1
     service pf9-hostagent start
 elif [ "$script_step" = "configure" ]; then
+    # FIXME Since hostagent changed process names (to resolve conflicts with the
+    # init script process name), the new init script may not be able to stop the
+    # old hostagent process. This next 2 lines should be remove when the old
+    # pf9-hostagent process no longer exists.
+    /sbin/start-stop-daemon --stop --oknodo --quiet --retry 10 --name pf9-hostagent
+    rm -f /var/run/pf9-hostagent*
     # During an upgrade, hostagent files are reverted to the default owner and
     # group. So, permissions must be reassigned.
     change_file_permissions

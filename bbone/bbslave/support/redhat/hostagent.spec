@@ -53,6 +53,14 @@ change_file_permissions() {
     chown -R pf9:pf9group /var/cache/pf9apps
 }
 
+stop_old_hostagent() {
+    # Source function library.
+    . /etc/init.d/functions
+    killproc pf9-hostagent -9
+    rm -f /var/lock/subsys/pf9-hostagent*
+    rm -f /var/run/pf9-hostagent*
+}
+
 if [ "$1" = "1" ]; then
     # Create the pf9 user and group
     grep ^pf9group: /etc/group &>/dev/null || groupadd pf9group
@@ -66,11 +74,16 @@ if [ "$1" = "1" ]; then
     chkconfig --add pf9-hostagent
     service pf9-hostagent start
 elif [ "$1" = "2" ]; then
+    # FIXME Since hostagent changed process names (to resolve conflicts with the
+    # init script process name), the new init script may not be able to stop the
+    # old hostagent process. This next line should be remove when the old
+    # pf9-hostagent process no longer exists.
+    stop_old_hostagent
     # During an upgrade, hostagent files are reverted to the default owner and
     # group. So, permissions must be reassigned.
     change_file_permissions
-    # In case of an upgrade, only restart the service if it's already running
-    service pf9-hostagent condrestart
+    # In case of an upgrade, restart the service
+    service pf9-hostagent restart
 fi
 
 %preun
