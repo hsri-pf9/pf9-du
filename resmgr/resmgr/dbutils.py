@@ -119,8 +119,12 @@ class ResMgrDB(object):
         # TODO: Make this dynamic. May be read in from some file?
         # Note: host_id becomes __HOST_ID__ token in the DB.
         #       At run-time, it gets replaced with each host's ID
+        du_fqdn = self.config.get("DEFAULT", "DU_FQDN")
+        mgmt_fqdn = self.config.get("DEFAULT", "MGMT_FQDN") if \
+            self.config.has_option("DEFAULT", "MGMT_FQDN") else du_fqdn
         param_vals = {
-            'du_fqdn': self.config.get("DEFAULT", "DU_FQDN"),
+            'du_fqdn': du_fqdn,
+            'mgmt_fqdn': mgmt_fqdn,
             'imglib_auth_user': self.config.get("pf9-imagelibrary", 'auth_user'),
             'imglib_auth_pass': self.config.get("pf9-imagelibrary", 'auth_pass'),
             'imglib_auth_tenant_name': self.config.get("pf9-imagelibrary",

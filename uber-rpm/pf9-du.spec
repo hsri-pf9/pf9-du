@@ -20,6 +20,7 @@ Requires: pf9-notifications
 Requires: pf9-janitor
 Requires: pf9-imagelibrary-wrapper
 Requires: pf9-imagelibrary-wrapper-debian
+Requires: pf9-unwrap
 
 %description
 Platform9 deployment unit.

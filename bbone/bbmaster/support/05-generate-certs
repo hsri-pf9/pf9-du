@@ -74,7 +74,8 @@ def parse_input():
 def main():
     options = parse_input()
     services = [('privateweb', options.fqdn, True), ('broker', None, True),
-                ('bbmaster', None, False), ('hostagent', None, False)]
+                ('bbmaster', None, False), ('hostagent', None, False),
+                ('privateweb_localhost', 'localhost', True)]
 
     base_dir = options.basedir
     cust_name = options.cu_shortname
