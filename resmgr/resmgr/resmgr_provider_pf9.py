@@ -772,9 +772,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         Add a role to a particular host
         :param str host_id: ID of the host
         :param str role_name: Name of the role
-        :param dict host_settings: Custom settings for the host
-            if host_settings is None, all of the host's custom settings
-            will be replaced with the defaults
+        :param dict host_settings: The custom host settings for the specified role.
         :raises RoleNotFound: if the role is not present
         :raises HostNotFound: if the host is not present
         :raises HostConfigFailed: if setting the configuration fails or times out
@@ -793,10 +791,6 @@ class ResMgrPf9Provider(ResMgrProvider):
             raise HostNotFound(host_id)
 
         host_roles = self.res_mgr_db.query_host(host_id, fetch_role_ids=True)
-        # Allowing role updation only for the vmw role, since there is a necessary use-case for it
-        if role_name != 'pf9-ostackhost-vmw' and host_roles and active_role_in_db.id in host_roles['roles']:
-            log.info('Role %s is already assigned to %s', role_name, host_id)
-            return
 
         initially_inactive = host_inst['state'] == RState.inactive
         host_inst['roles'].append(role_name)

@@ -559,7 +559,7 @@ def do_set_host_role(options):
     try:
         url = ''.join([_resmgr_endpoint, '/hosts/', options.host_id, '/roles/', options.role])
         log.info('Updating role %s for host %s', options.role, options.host_id)
-        _do_put(url, body=None, headers=headers)
+        _do_put(url, body={}, headers=headers)
 
         time_left = 10 * 60    # 10 mins
         poll_interval = 20     # 20 secs

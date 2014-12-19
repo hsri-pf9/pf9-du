@@ -189,9 +189,18 @@ is same as the active version of the role, no action is performed on the host
 is not the same as the active version of the role, the role on the host is updated to the
 active version of the role.
 
-A json body can be specified to add custom settings for a host.
-Each key of the json dict is optional, but the keys must be valid and the
-dictionary cannot be empty.
+The body of the request must be either empty, or a Json dictionary. A request with an
+empty body is equivalent to a request with an empty Json dictionary. The dictionary specified
+by the body must provide a subset of the custom settings.
+Here is how the specified Json dictionary is processed.
+
+1. The host will use the custom values specified by the dictionary.
+   This will overwrite an existing custom value if it is specified in the body.
+2. If the host is being upgraded and if a custom setting was not specified by the body,
+   the host will keep the value it had for that custom setting before the call.
+3. If this is the first time applying the role to the host and if a custom setting was not
+   specified by the body, then the host will get the default value for that custom setting.
+
 
 Dictionary for pf9-ostackhost:
 ```
@@ -207,21 +216,15 @@ Dictionary for pf9-imagelibrary:
 }
 ```
 
-The host will use the specifed values for its custom config.
-If no value is specified, it uses these defaults:
-
+Defaults for pf9-ostackhost:
 ```
 instances_path = /opt/pf9/data/instances
 ```
 
+Defaults for pf9-imagelibrary:
 ```
 data_directory = /var/opt/pf9/imagelibrary/data/
 ```
-
-If no json body is given, the host will use all of the defaults.
-
-After the first put request, subsequent requests with the same url will be
-ignored.
 
 ### DELETE /v1/hosts/__id__/roles/__role_name__ ###
 

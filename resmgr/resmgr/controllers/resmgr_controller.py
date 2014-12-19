@@ -98,13 +98,21 @@ class HostRolesController(RestController):
         """
         Handles requests of type PUT /v1/hosts/<host_id>/roles/<role_name>
         Assigns the specified role to the host.
+        The body must either be empty or a Json dictionary.
         :param str host_id: ID of the host
         :param str role_name: Name of the role being assigned
         """
-        if hasattr(pecan.core.state, "request") and hasattr(pecan.core.state.request, "json_body"):
-            msg_body = pecan.core.state.request.json_body
+        msg_body = pecan.request.body
+        if len(msg_body) == 0:
+            msg_body = {}
         else:
-            msg_body = None
+            try:
+                msg_body = pecan.request.json_body
+            except Exception as e:
+                abort(400, str(e))
+
+        if not isinstance(msg_body, dict):
+            abort(400, 'Invalid Json body')
 
         log.debug('Assigning role %s to host %s with message body %s',
                   role_name, host_id, msg_body)

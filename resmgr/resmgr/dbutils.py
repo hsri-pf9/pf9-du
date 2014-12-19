@@ -1,4 +1,4 @@
-# Copyright 2014 Platform9 Systems Inc.
+# Copyright 2015 Platform9 Systems Inc.
 # All Rights Reserved.
 
 __author__ = 'Platform9'
@@ -284,23 +284,6 @@ class ResMgrDB(object):
         return default_settings
 
 
-    def _check_settings(self, settings_to_add, default_settings):
-        """
-        :param settings_to_add: Specified by the json body of the REST API call
-        :type dict:
-        :param default_settings: Returned from the _get_default_settings call
-        :type dict:
-        """
-        if settings_to_add == None:
-            return
-        for key in settings_to_add:
-            if key not in default_settings:
-                log.error('Invalid key for role %s: ' % key)
-                raise HostConfigFailed('Json body for host authorization has an invalid key: %s' % key)
-        if len(settings_to_add) == 0:
-            raise HostConfigFailed('Host %s custom settings are empty for role %s'
-                                   % (host_id, role_name))
-
     def _update_settings_with_defaults(self, settings, default_settings, role_name):
         """
         Update with defaults if they were not overwritten
@@ -328,22 +311,20 @@ class ResMgrDB(object):
                     with self.dbsession() as session:
                         host = session.query(Host).filter_by(id=host_id).first()
                         default_settings = self._get_default_settings(role_name)
-                        self._check_settings(settings_to_add, default_settings)
 
-                        # settings_to_add is either a non-zero length dict with
-                        # valid keys, or None. Handle the None case here
-                        if not settings_to_add:
-                            settings_to_add = default_settings
+                        if not set(settings_to_add).issubset(set(default_settings)):
+                            invalid_keys = set(settings_to_add) - set(default_settings)
+                            raise HostConfigFailed('Invalid keys in body %s' % invalid_keys)
 
                         if host:
-                            # Merge the specified custom settings
-                            # with the existing custom settings.
+                            # Update the existing custom settings
+                            # with the specified custom settings
                             settings = json.loads(host.role_settings)
                             if role_name not in settings:
                                 settings[role_name] = {}
                             settings[role_name].update(settings_to_add)
                         else:
-                            settings = {role_name: settings_to_add}
+                            settings = {role_name : settings_to_add}
                         self._update_settings_with_defaults(settings, default_settings, role_name)
 
                         new_host = Host(id=host_id,
