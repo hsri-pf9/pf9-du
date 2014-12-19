@@ -313,21 +313,35 @@ class BbonePoller(object):
         self.poll_interval = config.getint('backbone', 'pollInterval')
         self.bbone_endpoint = config.get('backbone', 'endpointURI')
         self.notifier = notifier
-        # Threshold time after which not responding hosts should be removed, in seconds
-        non_responsive_host_threshold = config.getint('resmgr', 'nonResponsiveHostThreshold')
-        self.non_responsive_host_timeout = datetime.timedelta(
-                                            seconds=non_responsive_host_threshold)
+        # The default threshold time after which not responding hosts should
+        # be removed, in seconds
+        default_non_responsive_host_threshold = config.getint(
+                                            'resmgr', 'defaultNonResponsiveHostThreshold')
+        # The threshold time after which not responding hosts that are
+        # converging should be removed, in seconds
+        converging_non_responsive_host_threshold = config.getint(
+                                            'resmgr', 'convergingNonResponsiveHostThreshold')
+        self.default_non_responsive_host_timeout = datetime.timedelta(
+                                            seconds=default_non_responsive_host_threshold)
+        self.converging_non_responsive_host_timeout = datetime.timedelta(
+                                            seconds=converging_non_responsive_host_threshold)
 
-    def _responding_within_threshold(self, status_time):
+    def _responding_within_threshold(self,
+                                    status_time,
+                                    threshold=None):
         """
-        Checks if the provided status time is beyond the non responsive threshold
+        Checks if the provided status time is beyond the specified threshold
         time, wrt the current time
         :param datetime status_time: status time to be compared with
+        :param int threshold: specifies the threshold time, in seconds
         :return: True if time is within the threshold, else False
         """
+        if not threshold:
+            threshold = self.default_non_responsive_host_timeout
         current_time = datetime.datetime.utcnow()
         time_delta = current_time - status_time
-        return time_delta < self.non_responsive_host_timeout
+        return time_delta < threshold
+
 
     def _process_new_hosts(self, host_ids):
         """
@@ -427,7 +441,13 @@ class BbonePoller(object):
             _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
             if host in authorized_hosts:
                 # host is in authorized list
-                responding = self._responding_within_threshold(status_time)
+                host_status = host_info['status']
+                if host_status in ('converging', 'retrying'):
+                    responding_threshold = self.converging_non_responsive_host_timeout
+                else:
+                    responding_threshold = self.default_non_responsive_host_timeout
+                responding = self._responding_within_threshold(status_time,
+                                                               responding_threshold)
                 if authorized_hosts[host]['responding'] != responding:
                     # If host status is responding and is marked as not
                     # responding, tag it as responding. And vice versa
@@ -444,7 +464,6 @@ class BbonePoller(object):
                     self.db_handle.update_host_hostname(host, hostname)
                     self.notifier.publish_notification('change', 'host', host)
 
-                host_status = host_info['status']
                 # Active hosts but we need to change the configuration
                 try:
                     if host_status not in ('ok', 'retrying', 'converging'):
