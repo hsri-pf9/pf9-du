@@ -15,7 +15,9 @@ from slave import reconnect_loop
 
 hostagent_conf = environ.get('HOSTAGENT_CONFIG_FILE',
                              constants.HOSTAGENT_CONFIG_FILE)
+hostagent_override_conf = environ.get('HOSTAGENT_OVERRIDE_CONFIG_FILE',
+                             constants.HOSTAGENT_OVERRIDE_CONFIG_FILE)
 
 config = ConfigParser.ConfigParser()
-config.read(hostagent_conf)
+config.read([hostagent_conf, hostagent_override_conf])
 reconnect_loop(config)

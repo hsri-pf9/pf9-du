@@ -8,4 +8,5 @@ BROADCAST_TOPIC = 'slaves'
 MASTER_TOPIC = 'master'
 
 HOSTAGENT_CONFIG_FILE = '/etc/pf9/hostagent.conf'
+HOSTAGENT_OVERRIDE_CONFIG_FILE = '/etc/pf9/hostagent_override.conf'
 BBMASTER_CONFIG_FILE = '/etc/pf9/bbmaster.conf'
