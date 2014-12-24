@@ -19,7 +19,7 @@ from pf9app.exceptions import Pf9Exception
 from sysinfo import get_sysinfo, get_host_id
 from bbcommon.utils import is_satisfied_by, get_ssl_options
 from os.path import exists, join
-from os import makedirs, unlink
+from os import makedirs, rename, unlink
 
 # Cached value of desired configuration.
 _sys_info = get_sysinfo()
@@ -69,15 +69,19 @@ def _load_host_agent_info(agent_app_db):
                         'version': agent_info['version']
                       }
 
-def load_desired_config():
+def load_desired_config(log):
     """
     Returns the deserialized JSON of the persisted desired apps
     configuration file, or None if it doesn't exist.
     """
     if not exists(_desired_config_basedir_path):
         return None
-    with open(_desired_config_basedir_path, 'r') as file:
-        return json.load(file)
+    try:
+        with open(_desired_config_basedir_path, 'r') as file:
+            return json.load(file)
+    except Exception as e:
+        log.error('Failed to load desired configuration: %s', e)
+        return None
 
 def save_desired_config(log, desired_config):
     """
@@ -91,8 +95,12 @@ def save_desired_config(log, desired_config):
     else:
         try:
             json_str = json.dumps(desired_config, indent=4)
-            with open(_desired_config_basedir_path, 'w') as file:
+            # Write to a temporary file to ensure file is not corrupted
+            # in case of an unexpected error
+            temp_desired_config_basedir_path = _desired_config_basedir_path + '.part'
+            with open(temp_desired_config_basedir_path, 'w') as file:
                 file.write(json_str)
+            rename(temp_desired_config_basedir_path, _desired_config_basedir_path)
         except Exception as e:
             log.error('Failed to save desired configuration: %s', e)
 
@@ -243,7 +251,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
         :param dict msg: message deserialized from JSON
         """
         global _converge_attempts
-        desired_config = load_desired_config()
+        desired_config = load_desired_config(log)
         try:
             if msg['opcode'] not in ('ping', 'heartbeat', 'set_config',
                                      'set_agent', 'exit', 'get_support'):
