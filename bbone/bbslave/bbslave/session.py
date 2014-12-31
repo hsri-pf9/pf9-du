@@ -117,6 +117,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
     :param type agent_app_class: Agent app class
     """
 
+    amqp_host = config.get('amqp', 'host')
+    url_interpolations = {'host_relative_amqp_fqdn': amqp_host}
     allow_exit_opcode = config.getboolean('hostagent', 'allow_exit_opcode') if \
         config.has_option('hostagent', 'allow_exit_opcode') else False
     max_converge_attempts = int(config.get('hostagent', 'max_converge_attempts'))
@@ -181,7 +183,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
         """
         assert desired_config is not None
         return process_apps(app_db, app_cache, remote_app_class,
-                           desired_config, probe_only=True, log=log) == 0
+                            desired_config, probe_only=True, log=log,
+                            url_interpolations=url_interpolations) == 0
 
     def update_agent(agent_info, current_config, desired_config):
         """
@@ -314,7 +317,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
 
         try:
             process_apps(app_db, app_cache, remote_app_class,
-                         desired_config, log=log)
+                         desired_config, log=log,
+                         url_interpolations=url_interpolations)
         except Pf9Exception as e:
             log.error('Exception during apps processing: %s', type(e))
 
@@ -362,7 +366,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
         log.info("Using the default virtual host '/' on the AMQP broker")
 
     ssl_options = get_ssl_options(config)
-    io_loop(host=config.get('amqp', 'host'),
+    io_loop(host=amqp_host,
             credentials=credentials,
             exch_name=constants.BBONE_EXCHANGE,
             recv_keys=recv_keys,

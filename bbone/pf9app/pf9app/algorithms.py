@@ -11,7 +11,8 @@ import logging
 from logging import Logger
 
 def process_apps(app_db, app_cache, remote_app_class, new_config,
-                 non_destructive=False, probe_only=False, log=logging):
+                 non_destructive=False, probe_only=False, log=logging,
+                 url_interpolations=None):
     """
     Processes the transition from a current to a new application configuration.
 
@@ -29,6 +30,8 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
     :param bool probe_only: determine if changes are needed, but don't
      actually perform the changes.
     :param Logger log: logger
+    :param dict url_interpolations: An optional dictionary containing
+     string substitutions for the url property of a pf9 application
     :return: the number of application changes
     :rtype: int
     """
@@ -47,6 +50,13 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
             if not probe_only:
                 app.uninstall()
             changes += 1
+
+    def url_from_app_spec(spec):
+        url = spec['url']
+        if url_interpolations:
+            url = url % url_interpolations
+        return url
+
     for app_name in identical_app_names:
         app = installed_apps[app_name]
         new_app_spec = new_config[app_name]
@@ -55,7 +65,7 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
         if app.version != new_app_spec['version']:
             new_app = remote_app_class(name=app_name,
                                        version=new_app_spec['version'],
-                                       url=new_app_spec['url'],
+                                       url=url_from_app_spec(new_app_spec),
                                        app_db=app_db,
                                        app_cache=app_cache,
                                        log=log)
@@ -86,7 +96,7 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
         new_app_config = new_app_spec['config']
         new_app = remote_app_class(name=app_name,
                                    version=new_app_spec['version'],
-                                   url=new_app_spec['url'],
+                                   url=url_from_app_spec(new_app_spec),
                                    app_db=app_db,
                                    app_cache=app_cache,
                                    log=log)

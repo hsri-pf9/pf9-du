@@ -120,16 +120,15 @@ class ResMgrDB(object):
         # Note: host_id becomes __HOST_ID__ token in the DB.
         #       At run-time, it gets replaced with each host's ID
         du_fqdn = self.config.get("DEFAULT", "DU_FQDN")
-        mgmt_fqdn = self.config.get("DEFAULT", "MGMT_FQDN") if \
-            self.config.has_option("DEFAULT", "MGMT_FQDN") else du_fqdn
+
         param_vals = {
             'du_fqdn': du_fqdn,
-            'mgmt_fqdn': mgmt_fqdn,
             'imglib_auth_user': self.config.get("pf9-imagelibrary", 'auth_user'),
             'imglib_auth_pass': self.config.get("pf9-imagelibrary", 'auth_pass'),
             'imglib_auth_tenant_name': self.config.get("pf9-imagelibrary",
                 'auth_tenant_name'),
-            'host_id': dict_tokens.HOST_ID_TOKEN
+            'host_id': dict_tokens.HOST_ID_TOKEN,
+            'host_relative_amqp_fqdn': dict_tokens.HOST_RELATIVE_AMQP_FQDN_TOKEN
         }
         os_vars.update(param_vals)
         out = config_str % os_vars
