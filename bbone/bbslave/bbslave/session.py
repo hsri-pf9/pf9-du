@@ -127,6 +127,10 @@ def start(config, log, app_db, agent_app_db, app_cache,
     _set_desired_config_basedir_path(config)
     _persist_host_id()
 
+    _sys_info['hypervisor_type'] = config.get('hostagent', 'hypervisor_type') if \
+        config.has_option('hostagent', 'hypervisor_type') else 'kvm'
+
+
     # This dictionary holds AMQP variables set by the various nested functions.
     # We need a dictionary because python 2.x lacks the 'nonlocal' keyword
     # that would have allowed nested functions to assign parent (but not global)
