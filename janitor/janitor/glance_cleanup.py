@@ -78,10 +78,14 @@ class GlanceCleanup(object):
 
         images = self._get_images(token)
         for image in images:
-            if image['properties']['pf9_imagelib_id'] not in resmgr_ids:
-                LOG.info('host %s has been removed, removing image %s',
-                        image['properties']['pf9_imagelib_id'], image['name'])
-                self._delete_image(token, image['id'])
+            if 'pf9_imagelib_id' in image['properties']:
+                if image['properties']['pf9_imagelib_id'] not in resmgr_ids:
+                    LOG.info('host %s has been removed, removing image %s',
+                            image['properties']['pf9_imagelib_id'], image['name'])
+                    self._delete_image(token, image['id'])
+            else:
+                LOG.info('Image %s (%s) does not belong to any image library,\
+                    please delete manually', image['name'], image['id'])
 
         # note imagelibs api will return all, including deleted entries
         imagelibs = self._get_imagelibs(token)
