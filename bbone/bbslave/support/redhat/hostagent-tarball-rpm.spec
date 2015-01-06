@@ -15,6 +15,7 @@ Group:          pf9-hostagent-tarball
 
 Source0:        pf9-hostagent.tar.gz
 Source1:        45-customize-hostagent-rpm
+Source2:        47-customize-hostagent-ova
 
 %description
 Platform 9 Host Agent tarball
@@ -28,6 +29,7 @@ mkdir -p ${RPM_BUILD_ROOT}/opt/pf9/hostagent-tarball/redhat
 cp %{SOURCE0} ${RPM_BUILD_ROOT}/opt/pf9/hostagent-tarball/redhat
 mkdir -p ${RPM_BUILD_ROOT}/opt/pf9/du-customize
 cp %{SOURCE1} ${RPM_BUILD_ROOT}/opt/pf9/du-customize
+cp %{SOURCE2} ${RPM_BUILD_ROOT}/opt/pf9/du-customize
 
 %clean
 rm -rf ${RPM_BUILD_ROOT}
