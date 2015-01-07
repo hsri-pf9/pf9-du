@@ -23,4 +23,5 @@ sed -i -e "s/hypervisor_type.*/hypervisor_type=$HYPERVISOR_TYPE/" $TARBALL_EXPAN
 rpmbuild -bb --define "_topdir $RPMBUILD_DIR" --define "_src_dir $TARBALL_EXPANDED_LOCATION"  --define "_version $VERSION" --define "_release $RELEASE" $SPEC_FILE_DIR/hostagent.spec
 
 cp $SPEC_FILE_DIR/hostagent-rpm-build.sh $TARBALL_EXPANDED_LOCATION/hostagent-rpm-build.sh
+cp $SPEC_FILE_DIR/hostagent.spec $TARBALL_EXPANDED_LOCATION/hostagent.spec
 rm -rf $SPEC_FILE_DIR
