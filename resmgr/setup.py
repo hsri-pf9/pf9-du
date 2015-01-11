@@ -13,7 +13,7 @@ setup(
     author='',
     author_email='',
     install_requires=[
-        "python-daemon",
+        "python-daemon==1.6.1",
         "alembic",
         "pecan",
         "sqlalchemy",
