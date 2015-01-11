@@ -248,6 +248,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
             msg['data']['contents'] = ''
 
         channel = state['channel']
+        log.info('Publishing support bundle message to broker')
         channel.basic_publish(exchange=constants.BBONE_EXCHANGE,
                               routing_key=constants.MASTER_TOPIC,
                               body=json.dumps(msg))
