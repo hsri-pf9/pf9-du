@@ -17,7 +17,7 @@ setup(
     author='pf9',
     author_email='pf9@platform9.net',
     install_requires=[
-        "python-daemon",
+        "python-daemon==1.6.1",
         "requests"
     ],
     test_suite='janitor',
