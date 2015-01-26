@@ -25,9 +25,6 @@ captures it at run time for the app.
 # this list out of the hostagent scope
 
 file_list = [
-    # TODO Log files are now stored in /var/log/pf9/.
-    # Remove the next line when /var/log/pf9-* files no longer exist.
-    '/var/log/pf9*',
     '/var/log/pf9/*'
 ]
 
