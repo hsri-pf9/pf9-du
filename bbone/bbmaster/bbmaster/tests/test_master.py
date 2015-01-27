@@ -32,6 +32,10 @@ log.basicConfig(level=getattr(log, 'INFO'))
 amqp_host = config.get('amqp', 'host')
 amqp_endpoint = "http://%s:15672/api" % amqp_host
 
+bad_opcode_msg = {
+    'opcode': 'bogus'
+}
+
 initial_status = {
     'opcode': 'status',
     'data': {
@@ -132,6 +136,9 @@ def _setup_slave(init_msg, host_topic):
                               body=json.dumps(msg))
 
     def before_consuming():
+        # Verify bbmaster can survive a message with bogus opcode (IAAS-1665)
+        send_msg(bad_opcode_msg)
+        # Send the real initial message
         send_msg(init_msg)
 
 

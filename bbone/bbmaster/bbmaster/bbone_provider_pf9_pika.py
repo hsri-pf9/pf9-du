@@ -116,7 +116,9 @@ class bbone_provider_pf9(bbone_provider_memory):
                 if body['opcode'] == 'support':
                     handle_support_bundle(body)
                     return
-                assert body['opcode'] == 'status'
+                if body['opcode'] != 'status':
+                    self.log.error('Unknown opcode: %s', body['opcode'])
+                    raise ValueError()
                 self.log.info('Received: %s', body)
                 host_state = body['data']
                 host_state['timestamp'] = datetime.datetime.utcnow()
@@ -202,6 +204,13 @@ class bbone_provider_pf9(bbone_provider_memory):
             except AMQPConnectionError as e:
                 self.log.error('Connection error "%s". Retrying in %d seconds.',
                                e, self.retry_period)
+                time.sleep(self.retry_period)
+
+            except:
+                self.log.exception('Unexpected exception in IO thread.' +
+                                   ' Retrying in %d seconds.',
+                                   self.retry_period)
+		# Sleep in order to avoid spinnng too fast
                 time.sleep(self.retry_period)
 
 
