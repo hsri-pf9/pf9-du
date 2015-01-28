@@ -16,7 +16,7 @@ CFGSCRIPTCMD = "%s /opt/pf9/%s/config"
 SERVICECMD = "sudo service %s %s"
 
 
-def _run_command(command):
+def _run_command(command, stdout=subprocess.PIPE):
     """
     Runs a command
     :param str command: Command to be executed.
@@ -27,7 +27,7 @@ def _run_command(command):
     """
     proc = subprocess.Popen(command, shell=True,
                             stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
+                            stdout=stdout,
                             stderr=subprocess.PIPE)
     out, err = proc.communicate()
     code = proc.returncode

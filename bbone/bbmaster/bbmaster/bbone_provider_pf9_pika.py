@@ -52,6 +52,11 @@ class bbone_provider_pf9(bbone_provider_memory):
     def request_support_bundle(self, host_id):
         self._send_msg(host_id, {'opcode': 'get_support'})
 
+    def run_support_command(self, host_id, command):
+        msg = {'opcode' : 'support_command',
+               'command' : command}
+        self._send_msg(host_id, msg)
+
     def get_host_ids(self):
         # thread safe (I think!)
         return super(bbone_provider_pf9, self).get_host_ids()
@@ -116,6 +121,9 @@ class bbone_provider_pf9(bbone_provider_memory):
                 if body['opcode'] == 'support':
                     handle_support_bundle(body)
                     return
+                if body['opcode'] == 'support_command_response':
+                    handle_support_command_response(body['data'])
+                    return
                 if body['opcode'] != 'status':
                     self.log.error('Unknown opcode: %s', body['opcode'])
                     raise ValueError()
@@ -160,6 +168,22 @@ class bbone_provider_pf9(bbone_provider_memory):
                 os.rename(outfile_temp, outfile)
             except:
                 self.log.exception('Writing out support bundle failed')
+
+        def handle_support_command_response(data):
+            """
+            Log the support command response to the bbmaster log file.
+            """
+            self.log.info('Received support commmand response from %s',
+                          data['info'])
+            if data['status'] == 'error':
+                self.log.error('Support command failed %s',
+                               data['error_message'])
+                return
+            # Currently, data['status'] can only be success or error. Below
+            # would be the success case.
+            self.log.info("Return code: %s" % data['rc'])
+            self.log.info("stdout: %s" % data['out'])
+            self.log.info("stderr: %s" % data['err'])
 
         def ping_slaves():
             self._send_msg(constants.BROADCAST_TOPIC, {'opcode': 'ping'})

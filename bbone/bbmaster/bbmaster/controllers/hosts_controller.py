@@ -94,17 +94,40 @@ class HostAgentController(RestController):
         except HostNotFound:
             abort(404)
 
-class SupportController(RestController):
+class SupportBundleController(RestController):
     """ Controller for the .../support/ request"""
 
     @expose('json')
     def post(self, host_id):
         """
-        Handles request of type: POST /v1/hosts/<host_id>/support/
+        Handles request of type: POST /v1/hosts/<host_id>/support/bundle
         """
         if not _provider.get_hosts([host_id]):
             abort(404)
         _provider.request_support_bundle(host_id)
+
+class SupportCommandController(RestController):
+    """ Controller for the .../support/command request"""
+
+    @expose('json')
+    def post(self, host_id):
+        """
+        Handles request of type: POST /v1/hosts/<host_id>/support/command
+        Example JSON body: {'command' : '<command to run>'}
+        """
+        if not _provider.get_hosts([host_id]):
+            abort(404)
+        msg_body = pecan.core.state.request.json_body
+        if 'command' in msg_body and len(msg_body) == 1:
+            _provider.run_support_command(host_id, msg_body['command'])
+        else:
+            # Malformed json body
+            abort(400)
+
+class SupportController(RestController):
+    """ Controller for the .../support/ request"""
+    bundle = SupportBundleController()
+    command = SupportCommandController()
 
 class HostsController(RestController):
     """ Controller for the .../hosts endpoint"""

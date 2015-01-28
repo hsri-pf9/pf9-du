@@ -41,3 +41,7 @@ class SupportRequestFailed(ResMgrException):
     def __init__(self, reason):
         super(SupportRequestFailed, self).__init__('Support request failed: %s' % reason)
 
+class SupportCommandRequestFailed(ResMgrException):
+    def __init__(self, reason):
+        super(SupportRequestFailed, self).__init__('Support command request failed: %s' % reason)
+

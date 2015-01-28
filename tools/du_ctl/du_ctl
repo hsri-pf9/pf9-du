@@ -178,6 +178,15 @@ def _build_host_parser(subparsers):
                                             help='ID of host to get support bundle from. ')
     _add_credential_arguments(host_support_bundle_parser)
 
+    host_support_command_parser = host_support_sub_parser.add_parser('command',
+                                                                     help='Run a command on a host')
+    host_support_command_parser.add_argument("--host_id",
+                                            required=True,
+                                            help='ID of host to get support bundle from. ')
+    host_support_command_parser.add_argument("--command",
+                                            required=True,
+                                            help='The command to run.')
+    _add_credential_arguments(host_support_command_parser)
 
 def _build_parsers():
     """
@@ -225,6 +234,9 @@ def _process_cmd(args):
         elif args.host_subparser == 'support':
             if args.host_support_subparser == 'bundle':
                 do_support_bundle(args)
+                return
+            elif args.host_support_subparser == 'command':
+                do_support_command(args)
                 return
 
     # Did not match any known command. Should not hit this because argparse
@@ -301,7 +313,7 @@ def do_support_bundle(args):
 
     bundles_before = _get_bundles(support_dir)
 
-    resp = requests.post('%s/hosts/%s/support' % (_resmgr_endpoint, args.host_id),
+    resp = requests.post('%s/hosts/%s/support/bundle' % (_resmgr_endpoint, args.host_id),
                          headers=headers)
     resp.raise_for_status()
 
@@ -321,6 +333,14 @@ def do_support_bundle(args):
 
     log.error("Failed while waiting for support bundle")
     sys.exit(1)
+
+def do_support_command(args):
+    headers = {'X-Auth-Token' : _get_login_token(args),
+               'Content-Type' : 'application/json'}
+    body = {'command' : args.command}
+    resp = requests.post('%s/hosts/%s/support/command/' % (_resmgr_endpoint, args.host_id),
+                         headers=headers, data=json.dumps(body))
+    resp.raise_for_status()
 
 def _do_get(url, headers={}):
     """

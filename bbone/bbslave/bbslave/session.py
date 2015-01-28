@@ -16,6 +16,8 @@ from pf9app.app_cache import AppCache
 from pf9app.app import RemoteApp
 from pf9app.algorithms import process_apps, process_agent_update
 from pf9app.exceptions import Pf9Exception
+from pf9app.pf9_app import _run_command
+import re
 from sysinfo import get_sysinfo, get_host_id
 from bbcommon.utils import is_satisfied_by, get_ssl_options
 from os.path import exists, join
@@ -29,6 +31,8 @@ _support_file_location = None
 _common_config_path = None
 _converge_attempts = 0
 _hostagent_info = {}
+_allowed_commands_regexes = ['^sudo service pf9-[-\w]+ (stop|start|status|restart)$']
+_allowed_commands = ['rm -rf /var/cache/pf9apps/*']
 
 def _set_desired_config_basedir_path(config):
     """
@@ -253,6 +257,59 @@ def start(config, log, app_db, agent_app_db, app_cache,
                               routing_key=constants.MASTER_TOPIC,
                               body=json.dumps(msg))
 
+    def process_support_command(command):
+        """
+        Handle the request to run the support command and send the output
+        to the backbone master through rabbitmq broker.
+        """
+        def _is_command_allowed():
+            if command in _allowed_commands:
+                return True
+            for regex in _allowed_commands_regexes:
+                regex = re.compile(regex)
+                if regex.match(command):
+                    return True
+            return False
+
+        msg = {
+            'opcode' : 'support_command_response',
+            'data' : {
+                'host_id': _host_id,
+                'info': _sys_info,
+                'command' : command,
+            }
+        }
+
+        try:
+            data = msg['data']
+            if _is_command_allowed():
+                log.info('Running command: %s' % command)
+                # If the command involves the hostagent service,
+                # do not capture the stdout due to issues with restarting
+                if command.startswith('sudo service pf9-hostagent '):
+                    stdout = (None,)
+                else:
+                    stdout = ()
+                data['rc'], data['out'], data['err'] = _run_command(command, *stdout)
+                log.info('Return code: %s' % data['rc'])
+                log.info('stdout: %s' % data['out'])
+                log.info('stderr: %s' % data['err'])
+                data['status'] = 'success'
+                data['error_message'] = ''
+            else:
+                log.error('Invalid command requested: %s' % command)
+                data['status'] = 'error'
+                data['error_message'] = 'Invalid command: %s' % command
+        except Exception as e:
+            log.exception('Support command failed.')
+            data['status'] = 'error'
+            data['error_message'] = str(e)
+
+        channel = state['channel']
+        log.info('Publishing command request message to broker')
+        channel.basic_publish(exchange=constants.BBONE_EXCHANGE,
+                              routing_key=constants.MASTER_TOPIC,
+                              body=json.dumps(msg))
     def handle_msg(msg):
         """
         Handles an incoming message, which can be an internal heartbeat.
@@ -262,7 +319,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
         desired_config = load_desired_config(log)
         try:
             if msg['opcode'] not in ('ping', 'heartbeat', 'set_config',
-                                     'set_agent', 'exit', 'get_support'):
+                                     'set_agent', 'exit', 'get_support',
+                                     'support_command'):
                 log.error('Invalid opcode: %s', msg['opcode'])
                 return
             if msg['opcode'] == 'exit':
@@ -283,6 +341,10 @@ def start(config, log, app_db, agent_app_db, app_cache,
             if msg['opcode'] == 'get_support':
                 log.info('Received get_support message')
                 process_support_request()
+                return
+            if msg['opcode'] == 'support_command':
+                log.info('Received support_command message: %s' % msg['command'])
+                process_support_command(msg['command'])
                 return
             if msg['opcode'] == 'set_config':
                 desired_config = msg['data']

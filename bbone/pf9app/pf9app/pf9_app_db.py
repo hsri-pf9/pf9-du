@@ -12,7 +12,7 @@ import time
 
 from app_db import AppDb
 from pf9_app_cache import get_supported_distro
-from pf9_app import Pf9App
+from pf9_app import Pf9App, _run_command
 from exceptions import NotInstalled, UpdateOperationFailed, \
     RemoveOperationFailed, InstallOperationFailed, Pf9Exception
 
@@ -21,24 +21,6 @@ if get_supported_distro() == 'debian':
     import apt.debfile
 else:
     import yum
-
-def _run_command(command):
-    """
-    Run a command
-    :param str command: Command to be executed.
-    :return: a tuple representing (code, stdout, stderr), where code is the
-             return code of the command, stdout is the standard output of the
-             command and stderr is the stderr of the command
-    :rtype: tuple
-    """
-    proc = subprocess.Popen(command, shell=True,
-                            stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
-    out, err = proc.communicate()
-    code = proc.returncode
-
-    return code, out, err
 
 class AptPkgMgr(object):
     """Class that interacts with APT"""

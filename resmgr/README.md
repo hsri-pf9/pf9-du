@@ -139,12 +139,31 @@ inactive, then this request is a no-op.
 Once an active host is deleted, subsequent discovery of this host will mark it
 in the inactive state.
 
-### POST /v1/hosts/__id__/support ###
+### POST /v1/hosts/__id__/support/bundle ###
 
 Sends a request to the host agent on the specified host to generate and return a
 support bundle to the deployment unit. The request is asynchronous and not
 guaranteed to succeed.
 Returns a 404 error code if the specified host does not exist.
+
+### POST /v1/hosts/__id__/support/command ###
+
+Sends a request to the host agent on the specified host to run a command
+and return the output to the deployment unit. The request is asynchronous and not
+guaranteed to succeed.
+Returns a 404 error code if the specified host does not exist.
+
+The command must be specified in the json body of the request.
+Body format:
+        {'command' : '<command to run>'}
+
+The command will only be executed if it matches the list of allowed
+commands:
+
+[
+   'sudo service pf9-*',
+   'rm -rf /var/cache/pf9apps/*'
+]
 
 ### PUT /v1/hosts/__id__/roles/__role_name__ ###
 

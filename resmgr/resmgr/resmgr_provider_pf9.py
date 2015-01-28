@@ -20,7 +20,8 @@ import dict_tokens
 from bbcommon.utils import is_satisfied_by
 from dbutils import ResMgrDB
 from exceptions import (BBMasterNotFound, HostNotFound, RoleNotFound,
-                        HostConfigFailed, SupportRequestFailed)
+                        HostConfigFailed, SupportRequestFailed,
+                        SupportCommandRequestFailed)
 import notifier
 from resmgr_provider import ResMgrProvider, RState
 
@@ -549,7 +550,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         t.start()
 
     def request_support_bundle(self, host_id):
-        url = "%s/v1/hosts/%s/support" % (self.bb_url, host_id)
+        url = "%s/v1/hosts/%s/support/bundle" % (self.bb_url, host_id)
         try:
             r = requests.post(url)
             if r.status_code != requests.codes.ok:
@@ -558,6 +559,17 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         except requests.exceptions.RequestException as exc:
             log.error('Getting support for host %s failed: %s', host_id, exc)
+            raise BBMasterNotFound(exc)
+
+    def run_support_command(self, host_id, body):
+        url = "%s/v1/hosts/%s/support/command" % (self.bb_url, host_id)
+        try:
+            r = requests.post(url, data=json.dumps(body))
+            if r.status_code != requests.codes.ok:
+                raise SupportCommandRequestFailed('Error in POST request response: %d, host %s' %
+                                           (r.status_code, host_id))
+
+        except requests.exceptions.RequestException as exc:
             raise BBMasterNotFound(exc)
 
     def get_all_roles(self):
