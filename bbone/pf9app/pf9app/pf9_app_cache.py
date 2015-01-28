@@ -55,6 +55,21 @@ class Pf9AppCache(AppCache):
         self.keyfile = keyfile
         self.ca_certs = ca_certs
 
+    def _file_sizes_match(self, path, expected_size):
+        """
+        Checks if the file is of expected size. Returns False if it is not.
+        Returns True otherwise.
+        :param str path: Path to the file
+        :param str expected_size: Expected file size
+        """
+        file_size = str(os.stat(path).st_size)
+        if file_size != expected_size:
+            self.log.error("Expected file %s to be of size %s, but size was %s",
+                           path, expected_size, file_size)
+            return False
+
+        return True
+
     def _download_file(self, srcurl, destfile):
         """
         Utility method to download contents from the provided URL to a local file
@@ -64,6 +79,7 @@ class Pf9AppCache(AppCache):
         :raises DownloadFailed: when downloading the file fails
         """
         self.log.info("Downloading file %s to %s", srcurl, destfile)
+        content_length = None
         try:
             with contextlib.closing(requests.get(srcurl,
                                                  verify=self.ca_certs,
@@ -72,6 +88,11 @@ class Pf9AppCache(AppCache):
                                                  stream=True)) as response:
                 # Raise HTTPError if status is not 200
                 response.raise_for_status()
+                content_length = response.headers.get('content-length', None)
+                if content_length is None:
+                    msg = 'Could not determine the size of the file being downloaded.'
+                    self.log.error(msg)
+                    raise DownloadFailed(msg)
                 with open(destfile, "w") as wf:
                     # Source files (rpms) could be huge,download them in chunks
                     for chunk in response.iter_content(DOWNLOAD_CHUNK_SIZE):
@@ -79,6 +100,9 @@ class Pf9AppCache(AppCache):
         except requests.exceptions.RequestException as e:
             self.log.error("Downloading %s failed: %s", srcurl, e)
             raise DownloadFailed(str(e))
+
+        if not self._file_sizes_match(destfile, content_length):
+            raise DownloadFailed("Downloaded file doesn't match expected size.")
 
         self.log.info("Downloaded file %s to %s", srcurl, destfile)
 
