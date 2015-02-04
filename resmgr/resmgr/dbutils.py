@@ -5,11 +5,15 @@ __author__ = 'Platform9'
 
 import datetime
 import dict_tokens
+import dict_subst
 import glob
 import json
 import logging
+import random
 import os
+import string
 import threading
+import time
 
 from contextlib import contextmanager
 from exceptions import HostNotFound, HostConfigFailed, RoleNotFound
@@ -39,6 +43,14 @@ role_host_assoc_table = Table('host_role_map', Base.metadata,
                                   Column('rolename', String(120),
                                          ForeignKey('roles.id')))
 
+class RabbitCredential(Base):
+    __tablename__ = 'rabbit_credentials'
+
+    host_id = Column(String(50), ForeignKey('hosts.id'), primary_key=True)
+    rolename = Column(String(120), ForeignKey('roles.rolename'), primary_key=True)
+    userid = Column(String(60))
+    password = Column(String(50))
+
 class Role(Base):
     """The ORM class for the roles table in the database."""
     __tablename__ = 'roles'
@@ -52,14 +64,16 @@ class Role(Base):
     desiredconfig = Column(String(2048))
     active = Column(Boolean()) # indicates if this is the active version of the role
     customizable_settings = Column(String(2048))
+    rabbit_permissions = Column(String(2048))
     UniqueConstraint('rolename', 'version', name='constraint1')
 
     def __repr__(self):
         return "<Role(id = '%s', rolename='%s',version='%s',displayname='%s'," \
-               "description='%s',desiredconfig='%s', active='%s', customizable_settings='%s')>" % \
+               "description='%s',desiredconfig='%s', active='%s', " \
+               "customizable_settings='%s', rabbit_permissions='%s')>" % \
                 (self.id, self.rolename, self.version, self.displayname,
                  self.description, self.desiredconfig, self.active,
-                 self.customizable_settings)
+                 self.customizable_settings, self.rabbit_permissions)
 
 
 class Host(Base):
@@ -76,6 +90,8 @@ class Host(Base):
     role_settings = Column(String(2048))
     roles = relationship("Role", secondary=role_host_assoc_table,
                          backref='hosts', collection_class=set)
+    rabbit_credentials = relationship('RabbitCredential',
+                                      cascade='all, delete, delete-orphan')
 
     def __repr__(self):
         return "<Host(id='%s', hostname='%s', hostosfamily='%s', hostarch='%s', " \
@@ -128,7 +144,9 @@ class ResMgrDB(object):
             'imglib_auth_tenant_name': self.config.get("pf9-imagelibrary",
                 'auth_tenant_name'),
             'host_id': dict_tokens.HOST_ID_TOKEN,
-            'host_relative_amqp_fqdn': dict_tokens.HOST_RELATIVE_AMQP_FQDN_TOKEN
+            'host_relative_amqp_fqdn': dict_tokens.HOST_RELATIVE_AMQP_FQDN_TOKEN,
+            'rabbit_userid' : dict_tokens.RABBIT_USERID_TOKEN,
+            'rabbit_password' : dict_tokens.RABBIT_PASSWORD_TOKEN
         }
         os_vars.update(param_vals)
         out = config_str % os_vars
@@ -414,7 +432,8 @@ class ResMgrDB(object):
                         description=details['description'],
                         desiredconfig=self._setup_config(details['config']),
                         active=True,
-                        customizable_settings=json.dumps(details['customizable_settings']))
+                        customizable_settings=json.dumps(details['customizable_settings']),
+                        rabbit_permissions=json.dumps(details['rabbit_permissions']))
 
         with self.dbsession() as session:
             try:
@@ -602,6 +621,37 @@ class ResMgrDB(object):
                               host_id, role_name)
                 raise
 
+    def associate_rabbit_credentials_to_host(self,
+                                             host_id,
+                                             role_name,
+                                             rabbit_user,
+                                             rabbit_password):
+        """
+        Associate rabbitmq_credentials to the host.
+        :param str host_id: ID of the host
+        :param str role_name: role.rolename of the role
+        """
+        log.info('Associating rabbit credentials to role %s and host %s',
+                 role_name, host_id)
+        with self.dbsession() as session:
+            try:
+                host = session.query(Host).filter_by(id=host_id).first()
+                roles_with_credentials = set(rabbit_credential.rolename
+                                             for rabbit_credential in host.rabbit_credentials)
+                if role_name in roles_with_credentials:
+                    # The host already has rabbit credentials for the specified role
+                    log.warn('Host %s already has rabbit credentials for role %s'
+                             % (host_id, role_name))
+                    return
+                credential = RabbitCredential(rolename=role_name,
+                                              userid=rabbit_user,
+                                              password=rabbit_password)
+                host.rabbit_credentials.append(credential)
+            except:
+                log.exception('DB error while associating rabbit credentials to host %s',
+                              host_id)
+                raise
+
     def remove_role_from_host(self, host_id, role_name):
         """
         Remove a role from a given host
@@ -635,4 +685,22 @@ class ResMgrDB(object):
                 log.exception('DB error while updating roles %s for host %s',
                               roles, host_id)
                 raise
+
+    def substitute_rabbit_credentials(self, dictionary, host_id):
+        """
+        Replaces Rabbit credential tokens in a dictionary with actual credentials
+        """
+        with self.dbsession() as session:
+            host = session.query(Host).filter_by(id=host_id).first()
+            # Maps roles to token maps
+            token_role_map = {}
+            for credential in host.rabbit_credentials:
+                token_role_map[credential.rolename] = {dict_tokens.RABBIT_USERID_TOKEN : credential.userid,
+                                                       dict_tokens.RABBIT_PASSWORD_TOKEN : credential.password}
+
+        for role in dictionary:
+            if role not in token_role_map:
+                log.error('Did not find rabbit credentials for role %s' % role)
+                continue
+            dictionary[role] = dict_subst.substitute(dictionary[role], token_role_map[role])
 

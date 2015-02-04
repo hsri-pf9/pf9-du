@@ -18,7 +18,7 @@ from pecan import abort, expose
 from pecan.rest import RestController
 from resmgr.exceptions import (RoleNotFound, HostNotFound, HostConfigFailed,
                                BBMasterNotFound, SupportRequestFailed,
-                               SupportCommandRequestFailed)
+                               SupportCommandRequestFailed, RabbitCredentialsConfigureError)
 from enforce_policy import enforce
 
 
@@ -89,7 +89,8 @@ class HostRolesController(RestController):
             _provider.add_role(host_id, role_name, msg_body)
         except (RoleNotFound, HostNotFound):
             log.exception('Role %s or Host %s not found', role_name, host_id)
-        except (HostConfigFailed, BBMasterNotFound):
+            abort(404)
+        except (HostConfigFailed, BBMasterNotFound, RabbitCredentialsConfigureError):
             log.exception('Role assignment failed')
             abort(500)
 

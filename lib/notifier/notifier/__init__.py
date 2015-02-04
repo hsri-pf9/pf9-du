@@ -13,7 +13,7 @@ _EXCH_NAME = 'pf9-changes'
 _CONNECTION_RETRY_PERIOD = 5
 _SEND_MSGS_PERIOD = 1
 _HEARTBEAT_PERIOD = 15
-_queue_name = None
+_queue_name = 'pf9-changes-q'
 _pending_msgs = []
 _lock = threading.Lock()
 
@@ -67,7 +67,9 @@ def _io_thread(log, config):
         state = {}
         try:
             log.info("Setting up changepublisher io loop, vhost=%s" % virt_host)
-            io_loop(host=host,
+            io_loop(log=log,
+                    queue_name=_queue_name,
+                    host=host,
                     credentials=credentials,
                     exch_name=_EXCH_NAME,
                     state=state,
@@ -105,5 +107,4 @@ def publish_notification(change_type, obj_type, obj_id):
     routing_key = '.'.join(tuple)
     with _lock:
         _pending_msgs.append((routing_key, body))
-
 
