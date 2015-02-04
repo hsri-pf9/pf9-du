@@ -49,7 +49,7 @@ class TokenDecoder(object):
             environ['HTTP_X_AUTH_TOKEN'] = token
         except Exception, e:
             # We could not decode the token, mark it as authentication failure
-            log.exception('Decoding token failed: %s', e)
+            log.exception('Decoding token failed: %s, environ: %s', e, environ)
             resp = MiniResp('Authentication required', environ)
             start_response('401 Unauthorized', resp.headers)
             log.error('Returning error response from token '
