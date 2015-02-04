@@ -2,5 +2,5 @@
 
 set -x
 
-df -kh
+sudo df -kh
 

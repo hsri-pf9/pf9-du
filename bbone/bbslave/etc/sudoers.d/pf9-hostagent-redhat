@@ -1,6 +1,7 @@
 pf9	ALL = NOPASSWD: /opt/pf9/hostagent/bin/pf9-yum install /var/cache/pf9apps/*.rpm, \
           NOPASSWD: /opt/pf9/hostagent/bin/pf9-yum update /var/cache/pf9apps/*.rpm, \
           NOPASSWD: /opt/pf9/hostagent/bin/pf9-yum erase pf9-*, \
+          NOPASSWD: /bin/df -kh, \
           NOPASSWD: /sbin/service pf9-*
 
 Defaults:pf9 !requiretty
