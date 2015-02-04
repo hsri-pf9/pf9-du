@@ -193,32 +193,39 @@ class bbone_provider_pf9(bbone_provider_memory):
             """
             Periodically sends outgoing messages that have been queued.
             """
+
             with self.lock:
                 pending_msgs = self.pending_msgs
                 self.pending_msgs = []
             for routing_key, body in pending_msgs:
                 self.log.info('Sending to %s : %s', routing_key, body)
-                state['channel'].basic_publish(
+                self.state['channel'].basic_publish(
                     exchange=constants.BBONE_EXCHANGE,
                     routing_key=routing_key,
                     body=json.dumps(body))
-            state['connection'].add_timeout(self.send_pending_msgs_period,
-                                            send_pending_msgs)
+            self.state['connection'].add_timeout(self.send_pending_msgs_period,
+                                                 send_pending_msgs)
 
-        credentials = pika.PlainCredentials(username='guest',
-                                            password='m1llenn1umFalc0n')
+        amqp_username = self.config.get('amqp', 'username') if \
+                 self.config.has_option('amqp', 'username') else 'bbmaster'
+        amqp_password = self.config.get('amqp', 'password') if \
+                 self.config.has_option('amqp', 'password') else 'bbmaster'
+        credentials = pika.PlainCredentials(username=amqp_username,
+                                            password=amqp_password)
         virt_host = self.config.get('amqp', 'virtual_host') if \
                  self.config.has_option('amqp', 'virtual_host') else None
         ssl_options = get_ssl_options(self.config)
         while True:
-            state = {}
+            self.state = {}
             try:
                 self.log.info("Setting up master io loop, vhost=%s" % virt_host)
-                io_loop(host=self.config.get('amqp', 'host'),
+                io_loop(log=self.log,
+                        host=self.config.get('amqp', 'host'),
                         credentials=credentials,
                         exch_name=constants.BBONE_EXCHANGE,
                         recv_keys=[constants.MASTER_TOPIC],
-                        state=state,
+                        queue_name=constants.BBMASTER_QUEUE,
+                        state=self.state,
                         before_processing_msgs_cb=ping_slaves,
                         consume_cb=consume_msg,
                         virtual_host=virt_host,
@@ -240,12 +247,46 @@ class bbone_provider_pf9(bbone_provider_memory):
 
     # ----- these execute in either I/O or http threads -----
 
+
     def _send_msg(self, routing_key, body):
         """
-        Queues a message to be sent
+        Queues a message to be sent. If sending a message to a host,
+        ensures that the queue is declared before sending.
         """
-        with self.lock:
-            self.pending_msgs.append((routing_key, body))
+        def append_pending_msg():
+            with self.lock:
+                self.pending_msgs.append((routing_key, body))
+
+        def declare_bbslave_q(host_id):
+            """
+            Declare a queue for the host. Also, bind it to the bbone exchange.
+            These queues are deleted when the server restarts.
+            """
+            def on_bbslave_queue_bind(method_frame):
+                self.hosts_with_queues.add(host_id)
+                append_pending_msg()
+
+            def on_bbslave_queue_declare(method_frame):
+                routing_key_to_bind = routing_keys_to_bind.pop(0)
+                callback = on_bbslave_queue_declare if routing_keys_to_bind else on_bbslave_queue_bind
+                self.state['channel'].queue_bind(exchange=constants.BBONE_EXCHANGE,
+                                                 queue=queue_name,
+                                                 routing_key=routing_key_to_bind,
+                                                 callback=callback)
+
+            routing_keys_to_bind = [constants.BROADCAST_TOPIC, host_id]
+            queue_name = constants.HOSTAGENT_QUEUE_PREFIX + host_id
+            self.state['channel'].queue_declare(queue=queue_name,
+                                                callback=on_bbslave_queue_declare)
+        if (routing_key != constants.BROADCAST_TOPIC and
+                routing_key not in self.hosts_with_queues):
+            # Routing key is a host_id
+            #
+            # Since declaring the queue is async, we will add to
+            # pending_msgs in a callback.
+            declare_bbslave_q(routing_key)
+        else:
+            append_pending_msg()
 
     def _converge_host_if_necessary(self, host_state, desired_apps):
         """

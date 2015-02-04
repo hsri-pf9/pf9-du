@@ -11,6 +11,16 @@ set -v
 set -u
 set -e
 
+usage() {
+    echo "Usage: $0 <amqp_username> <amqp_password>"
+    exit 1
+}
+
+[ $# != 2 ] && usage
+
+AMQP_USER=$1
+AMQP_PASS=$2
+
 VERSION=__VERSION__
 RELEASE=__BUILDNUM__.__GITHASH__
 VERSION=${HOST_AGENT_VERSION:-${VERSION}}
@@ -44,5 +54,5 @@ rm -fr $RPMBUILD_DIR
 mkdir $RPMBUILD_DIR
 
 # Create the DEB
-$HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-deb-build.sh $RPMBUILD_DIR $HOSTAGENT_TARBALL_EXPANDEDDIR $MGMT_FQDN $VERSION $RELEASE
+$HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-deb-build.sh $RPMBUILD_DIR $HOSTAGENT_TARBALL_EXPANDEDDIR $MGMT_FQDN $VERSION $RELEASE $AMQP_USER $AMQP_PASS
 

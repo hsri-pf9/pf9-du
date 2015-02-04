@@ -14,6 +14,7 @@ class bbone_provider_memory(bbone_provider):
         self.hosts = {}
         self.desired_apps = {}
         self.host_agents = {}
+        self.hosts_with_queues = set()
 
     def get_host_ids(self):
         """

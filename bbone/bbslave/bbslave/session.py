@@ -7,7 +7,7 @@ import base64
 import pika
 import json
 from bbcommon import constants
-from bbcommon.amqp import io_loop
+from bbcommon.amqp import dual_channel_io_loop
 from datagatherer import datagatherer
 from logging import Logger
 from ConfigParser import ConfigParser
@@ -21,7 +21,8 @@ import re
 from sysinfo import get_sysinfo, get_host_id
 from bbcommon.utils import is_satisfied_by, get_ssl_options
 from os.path import exists, join
-from os import makedirs, rename, unlink
+from os import makedirs, rename, unlink, environ
+from pika.exceptions import AMQPConnectionError
 
 # Cached value of desired configuration.
 _sys_info = get_sysinfo()
@@ -67,7 +68,12 @@ def _load_host_agent_info(agent_app_db):
     master as part of status message.
     """
     global _hostagent_info
-    agent_info = agent_app_db.query_installed_agent()
+    if 'HOSTAGENT_VERSION' in environ:
+        # Fake version. This comes in handy when testing on a system
+        # that does not have the pf9-hostagent package installed
+        agent_info = {'version': environ['HOSTAGENT_VERSION']}
+    else:
+        agent_info = agent_app_db.query_installed_agent()
     _hostagent_info = {
                         'status': 'running',
                         'version': agent_info['version']
@@ -109,7 +115,8 @@ def save_desired_config(log, desired_config):
             log.error('Failed to save desired configuration: %s', e)
 
 def start(config, log, app_db, agent_app_db, app_cache,
-          remote_app_class, agent_app_class):
+          remote_app_class, agent_app_class,
+          channel_retry_period=10):
     """
     Starts a network session with message broker.
     :param ConfigParser config: configuration object
@@ -119,6 +126,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
     :param AppCache app_cache: application download manager
     :param RemoteApp remote_app_class: remote application class
     :param type agent_app_class: Agent app class
+    :param int channel_retry_period: Channel retry period in seconds
     """
 
     amqp_host = config.get('amqp', 'host')
@@ -166,6 +174,9 @@ def start(config, log, app_db, agent_app_db, app_cache,
         :param str status: Status: 'ok', 'converging', 'retrying', 'failed'
         :param dict config: Current application configuration
         """
+        if 'channel' not in state:
+            log.warn('Not sending status message because channel is closed')
+            return
         msg = {
             'opcode': 'status',
             'data': {
@@ -230,6 +241,9 @@ def start(config, log, app_db, agent_app_db, app_cache,
         Handle the request to generate the support bundle and send the file
         to the backbone master through rabbitmq broker.
         """
+        if 'channel' not in state:
+            log.warn('Not sending support bundle because channel is closed')
+            return
         msg = {
             'opcode': 'support',
             'data' : {
@@ -416,30 +430,62 @@ def start(config, log, app_db, agent_app_db, app_cache,
     def consume_msg(ch, method, properties, body):
         handle_msg(json.loads(body))
 
-    def heartbeat(*args, **kwargs):
-        connection = state['connection']
-        handle_msg({'opcode': 'heartbeat'})
-        connection.add_timeout(heartbeat_period, heartbeat)
+    def connection_up_cb(connection):
+        def _renew_timer():
+            # hearbeat fails the 1st time because channel not up yet - that's ok
+            heartbeat()
+            connection.add_timeout(heartbeat_period, _renew_timer)
 
-    credentials = pika.PlainCredentials(username='guest',
-                                        password='m1llenn1umFalc0n')
-    recv_keys = [constants.BROADCAST_TOPIC, _host_id]
+        state['connection'] = connection
+        log.info('Connected to broker. Starting heartbeat timer.')
+        _renew_timer()
+
+    def connection_down_cb(connection):
+        state['connection_closed_unexpectedly'] = True
+        del state['connection']
+
+    def send_channel_up_cb(channel):
+        state['channel'] = channel
+        # Send one heartbeat now to announce ourselves to the bbmaster.
+        heartbeat()
+
+    def send_channel_down_cb(channel):
+        del state['channel']
+
+    def heartbeat():
+        handle_msg({'opcode': 'heartbeat'})
+
+    user = config.get('amqp', 'username') if config.has_option('amqp',
+        'username') else 'bbslave'
+    password = config.get('amqp', 'password') if config.has_option('amqp',
+        'password') else 'bbslave'
+    credentials = pika.PlainCredentials(username=user, password=password)
     vhost = None
     try:
         vhost = config.get('amqp', 'virtual_host')
-        log.info("Using virtual host %s on the AMQP broker", vhost)
+        log.info("Using virtual host %s on the AMQP broker %s",
+                 vhost, amqp_host)
     except:
         # If virtual host is not defined, leave it as None
-        log.info("Using the default virtual host '/' on the AMQP broker")
+        log.info("Using the default virtual host '/' on the AMQP broker %s",
+                 amqp_host)
 
     ssl_options = get_ssl_options(config)
-    io_loop(host=amqp_host,
-            credentials=credentials,
-            exch_name=constants.BBONE_EXCHANGE,
-            recv_keys=recv_keys,
-            state=state,
-            before_processing_msgs_cb=heartbeat,
-            consume_cb=consume_msg,
-            virtual_host=vhost,
-            ssl_options=ssl_options
-            )
+    queue_name = config.get('amqp', 'queue_name') if config.has_option('amqp',
+        'queue_name') else 'bbslave-q-' + _host_id
+    dual_channel_io_loop(log,
+                         host=amqp_host,
+                         credentials=credentials,
+                         queue_name=queue_name,
+                         retry_timeout=channel_retry_period,
+                         connection_up_cb=connection_up_cb,
+                         connection_down_cb=connection_down_cb,
+                         send_channel_up_cb=send_channel_up_cb,
+                         send_channel_down_cb=send_channel_down_cb,
+                         consume_cb=consume_msg,
+                         virtual_host=vhost,
+                         ssl_options=ssl_options)
+
+    if 'connection_closed_unexpectedly' in state:
+        log.error('Connection closed unexpectedly.')
+        raise AMQPConnectionError

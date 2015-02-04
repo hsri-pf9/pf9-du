@@ -80,65 +80,89 @@ def _exercise_testroutine(test_data):
         return
 
     def consume_msg(ch, method, properties, body):
-        global cur_desired_state, expecting_converging_state, retry_countdown
-        log.info('Received: %s', body)
-        body = json.loads(body)
+        def finish_consuming(method_frame):
+            global cur_desired_state, expecting_converging_state, retry_countdown
+            log.info('Received: %s', body)
 
-        # If the support message is received
-        if body['opcode'] == 'support':
-            return
-
-        assert body['opcode'] == 'status'
-
-        if expecting_converging_state:
-            assert body['data']['status'] == 'converging'
-            expecting_converging_state = False
-            assert ('desired_apps' in body['data'] and
-                    cur_desired_state is not None and
-                    is_satisfied_by(cur_desired_state, body['data']['desired_apps']))
-            return
-
-        if retry_countdown:
-            assert ('desired_apps' in body['data'] and
-                    cur_desired_state is not None and
-                    is_satisfied_by(cur_desired_state, body['data']['desired_apps']))
-            retry_countdown -= 1
-            if retry_countdown:
-                assert body['data']['status'] == 'retrying'
-                expecting_converging_state = True
+            # If the support message is received
+            if body['opcode'] == 'support':
                 return
-            assert body['data']['status'] == 'failed'
-        else:
-            assert body['data']['status'] == 'ok'
-            assert 'desired_apps' not in body['data']
-            if cur_desired_state is not None:
-                assert is_satisfied_by(cur_desired_state, body['data']['apps'])
 
-        if not len(test_data):
-            log.info('Done.')
-            channel = state['channel']
-            msg = {'opcode': 'exit'}
-            channel.basic_publish(exchange=constants.BBONE_EXCHANGE,
+            assert body['opcode'] == 'status'
+
+            if expecting_converging_state:
+                assert body['data']['status'] == 'converging'
+                expecting_converging_state = False
+                assert ('desired_apps' in body['data'] and
+                        cur_desired_state is not None and
+                        is_satisfied_by(cur_desired_state, body['data']['desired_apps']))
+                return
+
+            if retry_countdown:
+                assert ('desired_apps' in body['data'] and
+                        cur_desired_state is not None and
+                        is_satisfied_by(cur_desired_state, body['data']['desired_apps']))
+                retry_countdown -= 1
+                if retry_countdown:
+                    assert body['data']['status'] == 'retrying'
+                    expecting_converging_state = True
+                    return
+                assert body['data']['status'] == 'failed'
+            else:
+                assert body['data']['status'] == 'ok'
+                assert 'desired_apps' not in body['data']
+                if cur_desired_state is not None:
+                    assert is_satisfied_by(cur_desired_state, body['data']['apps'])
+
+            if not len(test_data):
+                log.info('Done.')
+                channel = state['channel']
+                msg = {'opcode': 'exit'}
+                channel.basic_publish(exchange=constants.BBONE_EXCHANGE,
+                                      routing_key=body['data']['host_id'],
+                                      body=json.dumps(msg))
+                channel.close()
+                conn = state['connection']
+                conn.close()
+                state['slave_thread'].join()
+                return
+
+            cur_test = test_data.pop(0)
+            expecting_converging_state = cur_test['expect_converging']
+            retry_countdown = cur_test.get('retry_countdown', 0)
+            opcode = cur_test['opcode']
+            cur_desired_state = cur_test['desired_config']
+
+            msg = {'opcode': opcode, 'data': cur_desired_state}
+            state['channel'].basic_publish(exchange=constants.BBONE_EXCHANGE,
                                   routing_key=body['data']['host_id'],
                                   body=json.dumps(msg))
-            channel.close()
-            conn = state['connection']
-            conn.close()
-            state['slave_thread'].join()
-            return
+        def declare_bbslave_q(host_id):
+            """
+            Declare a queue for the host. Also, bind it to the bbone exchange.
+            These queues are deleted when the server restarts.
+            """
+            def on_bbslave_queue_declare(method_frame):
+                routing_key = routing_keys.pop(0)
+                callback = on_bbslave_queue_declare if len(routing_keys) else finish_consuming
+                state['channel'].queue_bind(exchange=constants.BBONE_EXCHANGE,
+                                            queue=queue_name,
+                                            routing_key=routing_key,
+                                            callback=callback)
 
-        cur_test = test_data.pop(0)
-        expecting_converging_state = cur_test['expect_converging']
-        retry_countdown = cur_test.get('retry_countdown', 0)
-        opcode = cur_test['opcode']
-        cur_desired_state = cur_test['desired_config']
+            routing_keys = [constants.BROADCAST_TOPIC, host_id]
+            queue_name = constants.HOSTAGENT_QUEUE_PREFIX + host_id
+            state['channel'].queue_declare(queue=queue_name,
+                                           callback=on_bbslave_queue_declare)
 
-        msg = {'opcode': opcode, 'data': cur_desired_state}
-        state['channel'].basic_publish(exchange=constants.BBONE_EXCHANGE,
-                              routing_key=body['data']['host_id'],
-                              body=json.dumps(msg))
+        body = json.loads(body)
+        host_id = body['data']['host_id']
+        # Finish consuming the message after setting up the bbslave queue
+        declare_bbslave_q(host_id)
 
-    io_loop(host=config.get('amqp', 'host'),
+    io_loop(log=log,
+            host=config.get('amqp', 'host'),
+            queue_name='',
             credentials=credentials,
             exch_name=constants.BBONE_EXCHANGE,
             recv_keys=[constants.MASTER_TOPIC],

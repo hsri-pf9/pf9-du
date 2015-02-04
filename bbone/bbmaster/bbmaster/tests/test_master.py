@@ -158,7 +158,9 @@ def _setup_slave(init_msg, host_topic):
     recv_keys = [constants.BROADCAST_TOPIC, host_topic]
 
     log.info("Starting IO loop slave...")
-    io_loop(host=config.get('amqp', 'host'),
+    io_loop(log=log,
+            queue_name='',
+            host=config.get('amqp', 'host'),
             credentials=credentials,
             exch_name=constants.BBONE_EXCHANGE,
             recv_keys=recv_keys,

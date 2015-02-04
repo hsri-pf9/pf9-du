@@ -71,7 +71,8 @@ def reconnect_loop(config):
     while True:
         try:
             session.start(config, log, app_db, agent_app_db, app_cache,
-                          RemoteApp, Pf9AgentApp)
+                          RemoteApp, Pf9AgentApp,
+                          channel_retry_period=retry_period)
             # Clean exit
             return
         except AMQPConnectionError:
@@ -90,5 +91,7 @@ def reconnect_loop(config):
             # unexpected exceptions. Log and continue
             log.exception('Unexpected error')
 
+            # Sleep a while to avoid spinning and filling up the log file
+            time.sleep(retry_period)
 
 
