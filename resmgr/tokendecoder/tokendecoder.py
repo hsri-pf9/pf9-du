@@ -4,6 +4,7 @@
 import base64
 import logging
 import zlib
+from Cookie import SimpleCookie
 
 """
 Middleware to decode compressed Auth token that is passed in the request.
@@ -63,7 +64,16 @@ class TokenDecoder(object):
         """
         Extracts the token
         """
-        encoded_token = environ['HTTP_X_AUTH_TOKEN']
+
+        # Try the cookie first, and fall back to the header
+        encoded_token = None
+        if 'HTTP_COOKIE' in environ:
+            cookie = SimpleCookie(environ['HTTP_COOKIE'])
+            if 'X-Auth-Token' in cookie:
+                encoded_token = cookie['X-Auth-Token'].value
+                log.debug('Extracted token from cookie')
+        if not encoded_token:
+            encoded_token = environ['HTTP_X_AUTH_TOKEN']
         # Decode the base64 encoded token string.
         compressed_token = base64.b64decode(encoded_token)
         # Decompress the string to get the actual token
