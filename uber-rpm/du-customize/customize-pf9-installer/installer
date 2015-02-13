@@ -1,0 +1,206 @@
+#!/bin/bash
+# Copyright (c) 2015 Platform9 Systems Inc.
+
+# This identifier is replaced by the build script
+DISTRO
+source $(dirname $0)/installer.${DISTRO}
+
+# always ask if user wants to configure proxy settings
+ASK_PROXY="true"
+SETUP_PROXY="true"
+PROXY_HOST=""
+PROXY_PORT=""
+JSON_TOOL="jsontool.py"
+
+PF9_COMMS_CONF="/etc/pf9/comms.json"
+HOSTAGENT_DIR="/var/opt/pf9/hostagent"
+DESIRED_APPS="desired_apps.json"
+
+# if installation fails, we write some
+# system information here
+SUPPORT_FILE="system-info"
+SUPPORT_BUNDLE="platform9-support-bundle.tar.gz"
+
+# directories to tar up in case
+# installation fails
+SUPPORT_DIRS=("/var/log/pf9" \
+              "/var/opt/pf9" \
+              "/etc/opt/pf9")
+
+while getopts ":-:" optchar; do
+    case "${optchar}" in
+        -)
+            case "${OPTARG}" in
+                no-proxy)
+                    echo
+                    echo "Installing Platform9 hostagent with no proxy"
+                    ASK_PROXY="false"
+                    SETUP_PROXY="false"
+                    ;;
+                proxy=*)
+                    PROXYINFO=${OPTARG#*=}
+                    # replace every instance of ':' with ' '
+                    PROXYARR=(${PROXYINFO//:/ })
+                    PROXY_HOST=${PROXYARR[0]}
+                    PROXY_PORT=${PROXYARR[1]}
+                    ASK_PROXY="false"
+                    SETUP_PROXY="true"
+                    ;;
+                help)
+                    echo
+                    echo "Description: Platform9 installer"
+                    echo "Usage: $0 [--no-proxy] [--help]"
+                    echo "Options:"
+                    echo "--proxy=<host>:<port>  | Setup HTTP proxy with <host> and <port> as the proxy host and port respectively"
+                    echo "--help                 | Display program help"
+                    echo "--no-proxy             | Do not setup proxy."
+                    ;;
+                *)
+                    echo "Unknown option: --${OPTARG}" >&2
+                    exit 1
+                    ;;
+            esac;;
+
+        *)
+            if [[ "$OPTERR" = 1 ]] && [[ "${optspec:0:1}" != ":" ]]; then
+                echo "Unknown option: '-${OPTARG}'" >&2
+            fi
+            ;;
+    esac
+done
+
+function ask_proxy()
+{
+    while true; do
+        read -p "Do you want to configure proxy settings? " yn
+        case $yn in
+            [Yy]* ) SETUP_PROXY="true"; ask_proxy_settings; break;;
+            [Nn]* ) SETUP_PROXY="false"; break;;
+            *) echo "Please answer yes or no.";;
+        esac
+    done
+}
+
+function ask_proxy_settings()
+{
+    while true; do
+        read -p "proxy host: " PROXY_HOST
+        read -p "proxy port: " PROXY_PORT
+
+        echo "These are your proxy settings:"
+        echo "host: $PROXY_HOST"
+        echo "port: $PROXY_PORT"
+
+        read -p "Are these correct? " yn
+        case $yn in
+            [Yy]* ) break;;
+            [Nn]* ) continue;;
+            *) echo "Please answer yes or no.";;
+        esac
+    done
+}
+
+function setup_proxy()
+{
+    local host=$1
+    local port=$2
+
+    echo "Setting up proxy with: "
+    echo "host: $host"
+    echo "proxy: $port"
+
+    python ${JSON_TOOL} --inline --edit http_proxy.host  ${PF9_COMMS_CONF} $host
+    python ${JSON_TOOL} --inline --edit http_proxy.port  ${PF9_COMMS_CONF} $port
+}
+
+# execute each line of the file ${file}
+# all output are redirected to ${SUPPORT_FILE}
+function run_support_commands()
+{
+    local file=$1
+
+    cat "${file}" | while read command
+    do
+        echo "" >> ${SUPPORT_FILE}
+        echo "==========> "$command" <==========" >> ${SUPPORT_FILE}
+        bash -c "$command" >> ${SUPPORT_FILE} 2>&1
+    done
+}
+
+function generate_support_bundle()
+{
+    echo
+    echo "Installation may have failed"
+
+    collect_info
+    tar -czf ${SUPPORT_BUNDLE} ${SUPPORT_DIRS[@]} ${SUPPORT_FILE} > /dev/null 2>&1
+
+    mv ${SUPPORT_BUNDLE} /tmp
+    echo
+    echo "Please email support@platform9.com with /tmp/${SUPPORT_BUNDLE} as an attachment"
+    echo
+}
+
+function collect_info()
+{
+    date > ${SUPPORT_FILE}
+    run_support_commands support.common
+    run_support_commands support.${DISTRO}
+}
+
+function check_services_running()
+{
+    # verify that pf9-hostagent is running
+    service pf9-hostagent status
+    if [[ $? != "0" ]]; then
+        # fail for now
+        echo  "pf9-hostagent is not running"
+        generate_support_bundle
+        exit 1
+    else
+        # if hostagent is running, verify desired_apps.json includes pf9-comms with running=true
+        local host_uuid=`ls -l ${HOSTAGENT_DIR} | grep "^d" | cut -d' ' -f9`
+        local desired_apps="${HOSTAGENT_DIR}/${host_uuid}/${DESIRED_APPS}"
+        local comms_state=`python ${JSON_TOOL} --query pf9-comms.running ${desired_apps} 2>&1`
+
+        # python returns boolean values capitalized
+        if [[ "${comms_state}" != "True" ]]; then
+            echo  "pf9-comms is not running"
+            generate_support_bundle
+            exit 1
+        fi
+    fi
+}
+
+function start_services()
+{
+    # order is important here
+    service pf9-comms start
+    sleep 1
+    service pf9-hostagent start
+    sleep 1
+}
+
+function main()
+{
+    # from installer.[el6|precise]
+    pre_install_check
+
+    if [[ "${ASK_PROXY}" == "true" ]]; then
+        ask_proxy
+    fi
+
+    install
+
+    # this directory shouldn't exist, but just in case
+    rm -rf /var/opt/pf9/hostagent
+
+    if [[ "${SETUP_PROXY}" == "true" ]]; then
+        setup_proxy $PROXY_HOST $PROXY_PORT
+    fi
+
+    start_services
+    check_services_running
+}
+
+main

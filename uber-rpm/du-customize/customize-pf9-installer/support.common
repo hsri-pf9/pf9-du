@@ -1,0 +1,9 @@
+uname -a
+cat /etc/*release*
+service pf9-hostagent status
+service pf9-comms status
+chkconfig
+ps aux | grep pf9
+getenforce
+iptables -L
+netstat -ltp --numeric-port

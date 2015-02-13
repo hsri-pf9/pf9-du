@@ -1,0 +1,2 @@
+rpm -qa
+yum repolist

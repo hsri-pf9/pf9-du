@@ -1,0 +1,28 @@
+#!/bin/bash
+# Copyright (c) 2015 Platform9 Systems Inc.
+
+echo ""
+echo "Extracting Platform9 installer"
+echo ""
+
+export TMPDIR=`mktemp -d /tmp/pf9-install-XXXXX`
+
+function cleanup()
+{
+    rm -rf $TMPDIR
+}
+trap cleanup EXIT
+
+ARCHIVE=`awk '/^__PF9_ARCHIVE__/ {print NR + 1; exit 0; }' $0`
+
+tail -n+$ARCHIVE $0 | tar xzv -C $TMPDIR > /dev/null 2>&1
+
+CURDIR=`pwd`
+cd $TMPDIR
+./installer "$@"
+
+cd $CURDIR
+
+exit 0
+
+__PF9_ARCHIVE__

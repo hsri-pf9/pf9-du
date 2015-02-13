@@ -1,0 +1,25 @@
+#!/bin/bash
+# Copyright (c) 2015 Platform9 Systems Inc.
+
+INSTALL="dpkg --install"
+EXT="deb"
+
+function install()
+{
+    echo "Installing Debian packages"
+    # order is important here
+    apt-get install -y python-setuptools
+    ${INSTALL} pf9-hostagent*.${EXT}
+    ${INSTALL} pf9-comms*.${EXT}
+}
+
+function pre_install_check()
+{
+    dpkg -l | grep pf9 > /dev/null 2>&1
+    # fail if we match (exit code = 0) at least one package
+    # no reinstallation for now
+    if [[ $? == "0" ]]; then
+        echo "Platform9 packages are already present. Exiting..."
+        exit 1
+    fi
+}
