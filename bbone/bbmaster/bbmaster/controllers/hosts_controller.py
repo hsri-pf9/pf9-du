@@ -36,6 +36,10 @@ class IdsController(RestController):
 class AppsController(RestController):
     """ Controller for the .../apps request """
 
+    def __init__(self, show_comms=False):
+        super(RestController, self).__init__()
+        self.show_comms = show_comms
+
     @expose('json')
     def get_all(self, id):
         """
@@ -44,7 +48,7 @@ class AppsController(RestController):
         :return: a dictionary of the desired configuration
         :rtype: dict
         """
-        hosts = _provider.get_hosts([id])
+        hosts = _provider.get_hosts([id], self.show_comms)
         if not hosts:
             abort(404)
 
@@ -134,6 +138,7 @@ class HostsController(RestController):
 
     ids = IdsController()
     apps = AppsController()
+    apps_internal = AppsController(show_comms=True)
     hostagent = HostAgentController()
     support = SupportController()
 

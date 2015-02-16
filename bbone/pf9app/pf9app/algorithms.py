@@ -9,6 +9,7 @@ from app_cache import AppCache
 from configutils.configutils import is_dict_subset
 import logging
 from logging import Logger
+from exceptions import UrlNotSpecified
 
 def process_apps(app_db, app_cache, remote_app_class, new_config,
                  non_destructive=False, probe_only=False, log=logging,
@@ -52,6 +53,8 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
             changes += 1
 
     def url_from_app_spec(spec):
+        if 'url' not in spec:
+            raise UrlNotSpecified
         url = spec['url']
         if url_interpolations:
             url = url % url_interpolations
@@ -63,14 +66,14 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
         assert isinstance(new_app_spec, dict)
         new_app_config = new_app_spec['config']
         if app.version != new_app_spec['version']:
-            new_app = remote_app_class(name=app_name,
-                                       version=new_app_spec['version'],
-                                       url=url_from_app_spec(new_app_spec),
-                                       app_db=app_db,
-                                       app_cache=app_cache,
-                                       log=log)
-            assert isinstance(new_app, RemoteApp)
             if not probe_only:
+                new_app = remote_app_class(name=app_name,
+                                           version=new_app_spec['version'],
+                                           url=url_from_app_spec(new_app_spec),
+                                           app_db=app_db,
+                                           app_cache=app_cache,
+                                           log=log)
+                assert isinstance(new_app, RemoteApp)
                 new_app.download()
                 app.uninstall()
                 new_app.install()
@@ -92,16 +95,16 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
                     app.set_run_state(new_app_spec['running'])
                 changes += 1
     for app_name in new_app_names:
-        new_app_spec = new_config[app_name]
-        new_app_config = new_app_spec['config']
-        new_app = remote_app_class(name=app_name,
-                                   version=new_app_spec['version'],
-                                   url=url_from_app_spec(new_app_spec),
-                                   app_db=app_db,
-                                   app_cache=app_cache,
-                                   log=log)
-        assert isinstance(new_app, RemoteApp)
         if not probe_only:
+            new_app_spec = new_config[app_name]
+            new_app_config = new_app_spec['config']
+            new_app = remote_app_class(name=app_name,
+                                       version=new_app_spec['version'],
+                                       url=url_from_app_spec(new_app_spec),
+                                       app_db=app_db,
+                                       app_cache=app_cache,
+                                       log=log)
+            assert isinstance(new_app, RemoteApp)
             new_app.download()
             new_app.install()
             new_app.set_config(new_app_config)

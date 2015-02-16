@@ -376,7 +376,16 @@ def start(config, log, app_db, agent_app_db, app_cache,
 
         # ok to commit to disk now
         save_desired_config(log, desired_config)
-        assert converged == is_satisfied_by(desired_config, current_config)
+        satisfied =  is_satisfied_by(desired_config, current_config)
+        if converged != satisfied:
+            # I've seen this happen when manually deleting / installing
+            # pf9 apps out-of-band outside of pf9-hostagent as part of pf9-comms
+            # testing. Haven't been able to explain it yet.
+            # Make it non-fatal and log a warning for now.  -leb
+            log.warn(('Integrity check failed: converged:%s satisfied:%s '+
+                      'desired:%s current:%s') % (converged, satisfied,
+                                                  desired_config,
+                                                  current_config))
         if converged:
             log.info('Already converged. Idling...')
             send_status('ok', current_config)
@@ -432,7 +441,6 @@ def start(config, log, app_db, agent_app_db, app_cache,
 
     def connection_up_cb(connection):
         def _renew_timer():
-            # hearbeat fails the 1st time because channel not up yet - that's ok
             heartbeat()
             connection.add_timeout(heartbeat_period, _renew_timer)
 
@@ -455,6 +463,10 @@ def start(config, log, app_db, agent_app_db, app_cache,
     def heartbeat():
         handle_msg({'opcode': 'heartbeat'})
 
+    # Process one heartbeat now to try to converge towards cached desired
+    # state, regardless of whether we can establish an AMQP connection. This is
+    # necessary to restart critical pf9apps like pf9-comms after a reboot.
+    heartbeat()
     user = config.get('amqp', 'username') if config.has_option('amqp',
         'username') else 'bbslave'
     password = config.get('amqp', 'password') if config.has_option('amqp',

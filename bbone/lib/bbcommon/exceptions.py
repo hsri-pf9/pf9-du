@@ -6,3 +6,7 @@ class BackboneException(Exception):
 
 class HostNotFound(BackboneException):
     pass
+
+class Pf9CommsConfigurationError(BackboneException):
+    pass
+

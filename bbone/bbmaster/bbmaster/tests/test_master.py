@@ -1,5 +1,3 @@
-from unittest import TestCase
-from webtest import TestApp
 from bbmaster.tests import FunctionalTest
 
 import ConfigParser
@@ -16,7 +14,7 @@ import uuid
 
 from pecan.testing import load_test_app
 from pecan import set_config
-
+from bbmaster.pf9_comms import get_comms_cfg, insert_comms
 from bbcommon import constants
 from bbcommon import vhost
 from bbcommon.amqp import io_loop
@@ -241,14 +239,21 @@ class TestBbMaster(FunctionalTest):
         # Set the configuration for a host. Ensure the desired apps for the
         # master are updated and then even the slave reports updated status
 
-        provider.set_host_apps(test_host_id, test_data)
+        comms_cfg = get_comms_cfg(log, basedir='/opt/pf9/www/private',
+            baseurl='https://%(host_relative_amqp_fqdn)s:9443/private')
+        provider.set_host_apps(test_host_id, copy.deepcopy(test_data))
         # Check that the master has registered the desired configuration first,
         # and then check that the actual configuration converged with it.
-        assert test_data == provider.desired_apps[test_host_id]
+        test_data_with_comms = insert_comms(copy.deepcopy(test_data), comms_cfg)
+        assert test_data_with_comms == provider.desired_apps[test_host_id]
 
         def validate_host_apps(host_id, expected_host_data):
+            expected_with_comms = insert_comms(copy.deepcopy(expected_host_data),
+                                               comms_cfg)
             cur_data = provider.get_hosts([host_id])
-            return expected_host_data == cur_data[0]['apps']
+            cur_data_with_comms = provider.get_hosts([host_id], show_comms=True)
+            return expected_host_data == cur_data[0]['apps'] and \
+                cur_data_with_comms[0]['apps'] == expected_with_comms
 
         assert validate_with_retry(validate_host_apps, 20, 3, test_host_id, test_data)
 
@@ -260,7 +265,7 @@ class TestBbMaster(FunctionalTest):
 
         provider.set_host_apps(test_host_id, test_data)
         log.info('Desired apps state: %s ' % provider.desired_apps)
-        assert previous_state == provider.desired_apps[test_host_id]
+        assert insert_comms(previous_state, comms_cfg) == provider.desired_apps[test_host_id]
 
 
 

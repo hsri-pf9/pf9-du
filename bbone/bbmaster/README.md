@@ -100,6 +100,10 @@ commands:
 ### GET /v1/hosts/__id__/apps ###
 Returns the apps configuration for the specified host.
 
+### GET /v1/hosts/__id__/apps_internal ###
+Returns the apps configuration for the specified host, including internal
+infrastructure applications that are normally hidden (e.g. pf9-comms)
+
 ### PUT /v1/hosts/__id__/apps ###
 Sets the desired pf9 application configuration state of the specified host.
 The expected format is similar to the 'apps' section of the descriptor returned
@@ -116,6 +120,10 @@ The desired apps config is stored internally in memory. Later, if a backbone
 slave reports the existence of the host, 'info' and 'apps' are updated with
 information from the slave, and the desired apps configuration is sent to
 the slave for convergence.
+
+Setting a desired configuration state may have the secondary side effect of
+installing or upgrading infrastructure software used internally by the backbone
+system on the host, such as the pf9-comms application.
 
 ### GET /v1/hosts/__id__/hostagent ###
 Returns information about the host agent that is present on the specified

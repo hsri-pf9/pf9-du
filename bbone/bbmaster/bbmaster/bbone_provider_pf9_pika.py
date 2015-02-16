@@ -19,6 +19,8 @@ import json
 import os
 import pika
 import time
+import copy
+from pf9_comms import get_comms_cfg, insert_comms, remove_comms
 from pika.exceptions import AMQPConnectionError
 
 class bbone_provider_pf9(bbone_provider_memory):
@@ -43,6 +45,15 @@ class bbone_provider_pf9(bbone_provider_memory):
         self.support_dir_location = self.config.get('bbmaster',
                                                     'support_file_store')
         self.pending_msgs = []
+        comms_basedir = self.config.get('bbmaster', 'comms_basedir') if \
+            self.config.has_option('bbmaster', 'comms_basedir') else \
+            '/opt/pf9/www/private'
+        comms_baseurl = self.config.get('bbmaster', 'comms_baseurl') if \
+            self.config.has_option('bbmaster', 'comms_baseurl') else \
+            'https://%(host_relative_amqp_fqdn)s:9443/private'
+
+        self.comms_cfg = get_comms_cfg(self.log, basedir=comms_basedir,
+                                       baseurl=comms_baseurl)
         t = threading.Thread(target=self._io_thread)
         t.daemon = True
         t.start()
@@ -61,12 +72,13 @@ class bbone_provider_pf9(bbone_provider_memory):
         # thread safe (I think!)
         return super(bbone_provider_pf9, self).get_host_ids()
 
-    def get_hosts(self, id_list=[]):
+    def get_hosts(self, id_list=[], show_comms=False):
         """
         Returns existing host(s)
         """
         with self.lock:
-            return super(bbone_provider_pf9, self).get_hosts(id_list)
+            hosts = super(bbone_provider_pf9, self).get_hosts(id_list)
+            return hosts if show_comms else remove_comms(copy.deepcopy(hosts))
 
     def set_host_apps(self, id, desired_apps):
         """
@@ -74,6 +86,7 @@ class bbone_provider_pf9(bbone_provider_memory):
         """
         with self.lock:
             previous_desired_apps = self.desired_apps.get(id)
+            insert_comms(desired_apps, self.comms_cfg)
             super(bbone_provider_pf9, self).set_host_apps(id, desired_apps)
             host_state = self.hosts[id]
         try:
