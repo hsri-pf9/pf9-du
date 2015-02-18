@@ -36,6 +36,9 @@ Base = declarative_base()
 engineHandle = None
 _host_lock = threading.Lock()
 
+# Maps roles to apps according the role metadata
+role_app_map = {}
+
 # Association table between hosts and roles
 role_host_assoc_table = Table('host_role_map', Base.metadata,
                                   Column('res_id', String(50),
@@ -420,6 +423,7 @@ class ResMgrDB(object):
         into the database.
         Also, this role version is marked as active and all other versions of
         the same role are marked as inactive in the DB.
+        Also, updates the role_app_map.
         :param str name: Name of the role
         :param str version: Version of the role
         :param dict details: Details of role
@@ -452,6 +456,7 @@ class ResMgrDB(object):
             except:
                 log.exception('Role %s update in the database failed', role_id)
                 raise
+        role_app_map[name] = set(details['config'].keys())
 
     def query_role(self, role_name, active_only=True):
         """
@@ -686,10 +691,21 @@ class ResMgrDB(object):
                               roles, host_id)
                 raise
 
+
     def substitute_rabbit_credentials(self, dictionary, host_id):
         """
         Replaces Rabbit credential tokens in a dictionary with actual credentials
         """
+        def app_to_role():
+            """
+            Return the role that is in the token_role_map, and
+            provides the specified app.
+            Assumes that no host will have two roles that provide the same app.
+            """
+            for role, apps in role_app_map.iteritems():
+                if app in apps and role in token_role_map:
+                    return role
+
         with self.dbsession() as session:
             host = session.query(Host).filter_by(id=host_id).first()
             # Maps roles to token maps
@@ -698,9 +714,11 @@ class ResMgrDB(object):
                 token_role_map[credential.rolename] = {dict_tokens.RABBIT_USERID_TOKEN : credential.userid,
                                                        dict_tokens.RABBIT_PASSWORD_TOKEN : credential.password}
 
-        for role in dictionary:
+        for app in dictionary:
+            # The role that provides the app
+            role = app_to_role()
             if role not in token_role_map:
                 log.error('Did not find rabbit credentials for role %s' % role)
                 continue
-            dictionary[role] = dict_subst.substitute(dictionary[role], token_role_map[role])
+            dictionary[app] = dict_subst.substitute(dictionary[app], token_role_map[role])
 
