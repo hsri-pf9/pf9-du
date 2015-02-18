@@ -703,8 +703,6 @@ class ResMgrPf9Provider(ResMgrProvider):
             raise HostNotFound(host_id)
 
         host_roles = self.res_mgr_db.query_host(host_id, fetch_role_ids=True)
-        # Invalid role_settings will be resolved when updating the DB
-        host_inst['role_settings'] = host_settings
         if host_roles and active_role_in_db.id in host_roles['roles']:
             log.info('Role %s is already assigned to %s', role_name, host_id)
             return
@@ -734,7 +732,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             # a converged state eventually.
             log.debug('Updating host %s state after %s role association',
                       host_id, role_name)
-            self.res_mgr_db.insert_update_host(host_id, host_inst['info'], role_name, host_inst['role_settings'])
+            self.res_mgr_db.insert_update_host(host_id, host_inst['info'], role_name, host_settings)
             self.res_mgr_db.associate_role_to_host(host_id, role_name)
             self.res_mgr_db.associate_rabbit_credentials_to_host(host_id,
                                                                  role_name,
