@@ -22,7 +22,8 @@ def upgrade():
     conn = op.get_bind()
     table_names = set(table.values()[0] for table in
                      conn.execute("show tables").fetchall())
-    stmt = ('ALTER DATABASE resmgr '
+    stmt = 'set foreign_key_checks=0;'
+    stmt += ('ALTER DATABASE resmgr '
             'CHARACTER SET utf8 '
             'COLLATE utf8_unicode_ci;')
     for table_name in table_names:
@@ -32,6 +33,7 @@ def upgrade():
         stmt += ('ALTER TABLE %s '
                  'ENGINE = InnoDB;'
                  % table_name)
+    stmt += 'set foreign_key_checks=1;'
     conn.execute(stmt)
 
 def downgrade():
