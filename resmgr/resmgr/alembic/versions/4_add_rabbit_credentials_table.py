@@ -85,6 +85,13 @@ def populate_rabbit_credentials_table(conn):
                      .format(host_id, role_name, rabbit_userid, rabbit_password))
 
 def upgrade():
+    op.add_column(
+        'roles',
+        Column('rabbit_permissions', String(2048))
+    )
+    conn = op.get_bind()
+    stmt = 'alter table roles add index (rolename);'
+    conn.execute(stmt)
     op.create_table(
             'rabbit_credentials',
             Column('host_id', String(50), ForeignKey('hosts.id'), primary_key=True),
@@ -99,12 +106,7 @@ def upgrade():
     stmt += ('alter table rabbit_credentials '
              'add constraint `fk_rolename` foreign key(`rolename`) '
              'references `roles`(`rolename`) on delete cascade;')
-    conn = op.get_bind()
     conn.execute(stmt)
-    op.add_column(
-        'roles',
-        Column('rabbit_permissions', String(2048))
-    )
     populate_rabbit_credentials_table(conn)
 
 def downgrade():
