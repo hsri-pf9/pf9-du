@@ -408,6 +408,7 @@ class BbonePoller(object):
 
             status_time = datetime.datetime.strptime(host_info['timestamp'],
                                                      "%Y-%m-%d %H:%M:%S.%f")
+            hostname = host_info['info']['hostname']
             if host in authorized_hosts:
                 # host is in authorized list
                 responding = self._responding_within_threshold(status_time)
@@ -423,6 +424,9 @@ class BbonePoller(object):
                     continue
 
                 self._update_role_status(host, host_info)
+                if authorized_hosts[host]['hostname'] != hostname:
+                    self.db_handle.update_host_hostname(host, hostname)
+                    self.notifier.publish_notification('change', 'host', host)
 
                 host_status = host_info['status']
                 # Active hosts but we need to change the configuration
@@ -459,8 +463,11 @@ class BbonePoller(object):
                 # for a lock here.
                 # See http://effbot.org/pyfaq/what-kinds-of-global-value-mutation-are-thread-safe.htm
                 _unauthorized_host_status_time[host] = status_time
-                # TODO: Is there a need to update the unauthorized hosts with the data
+                # TODO: Is there a need to update the unauthorized hosts with more data
                 # returned from bbone?
+                if _unauthorized_hosts[host]['info']['hostname'] != hostname:
+                    _unauthorized_hosts[host]['info']['hostname'] = hostname
+                    self.notifier.publish_notification('change', 'host', host)
 
     def _cleanup_unauthorized_hosts(self):
         """

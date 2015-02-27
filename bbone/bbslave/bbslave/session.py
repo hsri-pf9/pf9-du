@@ -24,8 +24,6 @@ from os.path import exists, join
 from os import makedirs, rename, unlink, environ
 from pika.exceptions import AMQPConnectionError
 
-# Cached value of desired configuration.
-_sys_info = get_sysinfo()
 _host_id = get_host_id()
 _desired_config_basedir_path = None
 _support_file_location = None
@@ -139,9 +137,6 @@ def start(config, log, app_db, agent_app_db, app_cache,
     _set_desired_config_basedir_path(config)
     _persist_host_id()
 
-    _sys_info['hypervisor_type'] = config.get('hostagent', 'hypervisor_type') if \
-        config.has_option('hostagent', 'hypervisor_type') else 'kvm'
-
 
     # This dictionary holds AMQP variables set by the various nested functions.
     # We need a dictionary because python 2.x lacks the 'nonlocal' keyword
@@ -151,6 +146,12 @@ def start(config, log, app_db, agent_app_db, app_cache,
     state = {}
 
     # ------------ nested functions ------------------
+
+    def sys_info():
+        sysinfo = get_sysinfo()
+        sysinfo['hypervisor_type'] = config.get('hostagent', 'hypervisor_type') if \
+            config.has_option('hostagent', 'hypervisor_type') else 'kvm'
+        return sysinfo
 
     def get_current_config():
         """
@@ -182,7 +183,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
             'data': {
                 'host_id': _host_id,
                 'status': status,
-                'info': _sys_info,
+                'info': sys_info(),
                 'apps': config,
                 'host_agent': _hostagent_info
             }
@@ -248,7 +249,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
             'opcode': 'support',
             'data' : {
                  'host_id': _host_id,
-                 'info': _sys_info,
+                 'info': sys_info(),
             }
         }
 
@@ -289,7 +290,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
             'opcode' : 'support_command_response',
             'data' : {
                 'host_id': _host_id,
-                'info': _sys_info,
+                'info': sys_info(),
                 'command' : command,
             }
         }

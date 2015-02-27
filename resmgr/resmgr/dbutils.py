@@ -402,19 +402,33 @@ class ResMgrDB(object):
         """
         with self.dbsession() as session:
             try:
-                del_host = session.query(Host).filter_by(id=host_id).first()
+                host = session.query(Host).filter_by(id=host_id).first()
                 if responding:
                     log.info('Marking the host %s as responding', host_id)
-                    del_host.lastresponsetime = None
-                    del_host.responding = True
+                    host.lastresponsetime = None
+                    host.responding = True
                 else:
                     log.info('Marking the host %s as not responding', host_id)
-                    del_host.lastresponsetime = datetime.datetime.utcnow()
-                    del_host.responding = False
+                    host.lastresponsetime = datetime.datetime.utcnow()
+                    host.responding = False
             except:
                 log.exception('Marking host as %s responding failed',
                               '' if responding else 'not')
                 raise
+
+    def update_host_hostname(self, host_id, hostname):
+        """
+        Update the host entry in the database with the specified hostname
+        """
+        with self.dbsession() as session:
+            try:
+                host = session.query(Host).filter_by(id=host_id).first()
+                host.hostname = hostname
+            except:
+                log.exception('Failed to update host %s with hostname %s'
+                              % (host_id, hostname))
+                raise
+        log.info('hostname for %s has changed to %s' % (host_id, hostname))
 
     def save_role_in_db(self, name, version, details):
         """
