@@ -550,6 +550,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         rabbit_password = config.get('amqp', 'password')
         self._rabbit_mgmt_cl = rabbit.RabbitMgmtClient(rabbit_username,
                                                        rabbit_password)
+        self.setup_rabbit_credentials()
         self.bb_url = config.get('backbone', 'endpointURI')
 
         # Setup a thread to poll backbone state regularly to detect changes to
@@ -559,6 +560,27 @@ class ResMgrPf9Provider(ResMgrProvider):
         t = threading.Thread(target=self.bbone_poller.run)
         t.daemon = True
         t.start()
+
+    def setup_rabbit_credentials(self):
+        """
+        Sync the rabbit_credentials table with the actual RabbitMQ list
+        of users.
+        """
+        log.info('Adding RabbitMQ users from the rabbit_credentials table')
+
+        # Maps roles to rabbit permissions
+        rabbit_permissions_map = {}
+        for role in self.res_mgr_db.query_roles():
+            rabbit_permissions_map[role.rolename] = json.loads(role.rabbit_permissions)
+
+        for credential in self.res_mgr_db.query_rabbit_credentials():
+            rabbit_permissions = rabbit_permissions_map[credential.rolename]
+            self._rabbit_mgmt_cl.create_user(credential.userid,
+                                             credential.password)
+            self._rabbit_mgmt_cl.set_permissions(credential.userid,
+                                                 rabbit_permissions['config'],
+                                                 rabbit_permissions['write'],
+                                                 rabbit_permissions['read'])
 
     def request_support_bundle(self, host_id):
         url = "%s/v1/hosts/%s/support/bundle" % (self.bb_url, host_id)
@@ -642,23 +664,48 @@ class ResMgrPf9Provider(ResMgrProvider):
                       host_id)
             _authorized_host_role_status[host_id] = None
             self.res_mgr_db.update_roles_for_host(host_id, roles=[])
-            # The rabbit credentials associated with this host will also be
-            # removed due to cascading deletes.
+            credentials_to_delete = self.res_mgr_db.query_rabbit_credentials(host_id=host_id)
+            # The rabbit_credentials entry associated with this host will also
+            # be removed due to cascading deletes.
             self.res_mgr_db.delete_host(host_id)
             notifier.publish_notification('delete', 'host', host_id)
-
+            self.delete_rabbit_credentials(credentials_to_delete)
             log.debug('Sending request to backbone to remove all roles from %s',
                       host_id)
             self.roles_mgr.push_configuration(host_id, app_info={},
                                               needs_rabbit_subst=False)
+
+    def delete_rabbit_credentials(self, credentials):
+        for credential in credentials:
+            try:
+                self._rabbit_mgmt_cl.delete_user(credential.userid)
+            except:
+                log.error('Failed to clean up RabbitMQ user: %s',
+                          credential.userid)
 
     def random_string_generator(self, len=16):
         return "".join([random.choice(string.ascii_letters + string.digits) for _ in
                 xrange(len)])
 
     def create_rabbit_credentials(self, host_id, role_name):
-        rabbit_user = self.random_string_generator()
-        rabbit_password = self.random_string_generator()
+        """
+        Get the credentials for the specified host and role from the database.
+        If no credentials are found, then they are created.
+        """
+        credentials = self.res_mgr_db.query_rabbit_credentials(host_id=host_id,
+                                                               rolename=role_name)
+        if credentials:
+            if len(credentials) != 1:
+                msg = ('Invalid number of rabbit credentials for host %s and role %s'
+                       % (host_id, role_name))
+                log.error(msg)
+                raise RabbitCredentialsConfigureError(msg)
+            credential = credentials[0]
+            rabbit_user = credential.userid
+            rabbit_password = credential.password
+        else:
+            rabbit_user = self.random_string_generator()
+            rabbit_password = self.random_string_generator()
         self._rabbit_mgmt_cl.create_user(rabbit_user, rabbit_password)
         active_role = self.res_mgr_db.query_role(role_name)
         permissions = json.loads(active_role.rabbit_permissions)
@@ -673,9 +720,7 @@ class ResMgrPf9Provider(ResMgrProvider):
                    % (host_id, role_name))
             log.exception(msg)
             raise RabbitCredentialsConfigureError(msg)
-
         return rabbit_user, rabbit_password
-
 
     def add_role(self, host_id, role_name, host_settings):
         """
@@ -707,14 +752,6 @@ class ResMgrPf9Provider(ResMgrProvider):
             log.info('Role %s is already assigned to %s', role_name, host_id)
             return
 
-        try:
-            rabbit_user, rabbit_password = self.create_rabbit_credentials(host_id,
-                                                                          role_name)
-        except:
-            log.warn('Failed to create rabbit credentials for host %s and role %s'
-                     % (host_id, role_name))
-            raise
-
         initially_inactive = host_inst['state'] == RState.inactive
         host_inst['roles'].append(role_name)
         _authorized_host_role_status[host_id] = None
@@ -732,6 +769,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             # a converged state eventually.
             log.debug('Updating host %s state after %s role association',
                       host_id, role_name)
+            rabbit_user, rabbit_password = self.create_rabbit_credentials(host_id, role_name)
             self.res_mgr_db.insert_update_host(host_id, host_inst['info'], role_name, host_settings)
             self.res_mgr_db.associate_role_to_host(host_id, role_name)
             self.res_mgr_db.associate_rabbit_credentials_to_host(host_id,
@@ -776,6 +814,10 @@ class ResMgrPf9Provider(ResMgrProvider):
         :raises BBMasterNotFound: if communication to the backbone fails
         """
         log.info('Removing role %s from %s', role_name, host_id)
+        if host_id in _unauthorized_hosts:
+            log.warn('Host %s is classified as unauthorized host. Nothing '
+                     'to delete', host_id)
+            return
         active_role_in_db = self.res_mgr_db.query_role(role_name)
         if not active_role_in_db:
             log.error('Role %s is not found in list of active roles', role_name)
@@ -798,7 +840,16 @@ class ResMgrPf9Provider(ResMgrProvider):
         # Push configuration to bbone is idempotent, so we will end up with
         # a converged state eventually.
         log.debug('Clearing role %s for host %s in DB', role_name, host_id)
+        credentials_to_delete = self.res_mgr_db.query_rabbit_credentials(
+                host_id=host_id,
+                rolename=role_name)
+        if len(credentials_to_delete) != 1:
+            msg = ('Invalid number of rabbit credentials for host %s and role %s'
+                   % (host_id, role_name))
+            log.error(msg)
+            raise RabbitCredentialsConfigureError(msg)
         self.res_mgr_db.remove_role_from_host(host_id, role_name)
+        self.delete_rabbit_credentials(credentials_to_delete)
         notifier.publish_notification('change', 'host', host_id)
         # TODO: Think about if there is a case to remove this host from the
         # database. If removing role from db, the role_status should be changed.

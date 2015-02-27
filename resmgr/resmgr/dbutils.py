@@ -565,6 +565,10 @@ class ResMgrDB(object):
 
         return out
 
+    def query_rabbit_credentials(self, **filter_kwargs):
+        with self.dbsession() as session:
+            return session.query(RabbitCredential).filter_by(**filter_kwargs).all()
+
     def query_host_and_app_details(self, host_id=None):
         """
         Query host details and returns a JSON serializable dictionary and not

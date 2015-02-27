@@ -23,48 +23,11 @@ from ConfigParser import ConfigParser
 from rabbit import RabbitMgmtClient
 from sqlalchemy import Column, ForeignKey, String, UniqueConstraint
 
-RESMGR_CONF_PATH = '/etc/pf9/resmgr.conf'
-
-def get_rabbit_permissions(config):
-    """
-    Return a dict that maps role names to rabbit_permissions.
-    If there are multiple versions of the same role, the latest
-    version will be used (since the result of the glob pattern
-    will be in order).
-    """
-    rabbit_permissions_map = {}
-    file_pattern = '%s/*/*/*.json' % config.get('resmgr',
-                                                'role_metadata_location')
-    for file in glob.glob(file_pattern):
-        with open(file) as fp:
-            try:
-                # Each file should represent data for one version of a role
-                data = json.load(fp)
-                if not isinstance(data, dict):
-                    raise RuntimeError('Invalid role metadata file %s, data is not '
-                                       'of expected dict format.' % file)
-                rabbit_permissions_map[data['role_name']] = data['rabbit_permissions']
-            except:
-                log.exception('Error loading the role metadata file %s', file)
-                raise
-    return rabbit_permissions_map
-
 def random_string_generator(len=16):
     return "".join([random.choice(string.ascii_letters + string.digits) for _ in
             xrange(len)])
 
 def populate_rabbit_credentials_table(conn):
-    conf = ConfigParser()
-    conf.read(RESMGR_CONF_PATH)
-
-    rabbit_permissions_map = get_rabbit_permissions(conf)
-
-    username = conf.get('amqp', 'username') \
-            if conf.has_option('amqp', 'username') else 'resmgr'
-    password = conf.get('amqp', 'password') \
-            if conf.has_option('amqp', 'password') else 'resmgr'
-    rabbit_mgr = RabbitMgmtClient(username, password)
-
     host_roles = conn.execute('select * from host_role_map').fetchall()
     for host_id, role_id in host_roles:
         if role_id.startswith('pf9-ostackhost-vmw'):
@@ -73,14 +36,8 @@ def populate_rabbit_credentials_table(conn):
             role_name = 'pf9-ostackhost'
         elif role_id.startswith('pf9-imagelibrary'):
             role_name = 'pf9-imagelibrary'
-        rabbit_permissions = rabbit_permissions_map[role_name]
         rabbit_userid = random_string_generator()
         rabbit_password = random_string_generator()
-        rabbit_mgr.create_user(rabbit_userid, rabbit_password)
-        rabbit_mgr.set_permissions(rabbit_userid,
-                                   rabbit_permissions['config'],
-                                   rabbit_permissions['write'],
-                                   rabbit_permissions['read'])
         conn.execute('insert into rabbit_credentials values ("{0}", "{1}", "{2}", "{3}")'
                      .format(host_id, role_name, rabbit_userid, rabbit_password))
 

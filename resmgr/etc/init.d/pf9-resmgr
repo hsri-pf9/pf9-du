@@ -7,7 +7,7 @@
 ### BEGIN INIT INFO
 # Provides: pf9-resmgr
 # Required-Start: $network
-# Should-Start: mysqld
+# Should-Start: mysqld rabbitmq-server
 # Required-Stop: $network
 # Default-Start: 3 5
 # Default-Stop: 0 1 2 6
