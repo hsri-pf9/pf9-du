@@ -10,6 +10,8 @@ function install()
     # order is important here
     apt-get install -y python-setuptools
     ${INSTALL} pf9-hostagent*.${EXT}
+    # hostagent currently auto starts, so we explicitly stop it here
+    service pf9-hostagent stop
     ${INSTALL} pf9-comms*.${EXT}
 }
 

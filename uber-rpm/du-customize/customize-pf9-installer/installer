@@ -159,10 +159,13 @@ function check_services_running()
         exit 1
     else
         # if hostagent is running, verify desired_apps.json includes pf9-comms with running=true
-        local host_uuid=`ls -l ${HOSTAGENT_DIR} | grep "^d" | cut -d' ' -f9`
-        local desired_apps="${HOSTAGENT_DIR}/${host_uuid}/${DESIRED_APPS}"
-        local comms_state=`python ${JSON_TOOL} --query pf9-comms.running ${desired_apps} 2>&1`
+        wait_dir_exists 30 ${HOSTAGENT_DIR}
+        local host_uuid=`ls -l ${HOSTAGENT_DIR} | grep "^d" | tr -s ' ' | cut -d' ' -f9`
 
+        local desired_apps="${HOSTAGENT_DIR}/${host_uuid}/${DESIRED_APPS}"
+        wait_file_exists 30 $desired_apps
+
+        local comms_state=`python ${JSON_TOOL} --query pf9-comms.running ${desired_apps} 2>&1`
         # python returns boolean values capitalized
         if [[ "${comms_state}" != "True" ]]; then
             echo  "pf9-comms is not running"
@@ -172,13 +175,64 @@ function check_services_running()
     fi
 }
 
+wait_dir_exists()
+{
+    local seconds=$1
+    local dir=$2
+    local tries=0
+    local max_tries=$((seconds * 2))
+
+    until [[ -d $dir ]]; do
+        echo "Directory '$dir' does not exist yet"
+        tries=$((tries + 1))
+        [[ $tries -eq $max_tries ]] && { echo "Timeout waiting for existence of $dir"; exit 1; }
+        sleep .5
+    done
+    echo "Directory $dir exists"
+}
+
+wait_file_exists()
+{
+    local seconds=$1
+    local file=$2
+    local tries=0
+    local max_tries=$((seconds * 2))
+
+    until [[ -e $file ]]; do
+        echo "File $file does not exist yet"
+        tries=$((tries + 1))
+        [[ $tries -eq $max_tries ]] && { echo "Timeout waiting for existence of $file"; exit 1; }
+        sleep .5
+    done
+    echo "File $file exists"
+}
+
+wait_service_running()
+{
+    local seconds=$1
+    local service=$2
+    local retval=1
+    local tries=0
+    local max_tries=$((seconds * 2))
+
+    until [[ $retval == "0" ]]; do
+        service pf9-comms status
+        retval=$?
+        tries=$((tries + 1))
+        [[ $tries -eq $max_tries ]] && { echo "Timeout waiting for ${service} to start"; exit 1; }
+        sleep .5
+    done
+    echo "${service} is now running"
+}
+
 function start_services()
 {
     # order is important here
     service pf9-comms start
-    sleep 1
+    wait_service_running 30 "pf9-comms"
+
     service pf9-hostagent start
-    sleep 1
+    wait_service_running 30 "pf9-hostagent"
 }
 
 function main()

@@ -43,6 +43,7 @@ function setup_payload()
     local distro=$1
     local distro_install=${INSTALL_SCRIPT}.${distro}
 
+    rm -rf ${PAYLOAD}.${distro}
     cp -rL ${PACKAGES}.${distro} ${PAYLOAD}.${distro}
     pushd ${PAYLOAD}.${distro}
 
@@ -69,7 +70,7 @@ function build_installer()
 
     # compress the payload
     if [ -e "${payload_tar}" ]; then
-        gzip ${payload_tar}
+        gzip -f ${payload_tar}
 
         if [ -e "${payload_tgz}" ]; then
             cat ${DECOMPRESS_SCRIPT} ${payload_tgz} > ${bin_name}
