@@ -35,6 +35,35 @@ class NovaCleanup(Base):
         if resp.status_code != requests.codes.ok:
             return
 
+        def get_host_to_aggr_map(nova_only_ids):
+            host_to_aggr = dict((nova_id, []) for nova_id in nova_only_ids)
+            resp = self._nova_request('os-aggregates', token, project_id)
+            if resp.status_code != requests.codes.ok:
+                return host_to_aggr
+
+            for aggr in resp.json()['aggregates']:
+                aggr_hosts = aggr['hosts']
+                for aggr_host in aggr_hosts:
+                    if aggr_host in nova_only_ids:
+                        host_to_aggr[aggr_host].append(aggr['id'])
+
+            return host_to_aggr
+
+        def cleanup_hosts(nova_id, pf9_id, host_aggr_map):
+            LOG.info('Cleaning up hypervisor info for %s', pf9_id)
+            if pf9_id in host_aggr_map:
+                for aggr_id in host_aggr_map[pf9_id]:
+                    resp = self._nova_request('os-aggregates/%s/action', token, project_id,
+                                              body={'remove_host': {'host': pf9_id}})
+                    if resp.status_code != requests.codes.ok:
+                        LOG.error('Unexpected response code %d when removing host: %s from'
+                                  ' aggregate: %d', resp.status_code, pf9_id, aggr_id)
+            resp = self._nova_request('os-hypervisors/%s' % str(nova_id), token, project_id,
+                                      req_type='delete')
+
+            if resp.status_code != 204:
+                LOG.error('Skipping hypervisor %s, resp: %d', pf9_id, resp.status_code)
+
         resmgr_data = resp.json()
         resmgr_ids = set(h['id'] for h in filter(lambda h: h['state'] == 'active', resmgr_data))
 
@@ -52,12 +81,9 @@ class NovaCleanup(Base):
 
         nova_only_ids = nova_ids.difference(resmgr_ids)
 
+        host_to_aggr_map = get_host_to_aggr_map(nova_only_ids)
         # Clean up hosts found in nova, but not with resmgr
         for pf9_id in nova_only_ids:
-            LOG.info('Cleaning up hypervisor info for %s', pf9_id)
-            resp = self._nova_request('os-hypervisors/%s' % str(nova_map[pf9_id]), token, project_id,
-                                          req_type='delete')
+            cleanup_hosts(nova_map[pf9_id], pf9_id, host_to_aggr_map)
 
-            if resp.status_code != 204:
-                LOG.error('Skipping hypervisor %s, resp: %d', pf9_id, resp.status_code)
 
