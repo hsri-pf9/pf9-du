@@ -3,29 +3,11 @@
 
 # This identifier is replaced by the build script
 DISTRO
+source $(dirname $0)/globals.sh
+source $(dirname $0)/wait.sh
+source $(dirname $0)/proxy.sh
+source $(dirname $0)/support.sh
 source $(dirname $0)/installer.${DISTRO}
-
-# always ask if user wants to configure proxy settings
-ASK_PROXY="true"
-SETUP_PROXY="true"
-PROXY_HOST=""
-PROXY_PORT=""
-JSON_TOOL="jsontool.py"
-
-PF9_COMMS_CONF="/etc/pf9/comms.json"
-HOSTAGENT_DIR="/var/opt/pf9/hostagent"
-DESIRED_APPS="desired_apps.json"
-
-# if installation fails, we write some
-# system information here
-SUPPORT_FILE="system-info"
-SUPPORT_BUNDLE="platform9-support-bundle.tar.gz"
-
-# directories to tar up in case
-# installation fails
-SUPPORT_DIRS=("/var/log/pf9" \
-              "/var/opt/pf9" \
-              "/etc/opt/pf9")
 
 while getopts ":-:" optchar; do
     case "${optchar}" in
@@ -47,13 +29,7 @@ while getopts ":-:" optchar; do
                     SETUP_PROXY="true"
                     ;;
                 help)
-                    echo
-                    echo "Description: Platform9 installer"
-                    echo "Usage: $0 [--no-proxy] [--help]"
-                    echo "Options:"
-                    echo "--proxy=<host>:<port>  | Setup HTTP proxy with <host> and <port> as the proxy host and port respectively"
-                    echo "--help                 | Display program help"
-                    echo "--no-proxy             | Do not setup proxy."
+                    usage
                     ;;
                 *)
                     echo "Unknown option: --${OPTARG}" >&2
@@ -65,196 +41,143 @@ while getopts ":-:" optchar; do
             if [[ "$OPTERR" = 1 ]] && [[ "${optspec:0:1}" != ":" ]]; then
                 echo "Unknown option: '-${OPTARG}'" >&2
             fi
+            exit 1
             ;;
     esac
 done
 
-function ask_proxy()
-{
-    while true; do
-        read -p "Do you want to configure proxy settings? " yn
-        case $yn in
-            [Yy]* ) SETUP_PROXY="true"; ask_proxy_settings; break;;
-            [Nn]* ) SETUP_PROXY="false"; break;;
-            *) echo "Please answer yes or no.";;
-        esac
-    done
-}
-
-function ask_proxy_settings()
-{
-    while true; do
-        read -p "proxy host: " PROXY_HOST
-        read -p "proxy port: " PROXY_PORT
-
-        echo "These are your proxy settings:"
-        echo "host: $PROXY_HOST"
-        echo "port: $PROXY_PORT"
-
-        read -p "Are these correct? " yn
-        case $yn in
-            [Yy]* ) break;;
-            [Nn]* ) continue;;
-            *) echo "Please answer yes or no.";;
-        esac
-    done
-}
-
-function setup_proxy()
-{
-    local host=$1
-    local port=$2
-
-    echo "Setting up proxy with: "
-    echo "host: $host"
-    echo "proxy: $port"
-
-    python ${JSON_TOOL} --inline --edit http_proxy.host  ${PF9_COMMS_CONF} $host
-    python ${JSON_TOOL} --inline --edit http_proxy.port  ${PF9_COMMS_CONF} $port
-}
-
-# execute each line of the file ${file}
-# all output are redirected to ${SUPPORT_FILE}
-function run_support_commands()
-{
-    local file=$1
-
-    cat "${file}" | while read command
-    do
-        echo "" >> ${SUPPORT_FILE}
-        echo "==========> "$command" <==========" >> ${SUPPORT_FILE}
-        bash -c "$command" >> ${SUPPORT_FILE} 2>&1
-    done
-}
-
-function generate_support_bundle()
+function usage()
 {
     echo
-    echo "Installation may have failed"
-
-    collect_info
-    tar -czf ${SUPPORT_BUNDLE} ${SUPPORT_DIRS[@]} ${SUPPORT_FILE} > /dev/null 2>&1
-
-    mv ${SUPPORT_BUNDLE} /tmp
-    echo
-    echo "Please email support@platform9.com with /tmp/${SUPPORT_BUNDLE} as an attachment"
-    echo
+    echo "Description: Platform9 installer"
+    echo "Usage: $0 [options]"
+    echo "Options:"
+    echo "--proxy=<host>:<port>  | Setup HTTP proxy with <host> and <port> as the proxy host and port respectively"
+    echo "--help                 | Display program help"
+    echo "--no-proxy             | Do not setup proxy."
 }
 
-function collect_info()
+function echo_debug()
 {
-    date > ${SUPPORT_FILE}
-    run_support_commands support.common
-    run_support_commands support.${DISTRO}
+    if [[ ${DEBUG} == "1" ]]; then
+        echo
+        echo "DEBUG: $1"
+    fi
 }
 
 function check_services_running()
 {
     # verify that pf9-hostagent is running
-    service pf9-hostagent status
+    service pf9-hostagent status > /dev/null 2>&1
     if [[ $? != "0" ]]; then
         # fail for now
-        echo  "pf9-hostagent is not running"
-        generate_support_bundle
+        echo_debug  "pf9-hostagent is not running"
+        support_generate_bundle
         exit 1
     else
         # if hostagent is running, verify desired_apps.json includes pf9-comms with running=true
         wait_dir_exists 30 ${HOSTAGENT_DIR}
+        check_exit_code_and_generate_support_bundle $? "waiting for hostagent directory"
+
         local host_uuid=`ls -l ${HOSTAGENT_DIR} | grep "^d" | tr -s ' ' | cut -d' ' -f9`
 
         local desired_apps="${HOSTAGENT_DIR}/${host_uuid}/${DESIRED_APPS}"
         wait_file_exists 30 $desired_apps
+        check_exit_code_and_generate_support_bundle $? "waiting for desired_apps.json"
 
         local comms_state=`python ${JSON_TOOL} --query pf9-comms.running ${desired_apps} 2>&1`
         # python returns boolean values capitalized
         if [[ "${comms_state}" != "True" ]]; then
-            echo  "pf9-comms is not running"
-            generate_support_bundle
+            echo_debug  "pf9-comms is not running"
+            support_generate_bundle
             exit 1
         fi
     fi
 }
 
-wait_dir_exists()
-{
-    local seconds=$1
-    local dir=$2
-    local tries=0
-    local max_tries=$((seconds * 2))
-
-    until [[ -d $dir ]]; do
-        echo "Directory '$dir' does not exist yet"
-        tries=$((tries + 1))
-        [[ $tries -eq $max_tries ]] && { echo "Timeout waiting for existence of $dir"; exit 1; }
-        sleep .5
-    done
-    echo "Directory $dir exists"
-}
-
-wait_file_exists()
-{
-    local seconds=$1
-    local file=$2
-    local tries=0
-    local max_tries=$((seconds * 2))
-
-    until [[ -e $file ]]; do
-        echo "File $file does not exist yet"
-        tries=$((tries + 1))
-        [[ $tries -eq $max_tries ]] && { echo "Timeout waiting for existence of $file"; exit 1; }
-        sleep .5
-    done
-    echo "File $file exists"
-}
-
-wait_service_running()
-{
-    local seconds=$1
-    local service=$2
-    local retval=1
-    local tries=0
-    local max_tries=$((seconds * 2))
-
-    until [[ $retval == "0" ]]; do
-        service pf9-comms status
-        retval=$?
-        tries=$((tries + 1))
-        [[ $tries -eq $max_tries ]] && { echo "Timeout waiting for ${service} to start"; exit 1; }
-        sleep .5
-    done
-    echo "${service} is now running"
-}
-
 function start_services()
 {
+    printf "Starting services"
     # order is important here
-    service pf9-comms start
+    service pf9-comms start > /dev/null 2>&1
     wait_service_running 30 "pf9-comms"
+    check_exit_code_and_generate_support_bundle $? "wait pf9-comms to run"
 
-    service pf9-hostagent start
+    service pf9-hostagent start > /dev/null 2>&1
     wait_service_running 30 "pf9-hostagent"
+    check_exit_code_and_generate_support_bundle $? "wait pf9-hostagent to run"
+}
+
+# $1: exit code
+# $2: Description of the step being executed
+function check_exit_code_and_generate_support_bundle()
+{
+    local exit_code=$1
+    local step_executed=$2
+
+    if [[ "${exit_code}" != "0" ]]; then
+        echo_debug "${step_executed} failed"
+        support_generate_bundle
+        exit 1
+    fi
+}
+
+function pf9_install()
+{
+    ${INSTALL} pf9-hostagent*.${EXT}
+    if [[ $? != "0" ]]; then
+        echo "pf9-hostagent installation failed"
+        return 1
+    fi
+    ${INSTALL} pf9-comms*.${EXT}
+    if [[ $? != "0" ]]; then
+        echo "pf9-comms installation failed"
+        return 1
+    fi
+}
+
+function pre_install_check()
+{
+    which ${PKG_MANAGER}  > /dev/null 2>&1
+    if [[ $? != "0" ]]; then
+        echo "${PKG_MANAGER} is not installed. Exiting..."
+        exit 1
+    fi
+    ${QUERY_PKGS} | grep pf9 > /dev/null 2>&1
+    # fail if we match (exit code = 0) at least one package
+    # no reinstallation for now
+    if [[ $? == "0" ]]; then
+        echo "Platform9 packages are already present. Exiting..."
+        exit 1
+    fi
 }
 
 function main()
 {
-    # from installer.[el6|precise]
     pre_install_check
 
     if [[ "${ASK_PROXY}" == "true" ]]; then
-        ask_proxy
+        proxy_ask
     fi
 
-    install
+    distro_install
+    check_exit_code_and_generate_support_bundle $? "distro_install"
+
+    pf9_install
+    check_exit_code_and_generate_support_bundle $? "pf9_install"
 
     # this directory shouldn't exist, but just in case
     rm -rf /var/opt/pf9/hostagent
 
     if [[ "${SETUP_PROXY}" == "true" ]]; then
-        setup_proxy $PROXY_HOST $PROXY_PORT
+        proxy_setup $PROXY_HOST $PROXY_PORT
     fi
 
     start_services
     check_services_running
+
+    echo
+    echo "Installation succeeded!"
 }
 
 main

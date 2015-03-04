@@ -1,6 +1,11 @@
 #!/bin/bash
 # Copyright (c) 2015 Platform9 Systems Inc.
 
+if [[ $UID -ne 0 ]]; then
+    echo "$0 must be run as root"
+    exit 1
+fi
+
 echo ""
 echo "Extracting Platform9 installer"
 echo ""

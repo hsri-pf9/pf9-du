@@ -1,24 +1,12 @@
 #!/bin/bash
 # Copyright (c) 2015 Platform9 Systems Inc.
 
+PKG_MANAGER="rpm"
+QUERY_PKGS="${PKG_MANAGER} -qa"
 INSTALL="yum install -y"
 EXT="rpm"
 
-function install()
+function distro_install()
 {
     echo "Installing Redhat packages"
-    # order is important here
-    ${INSTALL} pf9-hostagent*.${EXT}
-    ${INSTALL} pf9-comms*.${EXT}
-}
-
-function pre_install_check()
-{
-    rpm -qa | grep pf9 > /dev/null 2>&1
-    # fail if we match (exit code = 0) at least one package
-    # no reinstallation for now
-    if [[ $? == "0" ]]; then
-        echo "Platform9 packages are already present. Exiting..."
-        exit 1
-    fi
 }

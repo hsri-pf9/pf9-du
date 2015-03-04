@@ -52,6 +52,10 @@ function setup_payload()
     # copy the distro specific install script
     cp ../${distro_install} ${distro_install}
 
+    cp ../wait.sh wait.sh
+    cp ../proxy.sh proxy.sh
+    cp ../globals.sh globals.sh
+    cp ../support.sh support.sh
     cp ../jsontool.py  jsontool.py
     cp ../support.common support.common
     cp ../support.${distro} support.${distro}
