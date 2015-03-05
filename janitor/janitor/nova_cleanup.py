@@ -51,13 +51,34 @@ class NovaCleanup(Base):
 
         def cleanup_hosts(nova_id, pf9_id, host_aggr_map):
             LOG.info('Cleaning up hypervisor info for %s', pf9_id)
+            # Remove host from all aggregates
             if pf9_id in host_aggr_map:
                 for aggr_id in host_aggr_map[pf9_id]:
-                    resp = self._nova_request('os-aggregates/%s/action', token, project_id,
-                                              body={'remove_host': {'host': pf9_id}})
+                    resp = self._nova_request('os-aggregates/%s/action' % aggr_id,
+                                              token, project_id,
+                                              json_body={'remove_host': {'host': pf9_id}},
+                                              req_type='post')
                     if resp.status_code != requests.codes.ok:
                         LOG.error('Unexpected response code %d when removing host: %s from'
                                   ' aggregate: %d', resp.status_code, pf9_id, aggr_id)
+                        return
+            # Remove all instances running on this host
+            resp = self._nova_request('servers/detail?all_tenants=1&host=%s' % pf9_id,
+                                      token, project_id)
+            if resp.status_code != requests.codes.ok:
+                LOG.error('Skipping hypervisor %s, cannot query instances, resp: %d',
+                          pf9_id, resp.status_code)
+                return
+            for server in resp.json()['servers']:
+                resp = self._nova_request('servers/%s' % server['id'],
+                                          token, project_id,
+                                          req_type='delete')
+                if resp.status_code != 204:
+                    LOG.error('Error deleting instance: %s on hypervisor: %s. Got %d...aborting',
+                              server['id'], pf9_id, resp.status_code)
+                    return
+
+            # Remove hypervisor from nova.
             resp = self._nova_request('os-hypervisors/%s' % str(nova_id), token, project_id,
                                       req_type='delete')
 
