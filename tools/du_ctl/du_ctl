@@ -514,16 +514,71 @@ def do_set_host_role(options):
     Applies the role to a host
     :param options: command line options that are passed in for this command
     """
-    url = ''.join([_resmgr_endpoint, '/hosts/', options.host_id, '/roles/', options.role])
-    log.info('Updating role %s for host %s', options.role, options.host_id)
+    def apps_up_to_date():
+        """
+        Return a boolean value specifying whether the app is up to date.
+        """
+        return all(app in app_details and app_details[app]['version'] == app_version
+                   for app, app_version in app_versions.iteritems())
+
+    # Ensure host ID exists
+    if options.host_id not in _do_get(''.join([_bbmaster_endpoint, '/ids'])):
+        log.error('Host ID %s not in list of hosts that backbone is aware of',
+                 options.host_id)
+        sys.exit(1)
+
     with open(options.user_token_file) as token_file:
         auth_token = token_file.read()
+    headers = {'X-Auth-Token': auth_token}
 
-    headers = {
-        'X-Auth-Token': auth_token
-    }
+    app_endpoint = ''.join([_bbmaster_endpoint, '/', options.host_id, '/apps'])
+    app_details = _do_get(app_endpoint)
+    app_ver_endpoint = ''.join([_resmgr_endpoint,
+                                '/roles/',
+                                options.role,
+                                '/apps/versions'])
+    app_versions = _do_get(app_ver_endpoint, headers=headers)
 
-    _do_put(url, body=None, headers=headers)
+    # If the apps for the specified role are already at the expected version, do nothing
+    if apps_up_to_date():
+        log.info('%s on %s is already up to date',
+                 options.role, options.host_id)
+        return
+
+    try:
+        url = ''.join([_resmgr_endpoint, '/hosts/', options.host_id, '/roles/', options.role])
+        log.info('Updating role %s for host %s', options.role, options.host_id)
+        _do_put(url, body=None, headers=headers)
+
+        time_left = 10 * 60    # 10 mins
+        poll_interval = 20    # 20 secs
+        while time_left:
+            time.sleep(poll_interval)
+            time_left -= poll_interval
+            app_details = _do_get(app_endpoint)
+            up_to_date = apps_up_to_date()
+            running = all(app in app_details and app_details[app]['running'] == True
+                          for app in app_versions)
+
+            if up_to_date and running:
+                log.info('Role %s for host %s is up to date',
+                         options.role, options.host_id)
+                return
+            elif up_to_date:
+                log.info('Role %s for host %s is up to date, but is not yet running',
+                         options.role, options.host_id)
+            log.info('Waiting for host %s to update role %s',
+                     options.host_id, options.role)
+            log.info('App details: %s',
+                     app_details)
+    except Exception:
+        log.exception('Request to update host %s with role %s failed',
+                      options.host_id,
+                      options.role)
+    log.error('Failed while updating host %s with role %s',
+              options.host_id,
+              options.role)
+    sys.exit(1)
 
 def main():
     _build_parsers()

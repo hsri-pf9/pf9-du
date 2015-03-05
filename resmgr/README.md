@@ -56,6 +56,18 @@ Example:
 }
 ```
 
+### GET /v1/roles/__role_name__/apps/versions ###
+
+Returns the apps and versions of the specified __role_name__
+
+Example:
+```
+{
+    "app_name_1": "app_version_1",
+    "app_name_2": "app_version_2"
+}
+```
+
 ### GET /v1/hosts ##
 
 Returns a dictionary of hosts in the pf9 system with assigned roles.

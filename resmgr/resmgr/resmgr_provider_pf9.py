@@ -160,6 +160,14 @@ class RolesMgr(object):
 
         return result
 
+    def get_app_versions(self, role_name):
+        role = self.db_handler.query_role(role_name)
+        if role:
+            return dict((app, config['version'])
+                        for (app, config)
+                        in json.loads(role.desiredconfig).iteritems())
+        return None
+
     def active_role_config(self):
         """
         Get the details of all roles that are marked as active
@@ -628,6 +636,9 @@ class ResMgrPf9Provider(ResMgrProvider):
         :rtype: dict
         """
         return self.roles_mgr.get_role(role_name)
+
+    def get_app_versions(self, role_name):
+        return self.roles_mgr.get_app_versions(role_name)
 
     def get_all_hosts(self):
         """

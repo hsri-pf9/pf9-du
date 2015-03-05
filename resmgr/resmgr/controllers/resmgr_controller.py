@@ -29,9 +29,32 @@ _pkg = __import__('resmgr.%s' % _provider_name, globals(), locals())
 _module = getattr(_pkg, _provider_name)
 _provider = _module.get_provider(_resmgr_conf_file)
 
+class RoleAppVersionsController(RestController):
+    """Controller for role app version related requests"""
+
+    @expose('json')
+    def get(self, name):
+        """
+        Handles request of type GET /v1/roles/<role_name>/apps/versions
+        :param str name: Name of the role
+        :return: dictionary of app names and versions
+        :rtype: dict
+        """
+        log.info('Getting app version details for role %s', name)
+        out = _provider.get_app_versions(name)
+        if not out:
+            log.error('No matching app versions found for role %s', name)
+            abort(404)
+
+        return out
+
+class RoleAppsController(RestController):
+    """Controller for role app related requests"""
+    versions = RoleAppVersionsController()
 
 class RolesController(RestController):
     """ Controller for roles related requests"""
+    apps = RoleAppsController()
 
     @expose('json')
     def get_all(self):
