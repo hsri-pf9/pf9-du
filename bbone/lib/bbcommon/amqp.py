@@ -176,12 +176,17 @@ def dual_channel_io_loop(log,
         connection.add_on_close_callback(on_connection_closed)
         open_channel(connection, 'send',
                      send_channel_up_cb, send_channel_down_cb)
-        open_channel(connection, 'recv', on_recv_channel_open)
+        # Make the recv channel less verbose w.r.t. close events, because
+        # they will be common before a host is authorized
+        open_channel(connection, 'recv', on_recv_channel_open,
+                     warn_on_channel_close=False)
         connection_up_cb(connection)
 
     #--------------------------------------------------------------------------
 
-    def open_channel(connection, name, channel_up_cb, channel_down_cb=None):
+    def open_channel(connection, name, channel_up_cb,
+                     channel_down_cb=None,
+                     warn_on_channel_close=True):
 
         def _retry():
             connection.channel(_on_channel_open)
@@ -191,12 +196,13 @@ def dual_channel_io_loop(log,
             channel_up_cb(channel)
 
         def _on_channel_close(channel, reply_code, reply_text):
-            log.warn('Channel "%s" closed due to %s, retrying in %d seconds',
-                     name, reply_text, retry_timeout)
+            logger('Channel "%s" closed due to %s, retrying in %d seconds',
+                    name, reply_text, retry_timeout)
             if channel_down_cb:
                 channel_down_cb(channel)
             connection.add_timeout(retry_timeout, _retry)
 
+        logger = log.warn if warn_on_channel_close else log.debug
         _retry()
 
     #--------------------------------------------------------------------------
