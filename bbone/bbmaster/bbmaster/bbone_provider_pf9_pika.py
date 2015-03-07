@@ -18,6 +18,8 @@ import logging
 import json
 import os
 import pika
+import requests
+import socket
 import time
 import copy
 from pf9_comms import get_comms_cfg, insert_comms, remove_comms
@@ -51,6 +53,8 @@ class bbone_provider_pf9(bbone_provider_memory):
         comms_baseurl = self.config.get('bbmaster', 'comms_baseurl') if \
             self.config.has_option('bbmaster', 'comms_baseurl') else \
             'https://%(host_relative_amqp_fqdn)s:9443/private'
+        self.slack_attempts = self.config.getint('slack', 'max_posts') if \
+            self.config.has_option('slack', 'max_posts') else 5
 
         self.comms_cfg = get_comms_cfg(self.log, basedir=comms_basedir,
                                        baseurl=comms_baseurl)
@@ -121,6 +125,32 @@ class bbone_provider_pf9(bbone_provider_memory):
         body = {'opcode': 'set_agent', 'data': agent_data}
         # TODO: Think if this should be done with a retry logic
         self._send_msg(host_id, body)
+
+    def post_to_slack(self, msg):
+        """
+        Post messages to #bbmaster on Slack
+        """
+        if self.slack_attempts <= 0:
+            self.log.warn('Could not post message to Slack: %s '
+                          'Maximum number of Slack posts reached'
+                          % str(msg))
+            return
+        if (not self.config.has_option('slack', 'enabled') or
+                not self.config.getboolean('slack', 'enabled')):
+            return
+        url = 'https://hooks.slack.com/services/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'
+        json_body = json.dumps({'text' : msg, 'username' : socket.getfqdn()})
+        try:
+            resp = requests.post(url, data=json_body)
+        except:
+            self.log.error('Failed to send request to the Slack bbmaster webhook')
+            return
+
+        if resp.status_code == requests.codes.ok:
+            self.slack_attempts -= 1
+        else:
+            self.log.error('Sending slack message failed. HTTP error code: %s'
+                           % resp.status_code)
 
     # ----- these methods execute in the I/O thread -----
 
@@ -249,14 +279,24 @@ class bbone_provider_pf9(bbone_provider_memory):
             except AMQPConnectionError as e:
                 self.log.error('Connection error "%s". Retrying in %d seconds.',
                                e, self.retry_period)
-                time.sleep(self.retry_period)
-
+            except IndexError:
+                msg = ('Unexpected IndexError. Closing the connection and '
+                       'retrying in %d seconds.' % self.retry_period)
+                self.log.exception(msg)
+                self.post_to_slack(msg)
             except:
-                self.log.exception('Unexpected exception in IO thread.' +
-                                   ' Retrying in %d seconds.',
+                self.log.exception('Unexpected exception in IO thread. ' +
+                                   'Closing the connection and retrying ' +
+                                   'in %d seconds.',
                                    self.retry_period)
-		# Sleep in order to avoid spinnng too fast
+            try:
+                # Close the connection in case it was not closed properly
+                if 'connection' in self.state:
+                    self.state['connection'].close()
+                # Sleep in order to avoid spinnng too fast
                 time.sleep(self.retry_period)
+            except:
+                self.log.warn('Failed to clean up connection after exception in io_loop')
 
 
     # ----- these execute in either I/O or http threads -----
