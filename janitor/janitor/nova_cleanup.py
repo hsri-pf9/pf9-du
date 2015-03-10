@@ -62,21 +62,6 @@ class NovaCleanup(Base):
                         LOG.error('Unexpected response code %d when removing host: %s from'
                                   ' aggregate: %d', resp.status_code, pf9_id, aggr_id)
                         return
-            # Remove all instances running on this host
-            resp = self._nova_request('servers/detail?all_tenants=1&host=%s' % pf9_id,
-                                      token, project_id)
-            if resp.status_code != requests.codes.ok:
-                LOG.error('Skipping hypervisor %s, cannot query instances, resp: %d',
-                          pf9_id, resp.status_code)
-                return
-            for server in resp.json()['servers']:
-                resp = self._nova_request('servers/%s' % server['id'],
-                                          token, project_id,
-                                          req_type='delete')
-                if resp.status_code != 204:
-                    LOG.error('Error deleting instance: %s on hypervisor: %s. Got %d...aborting',
-                              server['id'], pf9_id, resp.status_code)
-                    return
 
             # Remove hypervisor from nova.
             resp = self._nova_request('os-hypervisors/%s' % str(nova_id), token, project_id,
