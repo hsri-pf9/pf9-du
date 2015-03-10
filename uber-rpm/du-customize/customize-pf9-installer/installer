@@ -7,6 +7,7 @@ source $(dirname $0)/globals.sh
 source $(dirname $0)/wait.sh
 source $(dirname $0)/proxy.sh
 source $(dirname $0)/support.sh
+source $(dirname $0)/check_os_distro.sh
 source $(dirname $0)/installer.${DISTRO}
 
 while getopts ":-:" optchar; do
@@ -14,8 +15,6 @@ while getopts ":-:" optchar; do
         -)
             case "${OPTARG}" in
                 no-proxy)
-                    echo
-                    echo "Installing Platform9 hostagent with no proxy"
                     ASK_PROXY="false"
                     SETUP_PROXY="false"
                     ;;
@@ -138,6 +137,9 @@ function pf9_install()
 
 function pre_install_check()
 {
+    # Check if we support this Linux distribution
+    check_platform
+
     which ${PKG_MANAGER}  > /dev/null 2>&1
     if [[ $? != "0" ]]; then
         echo "${PKG_MANAGER} is not installed. Exiting..."
