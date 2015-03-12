@@ -100,6 +100,15 @@ def _build_hostagent_parser(subparsers):
     agent_sub_parser = agent_parser.add_subparsers(help='Host agent sub-commands',
                                                    dest='agent_subparser')
 
+    # Parser for restart
+    agent_restart_parser = agent_sub_parser.add_parser('restart',
+                                                      help='Restart the host agent')
+    agent_restart_parser.add_argument('--host_id',
+                    action='store',
+                    dest='host_id',
+                    required=True,
+                    help='Host ID of the host to restart')
+
     # Parser for update
     agent_update_parser = agent_sub_parser.add_parser('update',
                                                       help='Update the host agent')
@@ -217,6 +226,15 @@ def _process_cmd(args):
                 return
         elif args.agent_subparser == 'list':
             do_agent_list(args)
+            return
+        elif args.agent_subparser == 'restart':
+            if not args.host_id:
+                # Should never hit this because argparse's parsing should take
+                # care of this, but keeping it here as a safety net.
+                log.error('Missing mandatory arguments for host agent restart')
+                _parser.print_help()
+                sys.exit(1)
+            do_agent_restart(args)
             return
 
     if args.subparser == 'hostrole':
@@ -354,18 +372,24 @@ def _do_get(url, headers={}):
     resp.raise_for_status()
     return resp.json()
 
-def _do_put(url, body=None, headers={}):
+def _do_method(url, method, body, headers):
     """
-    Execute the PUT http call
-    :param str url: URL to run the PUT call on
-    :param dict body: Request body for the PUT request
+    Execute a request that contains a body
+    :param str url: URL to send the request
+    :param dict body: Request body
     :return: JSON response
     :rtype: JSON encoded dict
     """
     headers['Content-type'] = 'json'
-    resp = requests.put(url, data=json.dumps(body), headers=headers)
+    resp = method(url, data=json.dumps(body), headers=headers)
     resp.raise_for_status()
     return resp.json()
+
+def _do_put(url, body=None, headers={}):
+    return _do_method(url, requests.put, body, headers)
+
+def _do_post(url, body=None, headers={}):
+    return _do_method(url, requests.post, body, headers)
 
 def _update_and_poll(options, cur_host_agent_version):
     """
@@ -439,19 +463,20 @@ def do_agent_list(options):
 
     log.info('%s', json.dumps(output, indent=3))
 
+def _ensure_host_exists(options):
+    resp = _do_get(''.join([_bbmaster_endpoint, '/ids']))
+    if options.host_id not in resp:
+        log.info('Host ID %s not in list of hosts that backbone is aware of',
+             options.host_id)
+        raise Exception()
+
 def do_agent_update(options):
     """
     Perform host agent update
     :param ParserOption options: command line options
     """
     try:
-        # Ensure host ID exists
-        resp = _do_get(''.join([_bbmaster_endpoint, '/ids']))
-        if options.host_id not in resp:
-            log.info('Host ID %s not in list of hosts that backbone is aware of',
-                 options.host_id)
-            raise Exception()
-
+        _ensure_host_exists(options)
         # Query host details.
         host_endpoint = ''.join([_bbmaster_endpoint, '/', options.host_id])
         resp = _do_get(host_endpoint)
@@ -473,6 +498,16 @@ def do_agent_update(options):
 
     # push update
     _update_and_poll(options, resp['host_agent']['version'])
+
+def do_agent_restart(options):
+    """
+    Perform host agent restart
+    :param ParserOption options: command line options
+    """
+    _ensure_host_exists(options)
+    url = ''.join([_bbmaster_endpoint, '/', options.host_id, '/support/command'])
+    body = {'command': 'sudo service pf9-hostagent restart'}
+    _do_post(url, body)
 
 def do_set_host_role(options):
     """
