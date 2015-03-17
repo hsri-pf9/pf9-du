@@ -1,8 +1,8 @@
 #!/bin/sh
 # Copyright (c) 2015 Platform9 Systems Inc.
 
-# This script creates the hostagent OVA.
-# It requires the vmware hostagent to already exist.
+# This script creates the VMWare appliance.
+# It requires the installer script to already exist.
 
 
 set -v
@@ -20,9 +20,9 @@ CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOT_DIR=$CURR_DIR/../
 
 PRIVATE_FILES_DIR=$ROOT_DIR/www/private
-HOST_AGENT_VMW_RPM_SYMLINK=pf9-hostagent-vmw.x86_64.rpm
-HOST_AGENT_VMW_RPM_PATH=${PRIVATE_FILES_DIR}/${HOST_AGENT_VMW_RPM_SYMLINK}
-
+INSTALLER_FILENAME=platform9-install-el6.sh
+INSTALLER_PATH=${PRIVATE_FILES_DIR}/${INSTALLER_FILENAME}
+CUSTOMIZE_SCRIPT_DIR=/opt/pf9/du-customize/vmw_scripts
 OVF_BASE_DIR=/opt/pf9/vmware
 # Short name excludes extension
 OVA_SHORT_NAME=platform9-vmware-appliance
@@ -33,9 +33,12 @@ OVA_SYMLINK_NAME=${OVA_SHORT_NAME}.ova
 ISO_NAME=hostagent.iso
 ISO_PATH=${OVF_BASE_DIR}/${ISO_NAME}
 ISO_STAGING_DIR=`mktemp -d`
+ISO_INSTALLER_DIR=${ISO_STAGING_DIR}/installer
 
+mkdir -p ${ISO_INSTALLER_DIR}
 
-cp ${HOST_AGENT_VMW_RPM_PATH} ${ISO_STAGING_DIR}
+cp ${INSTALLER_PATH} ${ISO_INSTALLER_DIR}
+cp ${CUSTOMIZE_SCRIPT_DIR}/* ${ISO_STAGING_DIR}
 genisoimage -o ${ISO_PATH} -r ${ISO_STAGING_DIR}
 
 pushd ${OVF_BASE_DIR}
