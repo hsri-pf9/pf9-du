@@ -1,4 +1,4 @@
-#!/opt/pf9/hostagent/bin/python
+#!/usr/bin/env python
 
 # Copyright (c) 2014 Platform9 Systems Inc.
 # All Rights reserved
@@ -20,9 +20,6 @@ import argparse
 import os
 import sys
 import traceback
-
-from pf9app.exceptions import (RemoveOperationFailed, InstallOperationFailed,
-                               Pf9Exception)
 
 APP_CACHE_PATH = os.path.join('/', 'var', 'cache', 'pf9apps')
 
@@ -54,14 +51,17 @@ def _install_package(package_path, cache):
     """
     package_path = os.path.realpath(package_path)
     if not os.path.isfile(package_path) or not package_path.startswith(APP_CACHE_PATH):
-        raise InstallOperationFailed("Invalid package path: %s" % package_path)
+        raise Exception("Invalid package path: %s" % package_path)
 
     _update_apt_cache(cache)
     deb_package = apt.debfile.DebPackage(package_path, cache)
     # Checks if the file is installable. Needed before call to missing_deps.
     deb_package.check()
 
-    for missing_package in deb_package.missing_deps:
+    for missing_package in deb_package.depends:
+        missing_package = missing_package[0][0]
+        if missing_package == 'pf9-bbslave':
+            continue
         missing_package = cache[missing_package]
         missing_package.mark_install()
 
@@ -76,7 +76,7 @@ def _erase_package(package_name, cache):
     :raises RemoveOperationFailed: if the package does not start with 'pf9-'.
     """
     if not package_name.startswith("pf9-"):
-        raise RemoveOperationFailed("Invalid package: %s" % package_name)
+        raise Exception("Invalid package: %s" % package_name)
     package = cache[package_name]
     package.mark_delete()
     cache.commit()
@@ -95,7 +95,7 @@ if __name__ == '__main__':
             _erase_package(package, cache)
         else:
             sys.stderr.write("Invalid action given: %s" % package_action)
-            raise Pf9Exception("Invalid action: %s" % package_action)
+            raise Exception("Invalid action: %s" % package_action)
     except:
         sys.stderr.write("Failed to %s package: %s" % (package_action, package))
         sys.stderr.write(traceback.format_exc())

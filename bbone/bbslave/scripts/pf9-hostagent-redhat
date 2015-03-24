@@ -1,0 +1,18 @@
+#!/opt/pf9/hostagent/bin/python
+
+import platform
+import sys
+
+if platform.linux_distribution()[1].startswith('7'):
+    # For yum
+    sys.path.append('/usr/lib/python2.7/site-packages')
+    # For rpm
+    sys.path.append('/usr/lib64/python2.7/site-packages')
+else:
+    # For yum
+    sys.path.append('/usr/lib/python2.6/site-packages')
+    # For rpm
+    sys.path.append('/usr/lib64/python2.6/site-packages')
+
+# Start the backbone slave
+import bbslave.main

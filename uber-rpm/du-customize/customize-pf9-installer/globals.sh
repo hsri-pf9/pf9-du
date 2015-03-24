@@ -25,6 +25,10 @@ SUPPORT_DIRS=("/var/log/pf9" \
               "/var/opt/pf9" \
               "/etc/opt/pf9")
 
+# For RHEL 7+, this avoids calls to sysctl,
+# which breaks the init scripts.
+export SYSTEMCTL_SKIP_REDIRECT=1
+
 # Check if /sbin is in the path
 echo $PATH | grep "/sbin" -q
 

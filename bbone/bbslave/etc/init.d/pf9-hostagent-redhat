@@ -47,6 +47,9 @@ start() {
     echo -n $"Starting $svcname: "
     touch $PIDFILE
     chown pf9:pf9group $PIDFILE
+    LD_LIBRARY_PATH="/opt/pf9/python/pf9-lib:/opt/pf9/python/pf9-hostagent-lib:${LD_LIBRARY_PATH}" \
+    PYTHONPATH="/opt/pf9/python/lib/python2.7:${PYTHONPATH}" \
+    SYSTEMCTL_SKIP_REDIRECT=1 \
     daemon --user pf9 "$SERVER_BIN $SERVER_OPTS >> $SERVER_LOGFILE 2>&1 & echo \$! > $PIDFILE"
     RETVAL=$?
     echo

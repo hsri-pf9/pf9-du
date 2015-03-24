@@ -20,7 +20,7 @@ include ../common-hostagent-defs.mk
 RPM_DIR := $(BUILD_DIR)/rpmbuild
 MOCK = /usr/bin/mock -r epel-6-x86_64
 
-$(HOSTAGENT_TARBALL): | $(VENV_DIR)
+$(HOSTAGENT_TARBALL): $(VENV_DIR)
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/rc.d/init.d
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/sudoers.d
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/var/opt/pf9
@@ -44,6 +44,8 @@ hostagent-tarball-rpm-redhat: $(HOSTAGENT_TARBALL)
 	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
 	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm
 	rm -f ${BUILD_DIR}/*.src.rpm
+
+hostagent-tarball-rpm-redhat: TARGET_DISTRO = redhat
 
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${SRC_ROOT}/bbone/bbmaster ${PF9APP_DIR} ${CONFIGUTILS_DIR}

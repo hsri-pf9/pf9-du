@@ -5,17 +5,17 @@
 
 set -e -x
 
-# el6      => Redhat 6.x | CentOS 6.x
-# precise  => Ubuntu 12.04
-DISTROS=(el6 precise)
+# redhat  => Redhat 6.x | CentOS 6.x | Redhat 7.x | CentOS 7.x
+# debian  => Ubuntu 12.04 | Ubuntu 14.04
+DISTROS=(debian redhat)
 
 # template name of the resulting installers
-# Redhat 6.x | CentOS 6.x  => platform9-install-el6.sh
+# Redhat 6.x | CentOS 6.x  => platform9-install-redhat.sh
 # and so on
 BIN_NAME="platform9-install"
 
 # directory where all packages to be bundled with
-# the installer are found (packages.[el6|precise])
+# the installer are found (packages.[redhat|debian])
 PACKAGES=${PACKAGES_LOCATION:-"/opt/pf9/www/private/packages"}
 
 # where to put the resulting installers

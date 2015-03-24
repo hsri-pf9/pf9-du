@@ -1,4 +1,9 @@
 #!/opt/pf9/hostagent/bin/python
 
+import sys
+
+# For apt
+sys.path.append('/usr/lib/python2.7/dist-packages')
+
 # Start the backbone slave
 import bbslave.main

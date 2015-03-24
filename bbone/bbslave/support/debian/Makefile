@@ -25,7 +25,6 @@ $(HOSTAGENT_TARBALL): | $(VENV_DIR)
 	cp $(SRC_DIR)/support/debian/after-install.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/debian/before-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/debian/after-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
-	cp $(SRC_DIR)/scripts/pf9-hostagent $(VENV_DIR)/bin
 	cp $(SRC_DIR)/scripts/pf9-apt $(VENV_DIR)/bin
 	cd $(HOSTAGENT_TARBALL_SRCDIR) && \
 	tar -czf $(HOSTAGENT_TARBALL) *
@@ -38,6 +37,8 @@ hostagent-tarball-rpm-debian: $(HOSTAGENT_TARBALL)
 	cp -r ${BUILD_DIR}/* ${BUILD_DIR}/../SOURCES
 	mv ${BUILD_DIR}/../SOURCES ${BUILD_DIR}
 	rpmbuild -bb $(BUILD_DIR)/hostagent-tarball-rpm.spec --define "_topdir $(BUILD_DIR)"
+
+hostagent-tarball-rpm-debian: TARGET_DISTRO = debian
 
 clean:
 	rm -rf $(BUILD_DIR)

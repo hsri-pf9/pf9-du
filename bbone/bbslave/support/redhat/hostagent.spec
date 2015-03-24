@@ -43,7 +43,7 @@ rm -rf $RPM_BUILD_ROOT
 %dir /var/opt/pf9
 %config /etc/pf9/hostagent.conf
 /etc/pf9/certs
-/var/log/pf9
+%dir /var/log/pf9
 
 %post
 change_file_permissions() {
