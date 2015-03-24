@@ -29,15 +29,17 @@ function check_platform()
 
     local version=""
     if [[ -f ${REDHAT_KNOWN_FILE} ]]; then
-        # This only works for el6
-        version=`awk '{print $3}' ${REDHAT_KNOWN_FILE}`
-        _check_version "$version" REDHAT_VERSIONS
-
+        _check_version "${REDHAT_KNOWN_FILE}" REDHAT_VERSIONS
+        if [[ $? != "0" ]]; then
+            _print_not_supported
+            exit 1
+        fi
     elif [[ -f ${UBUNTU_KNOWN_FILE} ]]; then
-        source ${UBUNTU_KNOWN_FILE}
-        version=${DISTRIB_RELEASE}
-        _check_version "$version" UBUNTU_VERSIONS
-
+        _check_version "${UBUNTU_KNOWN_FILE}" UBUNTU_VERSIONS
+        if [[ $? != "0" ]]; then
+            _print_not_supported
+            exit 1
+        fi
     else
         _print_not_supported
         exit 1
@@ -46,17 +48,17 @@ function check_platform()
 
 function _check_version()
 {
-    local version=$1
+    local file=$1
     local distro=$2[@]
 
     for distro_version in "${!distro}"
     do
-        if [[ "${version}" == "${distro_version}" ]]; then
+        grep -q "${distro_version}" ${file}
+        if [[ $? == "0" ]]; then
             return 0
         fi
     done
-    _print_not_supported
-    exit 1
+    return 1
 }
 
 function _print_not_supported()
