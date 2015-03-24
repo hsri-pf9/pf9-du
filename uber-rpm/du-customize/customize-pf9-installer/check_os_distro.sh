@@ -22,7 +22,7 @@ UBUNTU_VERSIONS=("12.04")
 function check_platform()
 {
     if [[ `uname -m` != "x86_64" ]]; then
-        echo "Sorry but we currently only support x86_64 machines"
+        echo "Sorry but we currently only support x86_64 (64-bit) machines"
         echo
         exit 1
     fi
@@ -32,17 +32,14 @@ function check_platform()
         _check_version "${REDHAT_KNOWN_FILE}" REDHAT_VERSIONS
         if [[ $? != "0" ]]; then
             _print_not_supported
-            exit 1
         fi
     elif [[ -f ${UBUNTU_KNOWN_FILE} ]]; then
         _check_version "${UBUNTU_KNOWN_FILE}" UBUNTU_VERSIONS
         if [[ $? != "0" ]]; then
             _print_not_supported
-            exit 1
         fi
     else
         _print_not_supported
-        exit 1
     fi
 }
 
@@ -63,7 +60,16 @@ function _check_version()
 
 function _print_not_supported()
 {
-    echo "Sorry but we currently do not support your platform."
+    echo "Sorry but we currently do not support your operating system."
     echo "Please let us know at support@platform9.com"
     echo
+
+    while true; do
+        read -p "Do you still want to continue? (yes/no) " yn
+        case $yn in
+            [Yy]* ) break;;
+            [Nn]* ) exit 0;;
+            *) echo "Please answer yes or no.";;
+        esac
+    done
 }
