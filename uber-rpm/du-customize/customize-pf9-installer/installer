@@ -17,8 +17,8 @@ function usage()
     echo "Usage: $0 [options]"
     echo "Options:"
     echo "--proxy=<host>:<port>  | Setup HTTP proxy with <host> and <port> as the proxy host and port respectively"
-    echo "--help                 | Display program help"
     echo "--no-proxy             | Do not setup proxy."
+    echo "--help                 | Display program help"
 }
 
 while getopts ":-:" optchar; do
@@ -35,12 +35,21 @@ while getopts ":-:" optchar; do
                     PROXYARR=(${PROXYINFO//:/ })
                     PROXY_HOST=${PROXYARR[0]}
                     PROXY_PORT=${PROXYARR[1]}
+
+                    validate_proxyhost ${PROXYINFO}
+
+                    if [[ $? == "0" ]]; then # if it matches https?://
+                        echo
+                        echo "Please do not include 'http://' or 'https://' on your host"
+                        exit 1
+                    fi
+
                     ASK_PROXY="false"
                     SETUP_PROXY="true"
                     ;;
                 help)
                     usage
-		    exit 0
+                    exit 0
                     ;;
                 *)
                     echo "Unknown option: --${OPTARG}" >&2
@@ -57,38 +66,30 @@ while getopts ":-:" optchar; do
     esac
 done
 
-function echo_debug()
-{
-    if [[ ${DEBUG} == "1" ]]; then
-        echo
-        echo "DEBUG: $1"
-    fi
-}
-
 function check_services_running()
 {
     # verify that pf9-hostagent is running
-    service pf9-hostagent status > /dev/null 2>&1
+    echo "Checking if services are running"
+    service pf9-hostagent status
     if [[ $? != "0" ]]; then
-        # fail for now
-        echo_debug  "pf9-hostagent is not running"
         support_generate_bundle
         exit 1
     else
         # if hostagent is running, verify desired_apps.json includes pf9-comms with running=true
         wait_dir_exists 30 ${HOSTAGENT_DIR}
-        check_exit_code_and_generate_support_bundle $? "waiting for hostagent directory"
+        check_exit_code_and_generate_support_bundle $?
 
         local host_uuid=`ls -l ${HOSTAGENT_DIR} | grep "^d" | tr -s ' ' | cut -d' ' -f9`
 
         local desired_apps="${HOSTAGENT_DIR}/${host_uuid}/${DESIRED_APPS}"
         wait_file_exists 30 $desired_apps
-        check_exit_code_and_generate_support_bundle $? "waiting for desired_apps.json"
+        check_exit_code_and_generate_support_bundle $?
 
-        local comms_state=`python ${JSON_TOOL} --query pf9-comms.running ${desired_apps} 2>&1`
+        local comms_state=`python ${JSON_TOOL} --query pf9-comms.running ${desired_apps}`
         # python returns boolean values capitalized
         if [[ "${comms_state}" != "True" ]]; then
-            echo_debug  "pf9-comms is not running"
+            echo
+            echo "pf9-comms is not in the running state"
             support_generate_bundle
             exit 1
         fi
@@ -97,15 +98,15 @@ function check_services_running()
 
 function start_services()
 {
-    printf "Starting services"
+    echo "Starting services"
     # order is important here
-    service pf9-comms start > /dev/null 2>&1
+    service pf9-comms start
     wait_service_running 30 "pf9-comms"
-    check_exit_code_and_generate_support_bundle $? "wait pf9-comms to run"
+    check_exit_code_and_generate_support_bundle $?
 
-    service pf9-hostagent start > /dev/null 2>&1
+    service pf9-hostagent start
     wait_service_running 30 "pf9-hostagent"
-    check_exit_code_and_generate_support_bundle $? "wait pf9-hostagent to run"
+    check_exit_code_and_generate_support_bundle $?
 }
 
 # $1: exit code
@@ -113,10 +114,8 @@ function start_services()
 function check_exit_code_and_generate_support_bundle()
 {
     local exit_code=$1
-    local step_executed=$2
 
     if [[ "${exit_code}" != "0" ]]; then
-        echo_debug "${step_executed} failed"
         support_generate_bundle
         exit 1
     fi
@@ -141,18 +140,21 @@ function pre_install_check()
     # Check if we support this Linux distribution
     check_platform
 
-    which ${PKG_MANAGER}  > /dev/null 2>&1
+    echo "Checking if package manager is available"
+    which ${PKG_MANAGER}
     if [[ $? != "0" ]]; then
         echo "${PKG_MANAGER} is not installed. Exiting..."
         exit 1
     fi
-    ${QUERY_PKGS} | grep pf9 > /dev/null 2>&1
+    ${QUERY_PKGS} | grep pf9
     # fail if we match (exit code = 0) at least one package
     # no reinstallation for now
     if [[ $? == "0" ]]; then
+        echo
         echo "Platform9 packages are already present. Exiting..."
         exit 1
     fi
+    echo
 }
 
 function main()
@@ -164,10 +166,11 @@ function main()
     fi
 
     distro_install
-    check_exit_code_and_generate_support_bundle $? "distro_install"
+    check_exit_code_and_generate_support_bundle $?
 
+    echo "Installing Platform9 host agent"
     pf9_install
-    check_exit_code_and_generate_support_bundle $? "pf9_install"
+    check_exit_code_and_generate_support_bundle $?
 
     # this directory shouldn't exist, but just in case
     rm -rf /var/opt/pf9/hostagent

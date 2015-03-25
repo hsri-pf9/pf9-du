@@ -21,6 +21,7 @@ UBUNTU_VERSIONS=("12.04")
 
 function check_platform()
 {
+    echo "Checking the machine's architecture"
     if [[ `uname -m` != "x86_64" ]]; then
         echo "Sorry but we currently only support x86_64 (64-bit) machines"
         echo
@@ -29,11 +30,13 @@ function check_platform()
 
     local version=""
     if [[ -f ${REDHAT_KNOWN_FILE} ]]; then
+        echo "Operating system belongs to the Redhat family"
         _check_version "${REDHAT_KNOWN_FILE}" REDHAT_VERSIONS
         if [[ $? != "0" ]]; then
             _print_not_supported
         fi
     elif [[ -f ${UBUNTU_KNOWN_FILE} ]]; then
+        echo "Operating system is Ubuntu"
         _check_version "${UBUNTU_KNOWN_FILE}" UBUNTU_VERSIONS
         if [[ $? != "0" ]]; then
             _print_not_supported
@@ -45,16 +48,20 @@ function check_platform()
 
 function _check_version()
 {
+    echo "Checking operating system version/release"
     local file=$1
     local distro=$2[@]
 
     for distro_version in "${!distro}"
     do
+        echo "Checking if operating system version is ${distro_version}"
         grep -q "${distro_version}" ${file}
         if [[ $? == "0" ]]; then
+            echo "Operating system is supported"
             return 0
         fi
     done
+    echo "Operating system is not supported"
     return 1
 }
 

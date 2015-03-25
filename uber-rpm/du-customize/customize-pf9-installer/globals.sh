@@ -16,8 +16,8 @@ DESIRED_APPS="desired_apps.json"
 
 # if installation fails, we write some
 # system information here
-SUPPORT_FILE="system-info"
-SUPPORT_BUNDLE="platform9-support-bundle.tar.gz"
+SYSTEM_INFO_LOG="platform9-system-info.log"
+SUPPORT_BUNDLE="platform9-log-bundle.tar.gz"
 
 # directories to tar up in case
 # installation fails
@@ -25,3 +25,17 @@ SUPPORT_DIRS=("/var/log/pf9" \
               "/var/opt/pf9" \
               "/etc/opt/pf9")
 
+# Check if /sbin is in the path
+echo $PATH | grep "/sbin" -q
+
+if [[ $? != "0" ]]; then
+    echo "Cannot find 'sbin' in the \$PATH. Exiting..."
+    exit 1
+fi
+
+# Check if the service command exists at the very least
+which service > /dev/null 2>&1
+if [[ $? != "0" ]]; then
+    echo "Cannot find the command 'service' in $PATH. Exiting..."
+    exit 1
+fi

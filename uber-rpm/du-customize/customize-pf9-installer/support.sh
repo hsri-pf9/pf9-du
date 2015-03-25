@@ -5,34 +5,34 @@
 function support_generate_bundle()
 {
     echo
-    echo "Installation may have failed..."
+    echo "Installation failed..."
 
     _collect_info
-    tar -czf ${SUPPORT_BUNDLE} ${SUPPORT_DIRS[@]} ${SUPPORT_FILE} > /dev/null 2>&1
+    tar -czf ${SUPPORT_BUNDLE} ${SUPPORT_DIRS[@]} ${SYSTEM_INFO_LOG} > /dev/null 2>&1
 
     mv ${SUPPORT_BUNDLE} /tmp
     echo
-    echo "Please email support@platform9.com with /tmp/${SUPPORT_BUNDLE} as an attachment"
+    echo "Please email us at support@platform9.com with a copy of the installation's output and /tmp/${SUPPORT_BUNDLE} as an attachment"
     echo
 }
 
 function _collect_info()
 {
-    date > ${SUPPORT_FILE}
+    date > ${SYSTEM_INFO_LOG}
     _run_support_commands support.common
     _run_support_commands support.${DISTRO}
 }
 
 # execute each line of the file ${file}
-# all output are redirected to ${SUPPORT_FILE}
+# all output are redirected to ${SYSTEM_INFO_LOG}
 function _run_support_commands()
 {
     local file=$1
 
     cat "${file}" | while read command
     do
-        echo "" >> ${SUPPORT_FILE}
-        echo "==========> "$command" <==========" >> ${SUPPORT_FILE}
-        bash -c "$command" >> ${SUPPORT_FILE} 2>&1
+        echo "" >> ${SYSTEM_INFO_LOG}
+        echo "==========> "$command" <==========" >> ${SYSTEM_INFO_LOG}
+        bash -c "$command" >> ${SYSTEM_INFO_LOG} 2>&1
     done
 }

@@ -22,15 +22,32 @@ function proxy_setup()
     echo "host: $host"
     echo "proxy: $port"
 
-    python ${JSON_TOOL} --inline --edit http_proxy.host  ${PF9_COMMS_CONF} $host > /dev/null 2>&1
-    python ${JSON_TOOL} --inline --edit http_proxy.port  ${PF9_COMMS_CONF} $port > /dev/null 2>&1
+    python ${JSON_TOOL} --inline --edit http_proxy.host  ${PF9_COMMS_CONF} $host
+    python ${JSON_TOOL} --inline --edit http_proxy.port  ${PF9_COMMS_CONF} $port
 }
 
 function _ask_proxy_settings()
 {
+    echo
+    echo "Please do not include 'http://' in front of the host"
+    echo
+    echo "Example: "
+    echo "proxy host: squid.mycompany.com "
+    echo "proxy port: 3128 "
+    echo
+
     while true; do
         read -p "proxy host: " PROXY_HOST
         read -p "proxy port: " PROXY_PORT
+
+        validate_proxyhost "${PROXY_HOST}"
+
+        if [[ $? == "0" ]]; then # if it matches https?://
+            echo
+            echo "Please do not include 'http://' or 'https://' on your host"
+            continue
+        fi
+        echo
 
         echo "These are your proxy settings:"
         echo "host: $PROXY_HOST"
@@ -43,4 +60,12 @@ function _ask_proxy_settings()
             *) echo "Please answer yes or no.";;
         esac
     done
+}
+
+function validate_proxyhost()
+{
+    # Check if it begins with http:// or https://
+    local host=$1
+    echo $host | grep -E -q "^https?://"
+    return $?
 }

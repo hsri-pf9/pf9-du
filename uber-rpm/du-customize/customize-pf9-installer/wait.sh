@@ -10,12 +10,10 @@ wait_dir_exists()
 
     until [[ -d $dir ]]; do
         printf "."
-        echo_debug "Directory '$dir' does not exist yet"
         tries=$((tries + 1))
-        [[ $tries -eq $max_tries ]] && { echo_debug "Timeout waiting for existence of $dir"; return 1; }
+        [[ $tries -eq $max_tries ]] && { echo; echo "Timeout waiting for existence of $dir"; return 1; }
         sleep .5
     done
-    echo_debug "Directory $dir exists"
 }
 
 wait_file_exists()
@@ -27,12 +25,10 @@ wait_file_exists()
 
     until [[ -e $file ]]; do
         printf "."
-        echo_debug "File $file does not exist yet"
         tries=$((tries + 1))
-        [[ $tries -eq $max_tries ]] && { echo_debug "Timeout waiting for existence of $file"; return 1; }
+        [[ $tries -eq $max_tries ]] && { echo; echo "Timeout waiting for existence of $file"; return 1; }
         sleep .5
     done
-    echo_debug "File $file exists"
 }
 
 wait_service_running()
@@ -44,13 +40,11 @@ wait_service_running()
     local max_tries=$((seconds * 2))
 
     until [[ $retval == "0" ]]; do
-        printf "."
-        service ${service} status > /dev/null 2>&1
+        service ${service} status
         retval=$?
         tries=$((tries + 1))
-        [[ $tries -eq $max_tries ]] && { echo_debug "Timeout waiting for ${service} to start"; return 1; }
+        [[ $tries -eq $max_tries ]] && { echo; echo "Timeout waiting for ${service} to start"; return 1; }
         sleep .5
     done
-    echo_debug "${service} is now running"
 }
 
