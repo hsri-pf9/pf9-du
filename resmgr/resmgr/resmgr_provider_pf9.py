@@ -34,6 +34,7 @@ log = logging.getLogger('resmgr')
 _unauthorized_hosts = {}
 _unauthorized_host_status_time = {}
 _authorized_host_role_status = {}
+_hosts_hypervisor_info = {}
 _host_lock = threading.Lock()
 
 def call_remote_service(url):
@@ -241,13 +242,16 @@ class HostInventoryMgr(object):
             host['state'] = RState.active if host['roles'] else RState.inactive
             if _authorized_host_role_status.get(host['id']):
                 host['role_status'] = _authorized_host_role_status[host['id']]
+            host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
             result[host['id']] = host
 
         # Add unauthorized hosts into the result
         log.debug('Looking up unauthorized hosts')
-        # Access to unauthorized hosts here is atomic. Don't need a lock
-        # for that purpose.
-        result.update(_unauthorized_hosts)
+        with _host_lock:
+            for id in _unauthorized_hosts.iterkeys():
+                host = _unauthorized_hosts[id]
+                host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
+                result[host['id']] = host
 
         return result
 
@@ -284,6 +288,7 @@ class HostInventoryMgr(object):
             host['state'] = RState.active if host['roles'] else RState.inactive
             if _authorized_host_role_status.get(host_id):
                 host['role_status'] = _authorized_host_role_status[host_id]
+            host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
             return host
 
         return {}
@@ -369,6 +374,7 @@ class BbonePoller(object):
             log.info('adding new host %s to unauthorized hosts' % unauth_host)
             _unauthorized_hosts[host] = unauth_host
             _unauthorized_host_status_time[host] = status_time
+            _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
 
             # Trigger the notifier so that clients know about it.
             self.notifier.publish_notification('add', 'host', host)
@@ -386,6 +392,7 @@ class BbonePoller(object):
                     log.warn("Unauthorized host being removed: %s", host)
                     _unauthorized_hosts.pop(host, None)
                     _unauthorized_host_status_time.pop(host, None)
+                    _hosts_hypervisor_info.pop(host, None)
                     self.notifier.publish_notification('delete', 'host', host)
                     continue
 
@@ -417,6 +424,7 @@ class BbonePoller(object):
             status_time = datetime.datetime.strptime(host_info['timestamp'],
                                                      "%Y-%m-%d %H:%M:%S.%f")
             hostname = host_info['info']['hostname']
+            _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
             if host in authorized_hosts:
                 # host is in authorized list
                 responding = self._responding_within_threshold(status_time)

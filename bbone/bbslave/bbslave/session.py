@@ -3,6 +3,7 @@
 
 __author__ = 'leb'
 
+import os
 import base64
 import pika
 import json
@@ -32,6 +33,7 @@ _converge_attempts = 0
 _hostagent_info = {}
 _allowed_commands_regexes = ['^sudo service pf9-[-\w]+ (stop|start|status|restart)$']
 _allowed_commands = ['rm -rf /var/cache/pf9apps/*']
+HYPERVISOR_INFO_FILE = 'var/opt/pf9/hypervisor_details'
 
 def _set_desired_config_basedir_path(config):
     """
@@ -147,11 +149,22 @@ def start(config, log, app_db, agent_app_db, app_cache,
 
     # ------------ nested functions ------------------
 
-    def sys_info():
-        sysinfo = get_sysinfo()
-        sysinfo['hypervisor_type'] = config.get('hostagent', 'hypervisor_type') if \
-            config.has_option('hostagent', 'hypervisor_type') else 'kvm'
-        return sysinfo
+    def hypervisor_info():
+        hypervisor_info = dict()
+
+        # Existence of this file is an indicator of 'VMWareCluster' appliance, instead of conf parameter
+        # so that upgrades do not affect this determination
+        if os.path.isfile(HYPERVISOR_INFO_FILE):
+            hypervisor_info['hypervisor_type'] = 'VMWareCluster'
+            try:
+                hypervisor_info['hypervisor_details'] = json.loads(open(HYPERVISOR_INFO_FILE).read())
+            except ValueError:
+                hypervisor_info['hypervisor_details'] = '{}'
+        else:
+            hypervisor_info['hypervisor_type'] = 'kvm'
+            hypervisor_info['hypervisor_details'] = '{}'
+
+        return hypervisor_info
 
     def get_current_config():
         """
@@ -183,7 +196,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
             'data': {
                 'host_id': _host_id,
                 'status': status,
-                'info': sys_info(),
+                'info': get_sysinfo(),
+                'hypervisor_info': hypervisor_info(),
                 'apps': config,
                 'host_agent': _hostagent_info
             }
@@ -249,7 +263,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
             'opcode': 'support',
             'data' : {
                  'host_id': _host_id,
-                 'info': sys_info(),
+                 'info': get_sysinfo(),
             }
         }
 
@@ -290,7 +304,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
             'opcode' : 'support_command_response',
             'data' : {
                 'host_id': _host_id,
-                'info': sys_info(),
+                'info': get_sysinfo(),
                 'command' : command,
             }
         }
