@@ -78,7 +78,7 @@ topic on the 'pf9-bbone' exchange. The JSON looks something like:
             },
             'hypervisor_info': {
                 'hypervisor_type': 'VMWareCluster',
-                'hypervisor_details: {
+                'hypervisor_details': {
                     'credentials': 'valid',
                     'permissions': 'valid',
                     'cluster_datastore_list': [{"cluster_1": ["datastore1", "datastore2"]}]
