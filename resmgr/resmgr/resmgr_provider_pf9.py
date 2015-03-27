@@ -774,7 +774,8 @@ class ResMgrPf9Provider(ResMgrProvider):
             raise HostNotFound(host_id)
 
         host_roles = self.res_mgr_db.query_host(host_id, fetch_role_ids=True)
-        if host_roles and active_role_in_db.id in host_roles['roles']:
+        # Allowing role updation only for the vmw role, since there is a necessary use-case for it
+        if role_name != 'pf9-ostackhost-vmw' and host_roles and active_role_in_db.id in host_roles['roles']:
             log.info('Role %s is already assigned to %s', role_name, host_id)
             return
 
