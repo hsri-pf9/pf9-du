@@ -76,6 +76,14 @@ topic on the 'pf9-bbone' exchange. The JSON looks something like:
                 'arch': 'x86_64',
                 'os_info': 'centos 6.4 Final'
             },
+            'hypervisor_info': {
+                'hypervisor_type': 'VMWareCluster',
+                'hypervisor_details: {
+                    'credentials': 'valid',
+                    'permissions': 'valid',
+                    'cluster_datastore_list': [{"cluster_1": ["datastore1", "datastore2"]}]
+                }
+            }
             'apps': {
                 'app_foo': {
                     'version': '1.8',
