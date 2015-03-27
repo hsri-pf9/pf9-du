@@ -33,7 +33,7 @@ _converge_attempts = 0
 _hostagent_info = {}
 _allowed_commands_regexes = ['^sudo service pf9-[-\w]+ (stop|start|status|restart)$']
 _allowed_commands = ['rm -rf /var/cache/pf9apps/*']
-HYPERVISOR_INFO_FILE = 'var/opt/pf9/hypervisor_details'
+HYPERVISOR_INFO_FILE = '/var/opt/pf9/hypervisor_details'
 
 def _set_desired_config_basedir_path(config):
     """
@@ -161,8 +161,10 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 # {"credentials":"valid/invalid",
                 # "permissions":"valid/invalid",
                 # "cluster_datastore_list":[{"cluster_1": ["datastore1", "datastore2"]}]}
-                hypervisor_info['hypervisor_details'] = json.loads(open(HYPERVISOR_INFO_FILE).read())
-            except ValueError:
+                with open(HYPERVISOR_INFO_FILE) as f:
+                    hypervisor_info['hypervisor_details'] = json.loads(f.read())
+            except:
+                log.warn('Hypervisor info file found, but contents could not be parsed')
                 hypervisor_info['hypervisor_details'] = '{}'
         else:
             hypervisor_info['hypervisor_type'] = 'kvm'
