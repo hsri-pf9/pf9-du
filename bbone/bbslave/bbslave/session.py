@@ -163,8 +163,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 # "cluster_datastore_list":[{"cluster_1": ["datastore1", "datastore2"]}]}
                 with open(HYPERVISOR_INFO_FILE) as f:
                     hypervisor_info['hypervisor_details'] = json.loads(f.read())
-            except:
-                log.warn('Hypervisor info file found, but contents could not be parsed')
+            except Exception as e:
+                log.warn('Hypervisor info file found, but contents could not be parsed, exception: %s', str(e))
                 hypervisor_info['hypervisor_details'] = '{}'
         else:
             hypervisor_info['hypervisor_type'] = 'kvm'
