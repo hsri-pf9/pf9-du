@@ -157,6 +157,10 @@ def start(config, log, app_db, agent_app_db, app_cache,
         if os.path.isfile(HYPERVISOR_INFO_FILE):
             hypervisor_info['hypervisor_type'] = 'VMWareCluster'
             try:
+                # The file is already created, and contains json in the form:
+                # {"credentials":"valid/invalid",
+                # "permissions":"valid/invalid",
+                # "cluster_datastore_list":[{"cluster_1": ["datastore1", "datastore2"]}]}
                 hypervisor_info['hypervisor_details'] = json.loads(open(HYPERVISOR_INFO_FILE).read())
             except ValueError:
                 hypervisor_info['hypervisor_details'] = '{}'
