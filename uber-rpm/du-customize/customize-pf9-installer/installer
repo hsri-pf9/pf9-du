@@ -10,15 +10,22 @@ source $(dirname $0)/support.sh
 source $(dirname $0)/check_os_distro.sh
 source $(dirname $0)/installer.${DISTRO}
 
+function cleanup()
+{
+    rm -rf $TMPDIR
+}
+trap cleanup EXIT
+
 function usage()
 {
     echo
     echo "Description: Platform9 installer"
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "--proxy=<host>:<port>  | Setup HTTP proxy with <host> and <port> as the proxy host and port respectively"
+    echo "--proxy=<host>:<port>  | Setup HTTP proxy with <host> and <port> as the proxy host and port respectively."
     echo "--no-proxy             | Do not setup proxy."
-    echo "--help                 | Display program help"
+    echo "--extract              | Extract installation files to /tmp/pf9-install-XXXXX and exit."
+    echo "--help                 | Display program help."
 }
 
 while getopts ":-:" optchar; do
@@ -46,6 +53,13 @@ while getopts ":-:" optchar; do
 
                     ASK_PROXY="false"
                     SETUP_PROXY="true"
+                    ;;
+                extract)
+                    # disable the EXIT trap that cleans up our $TMPDIR
+                    trap - EXIT
+                    echo "Files extracted at: ${TMPDIR}"
+                    echo
+                    exit 0
                     ;;
                 help)
                     usage
