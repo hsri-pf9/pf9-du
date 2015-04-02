@@ -25,7 +25,8 @@ captures it at run time for the app.
 # this list out of the hostagent scope
 
 file_list = [
-    '/var/log/pf9/*'
+    '/var/log/pf9/*',
+    '/var/opt/pf9/hypervisor_details'
 ]
 
 support_logging_dir = '/var/log/pf9/support'
