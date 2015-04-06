@@ -76,7 +76,7 @@ def reconnect_loop(config):
             # Clean exit
             return
         except AMQPConnectionError:
-            log.error('Connection error. Retrying in %d seconds.', retry_period)
+            log.exception('Connection error. Retrying in %d seconds.', retry_period)
             time.sleep(retry_period)
         except KeyboardInterrupt:
             log.info('Terminated by user. Exiting.')

@@ -506,6 +506,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
     ssl_options = get_ssl_options(config)
     queue_name = config.get('amqp', 'queue_name') if config.has_option('amqp',
         'queue_name') else 'bbslave-q-' + _host_id
+    socket_timeout = float(config.get('amqp', 'connect_timeout')) \
+        if config.has_option('amqp', 'connect_timeout') else 2.5
     dual_channel_io_loop(log,
                          host=amqp_host,
                          credentials=credentials,
@@ -517,7 +519,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
                          send_channel_down_cb=send_channel_down_cb,
                          consume_cb=consume_msg,
                          virtual_host=vhost,
-                         ssl_options=ssl_options)
+                         ssl_options=ssl_options,
+                         socket_timeout=socket_timeout)  # in secs
 
     if 'connection_closed_unexpectedly' in state:
         log.error('Connection closed unexpectedly.')

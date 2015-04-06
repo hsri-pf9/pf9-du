@@ -106,6 +106,10 @@ def io_loop(log,
                                        no_ack=True)
 
     port = 5671 if ssl_options else 5672
+    # NOTE: The connection below doesn't use socket timeout yet because the only
+    # consumers of this io_loop call are services within the DU and being local to
+    # rabbit, they don't have latency issues like services running on customer
+    # site.
     connection = pika.SelectConnection(
             pika.ConnectionParameters(
                 host=host,
@@ -131,7 +135,8 @@ def dual_channel_io_loop(log,
                          send_channel_down_cb,
                          consume_cb,
                          virtual_host=None,
-                         ssl_options=None):
+                         ssl_options=None,
+                         socket_timeout=None):
     """
     Connects to AMQP broker and enters message processing loop.
     Sets up 2 channels, one for sending, and the other for receiving.
@@ -222,6 +227,7 @@ def dual_channel_io_loop(log,
                 credentials=credentials,
                 virtual_host=virtual_host,
                 ssl=ssl_options is not None,
-                ssl_options=ssl_options),
+                ssl_options=ssl_options,
+                socket_timeout=socket_timeout),
             on_open_callback=on_open)
     conn.ioloop.start()
