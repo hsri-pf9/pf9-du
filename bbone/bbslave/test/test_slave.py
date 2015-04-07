@@ -178,11 +178,22 @@ def clean_amqp_broker():
     vhost.clean_amqp_broker(config, log, amqp_endpoint)
 
 @with_setup(prep_amqp_broker, clean_amqp_broker)
+def test_slave_with_different_number_of_services():
+    """
+    Simulates a backbone master to test operations through a slave agent with different number of services
+    """
+
+    config.set('hostagent', 'mock_app_class', 'MockRemoteAppWithDifferentNumberOfServices')
+    test_data = test_slave_data.test_data_different_number_of_services
+    _exercise_testroutine(test_data)
+
+@with_setup(prep_amqp_broker, clean_amqp_broker)
 def test_slave_install():
     """
     Simulates a backbone master to test install operations through a slave agent
     """
 
+    config.set('hostagent', 'mock_app_class', 'MockRemoteApp')
     test_data = test_slave_data.test_data_install
     _exercise_testroutine(test_data)
 
@@ -193,6 +204,7 @@ def test_slave_ping():
     Simulates a backbone master to test ping operations through a slave agent
     """
 
+    config.set('hostagent', 'mock_app_class', 'MockRemoteApp')
     test_data = test_slave_data.test_data_ping
     _exercise_testroutine(test_data)
 
@@ -202,5 +214,7 @@ def test_slave_config():
 Simulates a backbone master to test config operations through a slave agent
 """
 
+    config.set('hostagent', 'mock_app_class', 'MockRemoteApp')
     test_data = test_slave_data.test_data_config
     _exercise_testroutine(test_data)
+

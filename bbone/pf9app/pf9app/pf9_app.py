@@ -83,15 +83,116 @@ class Pf9App(App):
         """
         return self.app_version
 
-    def set_run_state(self, run_state):
+    def _get_services(self):
         """
-        Starts or stops the application.
-        :param bool run_state: Whether the app should be running.
+        Returns a 2-tuple.
+        The first element is boolean flag which tells us whether the config script
+            implements the '--get-services' option.
+        The second element is a list of services to manage.
+        :rtype: (bool, list)
+        """
+        cfgscript = self._get_config_script()
+
+        # The script shall return a non zero return code in case of an error
+        code, out, err = _run_command("%s --get-services" % cfgscript)
+        if code:
+            self.log.debug("%s does not implement the --get-services option. Falling back to compatibility mode",
+                self.app_name)
+            return False, []
+
+        if len(out) > 0:
+            return True, out.split(' ')
+        else:
+            return True, []
+
+    @property
+    def services(self):
+        """
+        Returns the app's list of services using the config script.
+        Returns an empty list if option returns a non-zero exit code
+            or if the config script returns an empty string--which
+            means there are no services to manage.
+        :rtype: list
+        """
+        implements_service_states, service_list = self._get_services()
+        return service_list
+
+    @property
+    def implements_service_states(self):
+        """
+        Returns True if the config script implements the --get-services option.
+        :rtype: bool
+        """
+        implements_service_states, service_list = self._get_services()
+        return implements_service_states
+
+    def has_desired_service_states(self, desired):
+        """
+        Returns True if Pf9App has the desired running state for each service
+        :param dict desired: a dictionary of services to check where the
+        keys are the names of the services and values are booleans corresponding
+        to their desired running state.
+        {
+            "pf9-ostackhost": True,
+            "pf9-novncproxy": False
+        }
+        :rtype: bool
+        """
+        self.log.debug("Checking whether services have the desired state")
+        if self.implements_service_states:
+            current_state = self.get_service_states()
+        else:
+            current_state = { self.app_name: self.running }
+        return current_state == desired
+
+    def set_desired_service_states(self, services, stop_all=False):
+        """
+        Sets the desired running state for each service.
+        :param dict services: a dictionary of services
+        :param bool stop_all: a flag to signal to stop all services
+            used during uninstalls
         :raises ServiceCtrlError: if the service state change operation fails
         """
-        cmd = SERVICECMD % (self.app_name, "start" if run_state else "stop")
+        self.log.info("Setting the desired service state")
+
+        for name, service_state in services.iteritems():
+            run_state = False if stop_all else service_state
+            self._set_run_state(name, run_state)
+
+    def get_service_states(self):
+        """
+        Returns a dictionary of services along with their running states.
+        :rtype: dict
+
+        {
+            "pf9-ostackhost": True ,
+            "pf9-novncproxy": True
+        }
+        """
+        self.log.info("Getting the current service states")
+
+        services_dict = {}
+        for service_name in self.services:
+
+            cmd = SERVICECMD % (service_name, "status")
+            code, out, err = _run_command(cmd)
+            self.log.debug("Command %s, code=%d stdout=%s stderr=%s",
+                cmd, code, out, err)
+
+            # Refer to LSB specification for the codes. If code is 0, then service is
+            # assumed to be running.
+            services_dict[service_name] = code == 0
+        return services_dict
+
+    def _set_run_state(self, service, run_state):
+        """
+        Starts or stops a service.
+        :param bool run_state: Whether the service should be running.
+        :raises ServiceCtrlError: if the service state change operation fails
+        """
+        cmd = SERVICECMD % (service, "start" if run_state else "stop")
         self.log.info("Setting service state %s.%s. Command: %s",
-                      self.name, self.version, cmd)
+                      service, self.version, cmd)
         code, out, err = _run_command(cmd)
         if code:
             self.log.error("Command %s, code=%d stdout=%s stderr=%s",
@@ -156,12 +257,16 @@ class Pf9App(App):
         """
         Uninstalls the application.
 
-        Stops it first if it is running.
-        :raises ServiceCtrlError: if stopping the service fails before the uninstall
+        Stops the services if they are running.
+        :raises ServiceCtrlError: if stopping the service(s) fails before the uninstall
         """
         self.log.info("Removing %s.%s", self.name, self.version)
-        # Stop the running service first
-        self.set_run_state(False)
+        # Stop the running service(s) first
+        if self.implements_service_states:
+            services = self.get_service_states()
+        else:
+            services = { self.app_name: self.running }
+        self.set_desired_service_states(services, stop_all=True)
 
         # Stop service will raise an exception if it fails, uninstall will be
         # called only if that succeeds

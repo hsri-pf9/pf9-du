@@ -45,9 +45,17 @@ def reconnect_loop(config):
 
     use_mock = config.has_option('hostagent', 'USE_MOCK')
     if use_mock:
+
+        # dynamically import class from the config file
+        if config.has_option('hostagent', 'mock_app_class'):
+            mock_app_class = config.get('hostagent', 'mock_app_class')
+            loaded_module = __import__('pf9app.mock_app', fromlist=[mock_app_class])
+            RemoteApp = getattr(loaded_module, mock_app_class)
+        else:
+            from pf9app.mock_app import MockRemoteApp as RemoteApp
+
         from pf9app.mock_app_db import MockAppDb as AppDb
         from pf9app.mock_app_cache import MockAppCache as AppCache
-        from pf9app.mock_app import MockRemoteApp as RemoteApp
         #TODO: Figure out if we need a mock implementation for agentAppDb
         Pf9AgentDb = AppDb
         Pf9AgentApp = RemoteApp

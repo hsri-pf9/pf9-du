@@ -63,6 +63,7 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
     for app_name in identical_app_names:
         app = installed_apps[app_name]
         new_app_spec = new_config[app_name]
+        services = new_app_spec.get('service_states')
         assert isinstance(new_app_spec, dict)
         new_app_config = new_app_spec['config']
         if app.version != new_app_spec['version']:
@@ -81,7 +82,9 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
                 # if, for example, the wrong package URL was specified.
                 # assert new_app.version == new_app_spec['version']
                 new_app.set_config(new_app_config)
-                new_app.set_run_state(new_app_spec['running'])
+                if services is None:
+                    services = { app_name : new_app_spec['running'] }
+                new_app.set_desired_service_states(services)
             changes += 1
         else:
             if not is_dict_subset(new_app_config, app.get_config()):
@@ -90,14 +93,17 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
                 if not probe_only:
                     app.set_config(new_app_config)
                 changes += 1
-            if app.running != new_app_spec['running']:
+            if services is None:
+                services = { app_name : new_app_spec['running'] }
+            if not app.has_desired_service_states(services):
                 if not probe_only:
-                    app.set_run_state(new_app_spec['running'])
+                    app.set_desired_service_states(services)
                 changes += 1
     for app_name in new_app_names:
         if not probe_only:
             new_app_spec = new_config[app_name]
             new_app_config = new_app_spec['config']
+            services = new_app_spec.get('service_states')
             new_app = remote_app_class(name=app_name,
                                        version=new_app_spec['version'],
                                        url=url_from_app_spec(new_app_spec),
@@ -108,7 +114,9 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
             new_app.download()
             new_app.install()
             new_app.set_config(new_app_config)
-            new_app.set_run_state(new_app_spec['running'])
+            if services is None:
+                services = { app_name : new_app_spec['running'] }
+            new_app.set_desired_service_states(services)
         changes += 1
     return changes
 

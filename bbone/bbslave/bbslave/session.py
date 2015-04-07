@@ -181,11 +181,18 @@ def start(config, log, app_db, agent_app_db, app_cache,
         apps = app_db.query_installed_apps()
         config = {}
         for app_name, app in apps.iteritems():
-            config[app_name] = {
-                'version': app.version,
-                'running': app.running,
-                'config': app.get_config()
-            }
+            if app.implements_service_states:
+                config[app_name] = {
+                    'version': app.version,
+                    'config': app.get_config(),
+                    'service_states': app.get_service_states()
+                }
+            else:
+                config[app_name] = {
+                    'version': app.version,
+                    'running': app.running,
+                    'config': app.get_config()
+                }
         return config
 
     def send_status(status, config, desired_config=None):

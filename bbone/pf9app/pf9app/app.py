@@ -38,6 +38,61 @@ class App(object):
         """
         pass
 
+    @property
+    @abstractmethod
+    def services(self):
+        """
+        Returns the app's list of services
+        Returns an empty list if there are no services to manage
+        :rtype: list
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def implements_service_states(self):
+        """
+        Returns True if the app implements the new way of managing services
+        The new way means we have a dictionary of services to manage which may
+        be empty.
+        The old way assumes that there is only one such service to manage which
+        has the same name as the app.
+        :rtype: bool
+        """
+        pass
+
+    @abstractmethod
+    def has_desired_service_states(self, desired):
+        """
+        Returns True if Pf9App has the desired running state for each service
+        :param dict desired: a dictionary of services to check where the
+        keys are the names of the services and values are booleans corresponding
+        to their desired running state.
+        {
+            "pf9-ostackhost": True,
+            "pf9-novncproxy": False
+        }
+        :rtype: bool
+        """
+        pass
+
+    @abstractmethod
+    def set_desired_service_states(self, services, stop_all=False):
+        """
+        Sets the desired running state for each service.
+        :param dict services: a dictionary containing services and their
+            desired states
+        """
+        pass
+
+    @abstractmethod
+    def get_service_states(self):
+        """
+        Returns a dictionary of services along with their running states
+        :rtype: dict
+        """
+        pass
+
     @abstractmethod
     def get_config(self):
         """
@@ -66,15 +121,6 @@ class App(object):
         Stops it first if it is running.
         """
         pass
-
-    @abstractmethod
-    def set_run_state(self, run_state):
-        """
-        Starts or stops the application.
-        :param bool run_state: Whether the app should be running.
-        """
-        pass
-
 
 class RemoteApp(App):
     """

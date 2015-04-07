@@ -389,3 +389,126 @@ test_data_ping = [
         }
     }
 ]
+
+# This assumes that the corresponding config
+# script returns the correct number and names
+# of the services being managed
+test_data_different_number_of_services = [
+    {
+        'opcode': 'set_config',
+        'expect_converging': True,
+        'desired_config': {
+            # Introduce 1 app with no services
+            'foo': {
+                'version': '1.0',
+                'url': 'http://zz.com/foo-1.0.rpm',
+                'service_states': {},
+                'config': {
+                    'default': {
+                        'x':1,
+                        'y':2
+                    },
+                    'backup': {
+                        'x':3,
+                        'y':5
+                    }
+                }
+            }
+        }
+    },
+    {
+        'opcode': 'set_config',
+        'expect_converging': True,
+        'desired_config': {
+            # Add 1 service
+            'foo': {
+                'version': '1.0',
+                'url': 'http://zz.com/foo-1.0.rpm',
+                'service_states': { 'foo': True },
+                'config': {
+                    'default': {
+                        'x':1,
+                        'y':2
+                    },
+                    'backup': {
+                        'x':3,
+                        'y':5
+                    }
+                }
+            }
+        }
+    },
+    {
+        'opcode': 'set_config',
+        'expect_converging': True,
+        'desired_config': {
+            # Add  another service and change the state of the other
+            'foo': {
+                'version': '1.0',
+                'url': 'http://zz.com/foo-1.0.rpm',
+                'service_states': { 'foo': False, 'bar': True },
+                'config': {
+                    'default': {
+                        'x':1,
+                        'y':2
+                    },
+                    'backup': {
+                        'x':3,
+                        'y':5
+                    }
+                }
+            }
+        }
+    },
+    {
+        'opcode': 'set_config',
+        'expect_converging': True,
+        'desired_config': {
+            # Change states and version update
+            'foo': {
+                'version': '1.5',
+                'url': 'http://zz.com/foo-1.5.rpm',
+                'service_states': { 'foo': True, 'bar': False },
+                'config': {
+                    'default': {
+                        'x':1,
+                        'y':2
+                    },
+                    'backup': {
+                        'x':3,
+                        'y':5
+                    }
+                }
+            }
+        }
+    },
+    {
+        'opcode': 'set_config',
+        'expect_converging': True,
+        'desired_config': {
+            # Remove a service
+            'foo': {
+                'version': '1.0',
+                'url': 'http://zz.com/foo-1.0.rpm',
+                'service_states': { 'bar': False },
+                'config': {
+                    'default': {
+                        'x':1,
+                        'y':2
+                    },
+                    'backup': {
+                        'x':3,
+                        'y':5
+                    }
+                }
+            }
+        }
+    },
+    {
+        'opcode': 'set_config',
+        'expect_converging': True,
+        'desired_config': {
+            # Remove everything
+        }
+    }
+]
