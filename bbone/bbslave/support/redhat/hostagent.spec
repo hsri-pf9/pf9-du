@@ -40,6 +40,7 @@ rm -rf $RPM_BUILD_ROOT
 %dir /var/cache/pf9apps
 %attr(0440, root, root) /etc/sudoers.d/pf9-hostagent
 %attr(0550, root, root) /opt/pf9/hostagent/bin/pf9-yum
+%attr(0550, root, root) /opt/pf9/hostagent/bin/openport.py
 %dir /var/opt/pf9
 %config /etc/pf9/hostagent.conf
 /etc/pf9/certs

@@ -37,7 +37,7 @@ sed -i -e "s/CHANGE_TO_YOUR_AMQP_PASS/$AMQP_PASS/" $TARBALL_EXPANDED_LOCATION/et
 mkdir -p $PRIVATE_FILES_DIR
 
 fpm -t deb -s dir --provides "pf9-hostagent" --provides "pf9-bbslave" -d "sudo" \
-        -d "python-setuptools" --after-install $SPEC_FILE_DIR/after-install.sh \
+        -d "python-setuptools" -d "iptables-persistent" --after-install $SPEC_FILE_DIR/after-install.sh \
         --after-remove $SPEC_FILE_DIR/after-remove.sh --before-remove $SPEC_FILE_DIR/before-remove.sh \
         --license "Commercial" --architecture all --url "http://www.platform9.net" --vendor Platform9 \
         -v $VERSION-$RELEASE -p $DEB_FILE -n pf9-hostagent --description "Platform9 host agent" \
