@@ -24,6 +24,7 @@ $(HOSTAGENT_TARBALL): $(VENV_DIR)
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/rc.d/init.d
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/sudoers.d
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/var/opt/pf9
+	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/extensions
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/var/cache/pf9apps
 	cp $(SRC_DIR)/support_scripts/redhat/* $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/support/
 	cp $(SRC_DIR)/etc/init.d/pf9-hostagent-redhat $(HOSTAGENT_TARBALL_SRCDIR)/etc/rc.d/init.d/pf9-hostagent
@@ -31,6 +32,7 @@ $(HOSTAGENT_TARBALL): $(VENV_DIR)
 	cp $(SRC_DIR)/support/redhat/hostagent.spec $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/redhat/hostagent-rpm-build.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/scripts/pf9-yum $(VENV_DIR)/bin
+	cp $(SRC_DIR)/extensions/* $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/extensions
 	cd $(HOSTAGENT_TARBALL_SRCDIR) && \
 	tar -czf $(HOSTAGENT_TARBALL) *
 

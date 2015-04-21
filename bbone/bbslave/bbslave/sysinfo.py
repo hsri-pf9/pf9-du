@@ -8,6 +8,7 @@ import uuid
 import os
 import socket
 
+
 def get_sysinfo():
     """
     Returns a dictionary describing the host and operating system.
@@ -20,6 +21,7 @@ def get_sysinfo():
         'arch': platform.machine(),
         'os_family': platform.system()
     }
+
 
 def get_host_id(base_dir='/etc/pf9'):
     """

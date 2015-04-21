@@ -35,6 +35,7 @@ _unauthorized_hosts = {}
 _unauthorized_host_status_time = {}
 _authorized_host_role_status = {}
 _hosts_hypervisor_info = {}
+_hosts_extension_data = {}
 _host_lock = threading.Lock()
 
 def call_remote_service(url):
@@ -243,6 +244,7 @@ class HostInventoryMgr(object):
             if _authorized_host_role_status.get(host['id']):
                 host['role_status'] = _authorized_host_role_status[host['id']]
             host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
+            host['extensions'] = _hosts_extension_data.get(host['id'], '')
             result[host['id']] = host
 
         # Add unauthorized hosts into the result
@@ -251,6 +253,7 @@ class HostInventoryMgr(object):
             for id in _unauthorized_hosts.iterkeys():
                 host = _unauthorized_hosts[id]
                 host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
+                host['extensions'] = _hosts_extension_data.get(host['id'], '')
                 result[host['id']] = host
 
         return result
@@ -289,6 +292,7 @@ class HostInventoryMgr(object):
             if _authorized_host_role_status.get(host_id):
                 host['role_status'] = _authorized_host_role_status[host_id]
             host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
+            host['extensions'] = _hosts_extension_data.get(host['id'], '')
             return host
 
         return {}
@@ -389,6 +393,7 @@ class BbonePoller(object):
             _unauthorized_hosts[host] = unauth_host
             _unauthorized_host_status_time[host] = status_time
             _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
+            _hosts_extension_data[host] = host_info.get('extensions', '')
 
             # Trigger the notifier so that clients know about it.
             self.notifier.publish_notification('add', 'host', host)
@@ -407,6 +412,7 @@ class BbonePoller(object):
                     _unauthorized_hosts.pop(host, None)
                     _unauthorized_host_status_time.pop(host, None)
                     _hosts_hypervisor_info.pop(host, None)
+                    _hosts_extension_data.pop(host, None)
                     self.notifier.publish_notification('delete', 'host', host)
                     continue
 
@@ -439,6 +445,7 @@ class BbonePoller(object):
                                                      "%Y-%m-%d %H:%M:%S.%f")
             hostname = host_info['info']['hostname']
             _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
+            _hosts_extension_data[host] = host_info.get('extensions', '')
             if host in authorized_hosts:
                 # host is in authorized list
                 host_status = host_info['status']

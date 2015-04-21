@@ -14,6 +14,7 @@ setup(
     author_email='',
     install_requires=[
         'pika',
+        'netifaces',
         'pf9app',
         'bbcommon',
         'configutils'

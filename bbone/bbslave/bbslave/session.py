@@ -18,6 +18,9 @@ from pf9app.app import RemoteApp
 from pf9app.algorithms import process_apps, process_agent_update
 from pf9app.exceptions import Pf9Exception
 from pf9app.pf9_app import _run_command
+import glob
+import subprocess
+import shlex
 import re
 from sysinfo import get_sysinfo, get_host_id
 from bbcommon.utils import is_satisfied_by, get_ssl_options
@@ -114,6 +117,24 @@ def save_desired_config(log, desired_config):
         except Exception as e:
             log.error('Failed to save desired configuration: %s', e)
 
+
+def _run_command(command, log):
+    """
+    Runs a command
+    :param str command: Command to be executed.
+    :return: a tuple representing (code, output), where code is the
+    return code of the command, output of the command
+    :rtype: tuple
+    """
+    try:
+        out = subprocess.check_output(shlex.split(command))
+        # Command was successful, return code must be 0 with relevant output
+        return 0, out
+    except suprocess.CalledProcessError as e:
+        log.error('%s command failed: %s', command, e)
+        return e.returncode, e.output
+
+
 def start(config, log, app_db, agent_app_db, app_cache,
           remote_app_class, agent_app_class,
           channel_retry_period=10):
@@ -135,10 +156,11 @@ def start(config, log, app_db, agent_app_db, app_cache,
         config.has_option('hostagent', 'allow_exit_opcode') else False
     max_converge_attempts = int(config.get('hostagent', 'max_converge_attempts'))
     heartbeat_period = int(config.get('hostagent', 'heartbeat_period'))
+    extensions_path = config.get('hostagent', 'extensions_path') if \
+        config.has_option('hostagent', 'extensions_path') else '/opt/pf9/hostagent/extensions'
     _load_host_agent_info(agent_app_db)
     _set_desired_config_basedir_path(config)
     _persist_host_id()
-
 
     # This dictionary holds AMQP variables set by the various nested functions.
     # We need a dictionary because python 2.x lacks the 'nonlocal' keyword
@@ -195,6 +217,58 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 }
         return config
 
+    def get_extension_data():
+        """
+        Get data from data extensions of host agent. Runs scripts that
+        match a certain filename pattern and are placed in the extensions
+        directory
+        """
+        ext_data = {}
+        # Files which need to be run should start with fetch_ or check_
+        # prefix.
+        file_types = ['fetch_', 'check_']
+        for ftype in file_types:
+            # Find files that match the pattern
+            file_pattern = os.path.join(extensions_path, '%s*' % ftype)
+            for fpath in glob.iglob(file_pattern):
+                fname, ext = os.path.splitext(os.path.basename(fpath))
+                # The script name (without the fetch_ or check_ prefix)
+                # is used as a key in the output dict
+                try:
+                    m = re.search('%s(.+)' % ftype, fname).group(1)
+                except AttributeError:
+                    # deal with the error here.
+                    log.error('File %s does not meet expected extension file '
+                              'naming convention', fname)
+                    continue
+
+                # Run the command
+                rcode, output = _run_command(fpath, log)
+                if rcode:
+                    # Running the extension failed
+                    ext_result = {
+                        'status': 'error',
+                        'data': output
+                    }
+                else:
+                    try:
+                        # Try to build result dict which is JSON serializable
+                        ext_result = {
+                            'status': 'ok',
+                            'data': json.loads(output)
+                        }
+                    except Exception as e:
+                        log.error('Extension data %s is not JSON serializable: %s',
+                                  output, e)
+                        ext_result = {
+                            'status': 'error',
+                            'data': 'Extension returned non JSON serializable data'
+                        }
+
+                ext_data.update({m: ext_result})
+
+        return ext_data
+
     def send_status(status, config, desired_config=None):
         """
         Sends a message to the master.
@@ -212,7 +286,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 'info': get_sysinfo(),
                 'hypervisor_info': hypervisor_info(),
                 'apps': config,
-                'host_agent': _hostagent_info
+                'host_agent': _hostagent_info,
+                'extensions': get_extension_data()
             }
         }
         if desired_config is not None:
@@ -274,9 +349,9 @@ def start(config, log, app_db, agent_app_db, app_cache,
             return
         msg = {
             'opcode': 'support',
-            'data' : {
-                 'host_id': _host_id,
-                 'info': get_sysinfo(),
+            'data': {
+                'host_id': _host_id,
+                'info': get_sysinfo(),
             }
         }
 
@@ -314,11 +389,11 @@ def start(config, log, app_db, agent_app_db, app_cache,
             return False
 
         msg = {
-            'opcode' : 'support_command_response',
-            'data' : {
+            'opcode': 'support_command_response',
+            'data': {
                 'host_id': _host_id,
                 'info': get_sysinfo(),
-                'command' : command,
+                'command': command,
             }
         }
 

@@ -92,6 +92,17 @@ Example:
             "responding": <true|false>,
             "last_response_time": <date|null>
         },
+        "hypervisor_info": {
+            "hypervisor_type": "kvm|vmwareCluster",
+            "hypervisor_details": <Messages from hypervisor>
+            }
+        "extensions": {
+            "extension 1": {
+               "status": "OK|error",
+               "data": <extension data>
+               },
+               ...
+            }
         "roles": ["role_1", "role2"],
         "role_status": "<ok|converging|retrying|failed>"
     },
@@ -105,8 +116,18 @@ Example:
             "os_info": "centos 6.4 Final"
             "responding": <true|false>,
             "last_response_time": <date|null>
-
         },
+        "hypervisor_info": {
+            "hypervisor_type": "kvm|vmwareCluster",
+            "hypervisor_details": <Messages from hypervisor>
+            }
+        "extensions": {
+            "extension 1": {
+               "status": "OK|error",
+               "data": <extension data>
+               },
+               ...
+            }
         "roles": ["role_2", "role5"],
         "role_status": "<ok|converging|retrying|failed>"
     },
@@ -133,8 +154,18 @@ Example:
         "os_info": "centos 6.4 Final"
         "responding": <true|false>,
         "last_response_time": <date|null>
-
     },
+    "hypervisor_info": {
+            "hypervisor_type": "kvm|vmwareCluster",
+            "hypervisor_details": <Messages from hypervisor>
+            }
+    "extensions": {
+        "extension 1": {
+           "status": "OK|error",
+           "data": <extension data>
+           },
+           ...
+        }
     "state": "<inactive|activating|active>",
     "roles": ["role4", "role3"],
     "role_status": "<ok|converging|retrying|failed>"
