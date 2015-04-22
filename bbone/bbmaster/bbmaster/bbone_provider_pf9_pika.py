@@ -317,7 +317,6 @@ class bbone_provider_pf9(bbone_provider_memory):
             These queues are deleted when the server restarts.
             """
             def on_bbslave_queue_bind(method_frame):
-                self.hosts_with_queues.add(host_id)
                 append_pending_msg()
 
             def on_bbslave_queue_declare(method_frame):
@@ -332,8 +331,7 @@ class bbone_provider_pf9(bbone_provider_memory):
             queue_name = constants.HOSTAGENT_QUEUE_PREFIX + host_id
             self.state['channel'].queue_declare(queue=queue_name,
                                                 callback=on_bbslave_queue_declare)
-        if (routing_key != constants.BROADCAST_TOPIC and
-                routing_key not in self.hosts_with_queues):
+        if routing_key != constants.BROADCAST_TOPIC:
             # Routing key is a host_id
             #
             # Since declaring the queue is async, we will add to
