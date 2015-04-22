@@ -99,7 +99,7 @@ pre-reqs: ${VENV}
 	# https://bitbucket.org/pypa/setuptools/issue/73/typeerror-dist-must-be-a-distribution
 	source ${VENV}/bin/activate &&  \
 	pip install python-keystoneclient &&  \
-	pip install Paste && \
+	pip install Paste==1.7.5.1 && \
 	pip install PasteDeploy && \
 	deactivate
 
