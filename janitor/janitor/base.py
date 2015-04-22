@@ -31,6 +31,8 @@ class Base(object):
 
         resp = None
 
+        req_type = req_type.lower()
+
         if req_type == 'get':
             resp = requests.get(url, verify=False, headers=headers)
         elif req_type == 'delete':

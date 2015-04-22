@@ -63,8 +63,8 @@ def serve(config_file):
             nova_obj.cleanup()
             glance_obj.cleanup()
             nw_obj.cleanup()
-        except (exceptions.ConnectionError, urllib_exceptions.ProtocolError):
-            LOG.info('Keystone service unavailable, will retry in a bit')
+        except (exceptions.ConnectionError, urllib_exceptions.ProtocolError) as e:
+            LOG.info('Connection error: {err}, will retry in a bit'.format(err=e))
         except RuntimeError as e:
             LOG.error('Unexpected error %s', e)
 
