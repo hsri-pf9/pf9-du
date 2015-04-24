@@ -169,8 +169,6 @@ class Pf9App(App):
             "pf9-novncproxy": True
         }
         """
-        self.log.info("Getting the current service states")
-
         services_dict = {}
         for service_name in self.services:
 
