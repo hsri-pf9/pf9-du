@@ -35,8 +35,17 @@ _common_config_path = None
 _converge_attempts = 0
 _hostagent_info = {}
 _allowed_commands_regexes = ['^sudo service pf9-[-\w]+ (stop|start|status|restart)$']
-_allowed_commands = ['rm -rf /var/cache/pf9apps/*']
+
+# Dictionary of potentially allowed commands.
+# The key is the command string.
+# The value specifies whether the command starts a remote ssh session.
+_allowed_commands = {
+    'rm -rf /var/cache/pf9apps/*': False,
+    '/opt/pf9/comms/utils/forward_ssh.sh': True
+}
+
 HYPERVISOR_INFO_FILE = '/var/opt/pf9/hypervisor_details'
+DEFAULT_ALLOW_REMOTE_SSH_FILE_PATH = '/etc/pf9/allow_remote_ssh'
 
 def _set_desired_config_basedir_path(config):
     """
@@ -154,6 +163,9 @@ def start(config, log, app_db, agent_app_db, app_cache,
     url_interpolations = {'host_relative_amqp_fqdn': amqp_host}
     allow_exit_opcode = config.getboolean('hostagent', 'allow_exit_opcode') if \
         config.has_option('hostagent', 'allow_exit_opcode') else False
+    allow_remote_ssh_file_path = config.get('hostagent',
+        'allow_remote_ssh_file_path') if config.has_option('hostagent',
+        'allow_remote_ssh_file_path') else DEFAULT_ALLOW_REMOTE_SSH_FILE_PATH
     max_converge_attempts = int(config.get('hostagent', 'max_converge_attempts'))
     heartbeat_period = int(config.get('hostagent', 'heartbeat_period'))
     extensions_path = config.get('hostagent', 'extensions_path') if \
@@ -170,6 +182,9 @@ def start(config, log, app_db, agent_app_db, app_cache,
     state = {}
 
     # ------------ nested functions ------------------
+
+    def is_remote_ssh_allowed():
+        return os.path.isfile(allow_remote_ssh_file_path)
 
     def hypervisor_info():
         hypervisor_info = dict()
@@ -381,7 +396,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
         """
         def _is_command_allowed():
             if command in _allowed_commands:
-                return True
+                is_remote_ssh = _allowed_commands[command]
+                return not is_remote_ssh or is_remote_ssh_allowed()
             for regex in _allowed_commands_regexes:
                 regex = re.compile(regex)
                 if regex.match(command):
