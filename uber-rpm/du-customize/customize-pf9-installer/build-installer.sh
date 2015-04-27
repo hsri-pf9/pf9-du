@@ -58,6 +58,7 @@ function setup_payload()
     cp ../support.sh support.sh
     cp ../jsontool.py  jsontool.py
     cp ../check_os_distro.sh  check_os_distro.sh
+    cp ../check_sudoers.sh  check_sudoers.sh
     cp ../support.common support.common
     cp ../support.${distro} support.${distro}
 
