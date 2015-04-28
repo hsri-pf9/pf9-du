@@ -130,7 +130,7 @@ def _run_command(command, log):
         out = subprocess.check_output(shlex.split(command))
         # Command was successful, return code must be 0 with relevant output
         return 0, out
-    except suprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError as e:
         log.error('%s command failed: %s', command, e)
         return e.returncode, e.output
 
