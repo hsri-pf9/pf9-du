@@ -64,4 +64,6 @@ $(VENV_DIR): $(PYTHON_DIR)
 	cd $(VENV_DIR)/bin && ln -s pf9-hostagent pf9-hostd
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/support/
 	cp $(SRC_DIR)/support_scripts/common/* $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/support
+	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/extensions
+	cp $(SRC_DIR)/extensions/* $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/extensions
 
