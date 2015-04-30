@@ -106,7 +106,16 @@ class NetworkCleanup(Base):
                               .format(vif=vif_id, inst=inst_id, stat=resp.status_code))
                     return
 
-            # 2. Remove the network
+            # 2. Remove all fixed IPs associated with the network
+            resp = self._nova_request('os-networks/{id}/action'.format(id=n), token,
+                                      project_id, req_type='post',
+                                      json_body={'deleteFixedIPs': None})
+            if resp.status_code not in (requests.codes.ok, 202):
+                LOG.error('Error removing fixed IPs from network {net}, status: {code}'
+                          .format(net=n, code=resp.status_code))
+                continue
+
+            # 3. Remove the network
             LOG.info('Network {net} has no hosts associated with it, cleaning up'.format(net=n))
             resp = self._nova_request('os-networks/{id}/action'.format(id=n), token,
                                       project_id, req_type='post',
