@@ -94,7 +94,10 @@ def _update_custom_role_settings(app_info, role_settings, roles):
                 app_info_temp = app_info[given_app_name]
                 for key in path:
                     app_info_temp = app_info_temp[key]
-                app_info_temp[setting_name] = role_settings[role_name][setting_name]
+                if setting_name in role_settings[role_name]:
+                    app_info_temp[setting_name] = role_settings[role_name][setting_name]
+                else:
+                    app_info_temp[setting_name] = ''
 
 
 class RolesMgr(object):
