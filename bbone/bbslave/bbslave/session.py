@@ -17,7 +17,7 @@ from pf9app.app_cache import AppCache
 from pf9app.app import RemoteApp
 from pf9app.algorithms import process_apps, process_agent_update
 from pf9app.exceptions import Pf9Exception
-from pf9app.pf9_app import _run_command
+from pf9app.pf9_app import _run_command as pf9_app_run_command
 import glob
 import subprocess
 import shlex
@@ -423,7 +423,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
                     stdout = (None,)
                 else:
                     stdout = ()
-                data['rc'], data['out'], data['err'] = _run_command(command, *stdout)
+                data['rc'], data['out'], data['err'] = pf9_app_run_command(command, *stdout)
                 log.info('Return code: %s' % data['rc'])
                 log.info('stdout: %s' % data['out'])
                 log.info('stderr: %s' % data['err'])
