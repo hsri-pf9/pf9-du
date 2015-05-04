@@ -23,6 +23,7 @@ SERVER_OPTS=""
 SERVER_LOGFILE=/var/log/pf9/${SHORT_NAME}-daemon.log
 
 PIDFILE=/var/run/${svcname}.pid
+PYTHON_EGG_CACHE=/tmp/python-eggs
 
 # Source function library.
 . /lib/lsb/init-functions
@@ -43,6 +44,10 @@ start() {
 
     # Only root can start the service
     [ $uid -ne 0 ] && exit 4
+
+    export PYTHON_EGG_CACHE=$PYTHON_EGG_CACHE
+    mkdir -p $PYTHON_EGG_CACHE
+    chown -R pf9:pf9group $PYTHON_EGG_CACHE
 
     touch $PIDFILE
     chown pf9:pf9group $PIDFILE
