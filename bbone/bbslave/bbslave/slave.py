@@ -74,6 +74,7 @@ def reconnect_loop(config):
     ssl_options = get_ssl_options(config)
     app_cache_kwargs = ssl_options if ssl_options else {}
     app_cache_kwargs['cachelocation'] = config.get('hostagent', 'app_cache_dir')
+    app_cache_kwargs['log'] = log
     app_cache = AppCache(**app_cache_kwargs)
 
     while True:
