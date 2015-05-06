@@ -32,7 +32,7 @@ class GlanceCleanup(object):
         return resp.json()
 
     def _get_images(self, token):
-        url = '%s/images/detail' % self._glance_api_url
+        url = '%s/images/detail?is_public=None' % self._glance_api_url
         resp = requests.get(url, headers={'x-auth-token': token}, verify=False)
         if resp.status_code != 200:
             msg = 'failed to get glance images list, code = %d' % \
