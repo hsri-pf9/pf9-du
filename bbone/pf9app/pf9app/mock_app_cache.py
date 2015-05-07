@@ -8,7 +8,7 @@ from urlparse import urlsplit
 
 class MockAppCache(AppCache):
 
-    def __init__(self, cachelocation):
+    def __init__(self, cachelocation, log):
         self.downloads = {}
 
     def download(self, name, version, url):
