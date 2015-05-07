@@ -9,9 +9,9 @@ EXT="deb"
 function distro_install()
 {
     echo "Installing Debian packages"
-    apt-get install -y python-setuptools
+    DEBIAN_FRONTEND=noninteractive apt-get install -y python-setuptools iptables-persistent
     if [[ $? != "0" ]]; then
-        echo "python-setuptools installation failed"
+        echo "pf9-hostagent dependencies installation failed"
         return 1
     fi
 }
