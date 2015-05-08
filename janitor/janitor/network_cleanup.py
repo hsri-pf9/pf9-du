@@ -46,7 +46,7 @@ class NetworkCleanup(Base):
             resp = self._nova_request('servers/{srv_id}/os-virtual-interfaces'.format(srv_id=instance_id),
                                       token, project_id)
             if resp.status_code != requests.codes.ok:
-                msg = '[VIF query] Received reponse: {code}'.format(resp.status_code)
+                msg = '[VIF query] Received response: {code}'.format(code=resp.status_code)
                 LOG.error(msg)
                 raise InvalidResponse(msg)
             if 'virtual_interfaces' in resp.json():
@@ -91,7 +91,11 @@ class NetworkCleanup(Base):
         if not dangling_networks:
             return
 
-        net_to_inst = self.build_instance_network_mapping(token, project_id, dangling_networks)
+        try:
+            net_to_inst = self.build_instance_network_mapping(token, project_id, dangling_networks)
+        except InvalidResponse as ie:
+            LOG.error('{msg}'.format(msg=ie))
+            return
 
         for n in dangling_networks:
             # This network should be cleaned up
