@@ -45,6 +45,9 @@ def get_ssl_options(config):
     :param ConfigParser config: The ConfigParser-like object
     :return: A dictionary of SSL options if SSL is enabled, else None
     """
+    if config.has_option('ssl', 'disable') and config.getboolean('ssl',
+                                                                 'disable'):
+        return None
     return {
             'certfile': config.get('ssl', 'certfile'),
             'keyfile': config.get('ssl', 'keyfile'),

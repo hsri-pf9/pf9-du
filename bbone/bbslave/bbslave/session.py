@@ -161,7 +161,13 @@ def start(config, log, app_db, agent_app_db, app_cache,
     """
 
     amqp_host = config.get('amqp', 'host')
-    url_interpolations = {'host_relative_amqp_fqdn': amqp_host}
+    download_protocol = config.get('download', 'protocol')
+    download_port = config.get('download', 'port')
+    url_interpolations = {
+        'host_relative_amqp_fqdn': amqp_host,
+        'download_protocol': download_protocol,
+        'download_port': download_port
+    }
     allow_exit_opcode = config.getboolean('hostagent', 'allow_exit_opcode') if \
         config.has_option('hostagent', 'allow_exit_opcode') else False
     allow_remote_ssh_file_path = config.get('hostagent',

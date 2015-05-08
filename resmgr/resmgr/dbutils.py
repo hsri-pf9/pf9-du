@@ -153,6 +153,8 @@ class ResMgrDB(object):
                 'auth_tenant_name'),
             'host_id': dict_tokens.HOST_ID_TOKEN,
             'host_relative_amqp_fqdn': dict_tokens.HOST_RELATIVE_AMQP_FQDN_TOKEN,
+            'download_protocol': dict_tokens.DOWNLOAD_PROTOCOL,
+            'download_port': dict_tokens.DOWNLOAD_PORT,
             'rabbit_userid' : dict_tokens.RABBIT_USERID_TOKEN,
             'rabbit_password' : dict_tokens.RABBIT_PASSWORD_TOKEN
         }

@@ -78,6 +78,10 @@ def main():
     options = parse_input()
     services = [('privateweb', options.fqdn, True), ('broker', None, True),
                 ('bbmaster', None, False), ('hostagent', None, False),
+                ('privateweb_privatefiles', 'privatefiles', True),
+                ('broker-openstack', None, True),
+                ('mysql', None, True),
+                ('ssh', None, True),
                 ('privateweb_localhost', 'localhost', True)]
 
     base_dir = options.basedir

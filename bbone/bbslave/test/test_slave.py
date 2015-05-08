@@ -35,6 +35,9 @@ config.set('amqp', 'password', 'm1llenn1umFalc0n')
 config.set('amqp', 'virtual_host', vhost.generate_amqp_vhost())
 config.add_section('hostagent')
 config.set('hostagent', 'connection_retry_period', '5')
+config.add_section('download')
+config.set('download', 'protocol', 'http')
+config.set('download', 'port', '9080')
 
 # The heartbeat period has to be long enough for the slave to generate
 # a 'failed' message for the failure case after all other tests, but
