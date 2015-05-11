@@ -541,7 +541,7 @@ def do_set_host_role(options):
 
     # Set up the headers
     with open(options.user_token_file) as token_file:
-        auth_token = token_file.read()
+        auth_token = token_file.read().strip()
     headers = {'X-Auth-Token': auth_token}
 
     app_ver_endpoint = ''.join([_resmgr_endpoint,
