@@ -37,6 +37,7 @@ _authorized_host_role_status = {}
 _hosts_hypervisor_info = {}
 _hosts_extension_data = {}
 _host_lock = threading.Lock()
+_role_delete_lock = threading.RLock()
 
 def call_remote_service(url):
     """
@@ -875,43 +876,48 @@ class ResMgrPf9Provider(ResMgrProvider):
             log.error('Role %s is not found in list of active roles', role_name)
             raise RoleNotFound(role_name)
 
-        host_inst = self.host_inventory_mgr.get_host(host_id)
-        if not host_inst:
-            log.error('Host %s is not a recognized host', host_id)
-            raise HostNotFound(host_id)
+        with _role_delete_lock:
+            host_inst = self.host_inventory_mgr.get_host(host_id)
+            if not host_inst:
+                log.error('Host %s is not a recognized host', host_id)
+                raise HostNotFound(host_id)
 
-        if role_name not in host_inst['roles']:
-            log.warn('Role %s is not assigned to %s', role_name, host_id)
-            return
+            if role_name not in host_inst['roles']:
+                log.warn('Role %s is not assigned to %s', role_name, host_id)
+                return
 
-        host_inst['roles'].remove(role_name)
+            host_inst['roles'].remove(role_name)
+            if not host_inst['roles']:
+                # If this is the last role, then follow the delete_host code path
+                self.delete_host(host_id)
+                return
 
-        # 1. Record the role removal state in the DB
-        # 2. Publish change notification
-        # 3. Push the new configuration to the host
-        # Push configuration to bbone is idempotent, so we will end up with
-        # a converged state eventually.
-        log.debug('Clearing role %s for host %s in DB', role_name, host_id)
-        credentials_to_delete = self.res_mgr_db.query_rabbit_credentials(
-                host_id=host_id,
-                rolename=role_name)
-        if len(credentials_to_delete) != 1:
-            msg = ('Invalid number of rabbit credentials for host %s and role %s'
-                   % (host_id, role_name))
-            log.error(msg)
-            raise RabbitCredentialsConfigureError(msg)
-        self.res_mgr_db.remove_role_from_host(host_id, role_name)
-        self.delete_rabbit_credentials(credentials_to_delete)
-        notifier.publish_notification('change', 'host', host_id)
-        # TODO: Think about if there is a case to remove this host from the
-        # database. If removing role from db, the role_status should be changed.
-        # See IAAS-649
+            # Following code path is for hosts that have at least one role remaining
+            # after the role removal.
 
-        log.debug('Sending request to backbone to remove role %s from %s',
-                 role_name, host_id)
-        host_details = self.res_mgr_db.query_host_and_app_details(host_id)
-        self.roles_mgr.push_configuration(host_id,
-                             host_details[host_id]['apps_config'])
+            # 1. Record the role removal state in the DB
+            # 2. Publish change notification
+            # 3. Push the new configuration to the host
+            # Push configuration to bbone is idempotent, so we will end up with
+            # a converged state eventually.
+            log.debug('Clearing role %s for host %s in DB', role_name, host_id)
+            credentials_to_delete = self.res_mgr_db.query_rabbit_credentials(
+                                    host_id=host_id,
+                                    rolename=role_name)
+            if len(credentials_to_delete) != 1:
+                msg = ('Invalid number of rabbit credentials for host %s and role %s'
+                       % (host_id, role_name))
+                log.error(msg)
+                raise RabbitCredentialsConfigureError(msg)
+            self.res_mgr_db.remove_role_from_host(host_id, role_name)
+            self.delete_rabbit_credentials(credentials_to_delete)
+            notifier.publish_notification('change', 'host', host_id)
+
+            log.debug('Sending request to backbone to remove role %s from %s',
+                      role_name, host_id)
+            host_details = self.res_mgr_db.query_host_and_app_details(host_id)
+            self.roles_mgr.push_configuration(host_id,
+                                 host_details[host_id]['apps_config'])
 
     def get_custom_settings(self, host_id, role_name):
         return self.res_mgr_db.get_custom_settings(host_id, role_name)
