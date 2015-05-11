@@ -494,12 +494,14 @@ class BbonePoller(object):
                     role_settings = authorized_hosts[host]['role_settings']
                     roles = self.rolemgr.db_handler.query_roles()
                     _update_custom_role_settings(expected_cfg, json.loads(role_settings), roles)
+                    self.db_handle.substitute_rabbit_credentials(expected_cfg, host)
                     if not is_satisfied_by(expected_cfg, host_info[cfg_key]):
                         log.debug('Pushing new configuration for %s, config: %s. '
                                   'Expected config %s', host, host_info['apps'],
                                   expected_cfg)
                         self.rolemgr.push_configuration(host, expected_cfg,
-                                                        needs_hostid_subst=False)
+                                                        needs_hostid_subst=False,
+                                                        needs_rabbit_subst=False)
                 except (BBMasterNotFound, HostConfigFailed):
                     log.exception('Backbone request for %s failed', host)
                     continue
