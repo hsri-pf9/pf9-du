@@ -493,7 +493,7 @@ class BbonePoller(object):
                         authorized_hosts[host]['apps_config'],
                         host)
                     role_settings = authorized_hosts[host]['role_settings']
-                    roles = self.rolemgr.db_handler.query_roles()
+                    roles = self.rolemgr.db_handler.query_roles_for_host(host)
                     _update_custom_role_settings(expected_cfg, json.loads(role_settings), roles)
                     self.db_handle.substitute_rabbit_credentials(expected_cfg, host)
                     if not is_satisfied_by(expected_cfg, host_info[cfg_key]):

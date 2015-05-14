@@ -529,6 +529,26 @@ class ResMgrDB(object):
 
         return results
 
+    def query_roles_for_host(self, host_id):
+        """
+        Query the role details assigned to the particular host
+        :param str host_id: ID of the host
+        :return: List of role objects for the host. None if the
+        host is not present
+        :rtype: List of roles
+        """
+        log.info('Querying roles for host %s', host_id)
+        out = None
+        with self.dbsession() as session:
+            try:
+                result = session.query(Host).filter_by(id=host_id).first()
+                if result:
+                    out = list(result.roles)
+            except NoResultFound:
+                log.exception('No host found %s', host_id)
+
+        return out
+
     def query_host(self, host_id, fetch_role_ids=False):
         """
         Query the attributes for a particular host
