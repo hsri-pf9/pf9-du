@@ -30,10 +30,19 @@ class NovaCleanup(Base):
                                                  self._auth_user,
                                                  self._auth_pass)
 
-        resp = utils.get_resmgr_hosts(self._resmgr_url, token)
+        def get_affected_instances(nova_only_ids):
+            server_list = dict((nova_id, []) for nova_id in nova_only_ids)
+            resp = self._nova_request('servers/detail?all_tenants=1', token, project_id)
+            if resp.status_code != requests.codes.ok:
+                LOG.error('Unexpected response %(code)s while querying servers', dict(code=resp.status_code))
+                raise RuntimeError('code=%s' % resp.status_code)
 
-        if resp.status_code != requests.codes.ok:
-            return
+            for server in resp.json()['servers']:
+                if server['OS-EXT-SRV-ATTR:host'] in nova_only_ids:
+                    LOG.info('Server %(uuid)s is on affected hypervisor, adding to cleanup list',
+                             dict(uuid=server['id']))
+                    server_list[server['OS-EXT-SRV-ATTR:host']].append(server['id'])
+            return server_list
 
         def get_host_to_aggr_map(nova_only_ids):
             host_to_aggr = dict((nova_id, []) for nova_id in nova_only_ids)
@@ -48,6 +57,28 @@ class NovaCleanup(Base):
                         host_to_aggr[aggr_host].append(aggr['id'])
 
             return host_to_aggr
+
+        def cleanup_servers(server_list):
+            LOG.info('Cleaning up interface records from instances on affected hypervisors')
+            for srv_id in server_list:
+                resp = self._nova_request('servers/{id}/os-virtual-interfaces'.format(id=srv_id),
+                                          token, project_id)
+
+                if resp.status_code != requests.codes.ok:
+                    raise RuntimeError('Unexpected error code: {code} when querying interfaces'
+                                       .format(code=resp.status_code))
+
+                interface_ids = [ifce['id'] for ifce in resp.json()['virtual_interfaces']]
+
+                for ifce_id in interface_ids:
+                    LOG.info('Deleting interface %(id)s', dict(id=ifce_id))
+                    json_body = dict(removeVif=ifce_id)
+                    resp = self._nova_request('servers/{srv_id}/action'.format(srv_id=srv_id), token,
+                                                                               project_id, req_type='post',
+                                                                               json_body=json_body)
+                    if resp.status_code not in (requests.codes.ok, 202):
+                        raise RuntimeError('Unexpected error code {code} when deleting interface {id}'
+                                           .format(code=resp.status_code, id=ifce_id))
 
         def cleanup_hosts(nova_id, pf9_id, host_aggr_map):
             LOG.info('Cleaning up hypervisor info for %s', pf9_id)
@@ -70,12 +101,21 @@ class NovaCleanup(Base):
             if resp.status_code != 204:
                 LOG.error('Skipping hypervisor %s, resp: %d', pf9_id, resp.status_code)
 
+        # 1. Query resmgr hosts
+        resp = utils.get_resmgr_hosts(self._resmgr_url, token)
+
+        if resp.status_code != requests.codes.ok:
+            LOG.error('Unexpected code %(code)s during authentication', dict(code=resp.status_code))
+            return
+
         resmgr_data = resp.json()
         resmgr_ids = set(h['id'] for h in filter(lambda h: h['state'] == 'active', resmgr_data))
 
+        # 2. Query nova hosts
         resp = self._nova_request('os-hypervisors/detail', token, project_id)
 
         if resp.status_code != requests.codes.ok:
+            LOG.error('Unexpected return code: %(code)s when querying hypervisors', dict(code=resp.status_code))
             return
 
         nova_data = resp.json()['hypervisors']
@@ -85,11 +125,28 @@ class NovaCleanup(Base):
             nova_map[h['OS-EXT-PF9-HYP-ATTR:host_id']] = h['id']
             nova_ids.add(h['OS-EXT-PF9-HYP-ATTR:host_id'])
 
+        # 3. Find nova-only hosts
         nova_only_ids = nova_ids.difference(resmgr_ids)
 
         host_to_aggr_map = get_host_to_aggr_map(nova_only_ids)
-        # Clean up hosts found in nova, but not with resmgr
+
+        # 4. Find instances on hypervisors TB removed
+        try:
+            server_list = get_affected_instances(nova_only_ids)
+        except RuntimeError:
+            LOG.error('Unexpected error while querying server information, aborting cleanup')
+            return
+
         for pf9_id in nova_only_ids:
+            # 5. Remove virtual interface from affected servers
+            # TODO: This should change to complete deletion of instances
+            try :
+                cleanup_servers(server_list[pf9_id])
+            except RuntimeError as re:
+                LOG.error('Unexpected error %(err)s, aborting cleanup', dict(err=re))
+                return
+
+            # 6. Clean up hosts found in nova, but not with resmgr
             cleanup_hosts(nova_map[pf9_id], pf9_id, host_to_aggr_map)
 
 
