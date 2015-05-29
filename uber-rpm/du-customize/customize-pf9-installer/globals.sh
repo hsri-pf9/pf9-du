@@ -6,6 +6,7 @@
 # always ask if user wants to configure proxy settings
 ASK_PROXY="true"
 SETUP_PROXY="true"
+VMWARE="false"
 PROXY_HOST=""
 PROXY_PORT=""
 JSON_TOOL="jsontool.py"

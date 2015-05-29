@@ -18,12 +18,13 @@ class bbone_provider:
         pass
 
     @abstractmethod
-    def get_hosts(self, id_list=[], show_comms=False):
+    def get_hosts(self, id_list=[], show_firmware_apps=False):
         """
         Returns a list of host descriptors corresponding to the specified
         id list. If the list is empty, all host descriptors are returned.
         :param id_list: list of host ids
-        :param show_comms: whether to show pf9-comms in app configurations
+        :param show_firmware_apps: whether to show firmware apps in app
+                                   configurations
         :rtype: list
         """
         pass

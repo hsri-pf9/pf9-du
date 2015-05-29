@@ -62,6 +62,12 @@ while getopts ":-:" optchar; do
                     echo
                     exit 0
                     ;;
+                vmware)
+                    # This option is not exposed in the help message and is for
+                    # internal use during installations on Platform9 VMWare
+                    # appliance.
+                    VMWARE="true"
+                    ;;
                 help)
                     usage
                     exit 0
@@ -189,6 +195,10 @@ function main()
     echo "Installing Platform9 host agent"
     pf9_install
     check_exit_code_and_generate_support_bundle $?
+
+    if [[ "${VMWARE}" == "true" ]]; then
+        vmware_install
+    fi
 
     # this directory shouldn't exist, but just in case
     rm -rf /var/opt/pf9/hostagent

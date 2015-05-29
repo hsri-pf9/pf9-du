@@ -14,7 +14,7 @@ import uuid
 
 from pecan.testing import load_test_app
 from pecan import set_config
-from bbmaster.pf9_comms import get_comms_cfg, insert_comms
+from bbmaster.pf9_firmware_apps import get_fw_apps_cfg, insert_fw_apps_config
 from bbcommon import constants
 from bbcommon import vhost
 from bbcommon.amqp import io_loop
@@ -239,21 +239,25 @@ class TestBbMaster(FunctionalTest):
         # Set the configuration for a host. Ensure the desired apps for the
         # master are updated and then even the slave reports updated status
 
-        comms_cfg = get_comms_cfg(log, basedir='/opt/pf9/www/private',
-            baseurl='https://%(host_relative_amqp_fqdn)s:9443/private')
+        firmware_apps_cfg = get_fw_apps_cfg()
         provider.set_host_apps(test_host_id, copy.deepcopy(test_data))
         # Check that the master has registered the desired configuration first,
         # and then check that the actual configuration converged with it.
-        test_data_with_comms = insert_comms(copy.deepcopy(test_data), comms_cfg)
-        assert test_data_with_comms == provider.desired_apps[test_host_id]
+        test_data_with_fw_apps = insert_fw_apps_config(copy.deepcopy(test_data),
+                                                     firmware_apps_cfg,
+                                                     host_state=host_info[0])
+        assert test_data_with_fw_apps == provider.desired_apps[test_host_id]
 
         def validate_host_apps(host_id, expected_host_data):
-            expected_with_comms = insert_comms(copy.deepcopy(expected_host_data),
-                                               comms_cfg)
+            host_info = provider.get_hosts([host_id])
+            expected_with_fw_apps = insert_fw_apps_config(
+                copy.deepcopy(expected_host_data), firmware_apps_cfg,
+                host_state=host_info[0])
             cur_data = provider.get_hosts([host_id])
-            cur_data_with_comms = provider.get_hosts([host_id], show_comms=True)
+            cur_data_with_fw_apps = provider.get_hosts([host_id],
+                                                     show_firmware_apps=True)
             return expected_host_data == cur_data[0]['apps'] and \
-                cur_data_with_comms[0]['apps'] == expected_with_comms
+                cur_data_with_fw_apps[0]['apps'] == expected_with_fw_apps
 
         assert validate_with_retry(validate_host_apps, 20, 3, test_host_id, test_data)
 
@@ -265,7 +269,7 @@ class TestBbMaster(FunctionalTest):
 
         provider.set_host_apps(test_host_id, test_data)
         log.info('Desired apps state: %s ' % provider.desired_apps)
-        assert insert_comms(previous_state, comms_cfg) == provider.desired_apps[test_host_id]
+        assert insert_fw_apps_config(previous_state, firmware_apps_cfg, host_state=cur_data[0]) == provider.desired_apps[test_host_id]
 
 
 

@@ -23,7 +23,7 @@ class bbone_provider_memory(bbone_provider):
         """
         return self.hosts.keys()
 
-    def get_hosts(self, id_list=[], show_comms=False):
+    def get_hosts(self, id_list=[], show_firmware_apps=False):
         if not id_list:
             id_list = [host_id for host_id in self.hosts]
         return [self.hosts[id] for id in id_list if id in self.hosts]

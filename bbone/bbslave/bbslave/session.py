@@ -189,23 +189,13 @@ def start(config, log, app_db, agent_app_db, app_cache,
     def hypervisor_info():
         hypervisor_info = dict()
 
-        # Existence of this file is an indicator of 'VMWareCluster' appliance, instead of conf parameter
+        # Existence of this file is an indicator of 'VMWareCluster' appliance,
+        # instead of conf parameter
         # so that upgrades do not affect this determination
         if os.path.isfile(HYPERVISOR_INFO_FILE):
             hypervisor_info['hypervisor_type'] = 'VMWareCluster'
-            try:
-                # The file is already created, and contains json in the form:
-                # {"credentials":"valid/invalid",
-                # "permissions":"valid/invalid",
-                # "cluster_datastore_list":[{"cluster_1": ["datastore1", "datastore2"]}]}
-                with open(HYPERVISOR_INFO_FILE) as f:
-                    hypervisor_info['hypervisor_details'] = json.loads(f.read())
-            except Exception as e:
-                log.warn('Hypervisor info file found, but contents could not be parsed, exception: %s', str(e))
-                hypervisor_info['hypervisor_details'] = '{}'
         else:
             hypervisor_info['hypervisor_type'] = 'kvm'
-            hypervisor_info['hypervisor_details'] = '{}'
 
         return hypervisor_info
 

@@ -22,7 +22,8 @@ import requests
 import socket
 import time
 import copy
-from pf9_comms import get_comms_cfg, insert_comms, remove_comms
+from pf9_firmware_apps import (get_fw_apps_cfg,
+    insert_fw_apps_config, remove_fw_apps_config)
 from pika.exceptions import AMQPConnectionError
 
 class bbone_provider_pf9(bbone_provider_memory):
@@ -47,17 +48,10 @@ class bbone_provider_pf9(bbone_provider_memory):
         self.support_dir_location = self.config.get('bbmaster',
                                                     'support_file_store')
         self.pending_msgs = []
-        comms_basedir = self.config.get('bbmaster', 'comms_basedir') if \
-            self.config.has_option('bbmaster', 'comms_basedir') else \
-            '/opt/pf9/www/private'
-        comms_baseurl = self.config.get('bbmaster', 'comms_baseurl') if \
-            self.config.has_option('bbmaster', 'comms_baseurl') else \
-            'https://%(host_relative_amqp_fqdn)s:9443/private'
         self.slack_attempts = self.config.getint('slack', 'max_posts') if \
             self.config.has_option('slack', 'max_posts') else 5
 
-        self.comms_cfg = get_comms_cfg(self.log, basedir=comms_basedir,
-                                       baseurl=comms_baseurl)
+        self.firmware_apps_config = get_fw_apps_cfg(config=self.config)
         t = threading.Thread(target=self._io_thread)
         t.daemon = True
         t.start()
@@ -76,13 +70,16 @@ class bbone_provider_pf9(bbone_provider_memory):
         # thread safe (I think!)
         return super(bbone_provider_pf9, self).get_host_ids()
 
-    def get_hosts(self, id_list=[], show_comms=False):
+    def get_hosts(self, id_list=[], show_firmware_apps=False):
         """
         Returns existing host(s)
         """
         with self.lock:
             hosts = super(bbone_provider_pf9, self).get_hosts(id_list)
-            return hosts if show_comms else remove_comms(copy.deepcopy(hosts))
+            ret_val = copy.deepcopy(hosts)
+            if not show_firmware_apps:
+                ret_val = remove_fw_apps_config(ret_val)
+            return ret_val
 
     def set_host_apps(self, id, desired_apps):
         """
@@ -90,7 +87,10 @@ class bbone_provider_pf9(bbone_provider_memory):
         """
         with self.lock:
             previous_desired_apps = self.desired_apps.get(id)
-            insert_comms(desired_apps, self.comms_cfg)
+            host_state = self.hosts[id]
+            # Send host state so as to determine if its an appliance or not
+            insert_fw_apps_config(desired_apps, self.firmware_apps_config,
+                                  host_state=host_state)
             super(bbone_provider_pf9, self).set_host_apps(id, desired_apps)
             host_state = self.hosts[id]
         try:
