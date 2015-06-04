@@ -22,8 +22,7 @@ function proxy_setup()
     echo "host: $host"
     echo "proxy: $port"
 
-    python ${JSON_TOOL} --inline --edit http_proxy.host  ${PF9_COMMS_CONF} $host
-    python ${JSON_TOOL} --inline --edit http_proxy.port  ${PF9_COMMS_CONF} $port
+    echo "{\"http_proxy\":{\"host\":\"$host\", \"port\":$port}}" > ${PF9_COMMS_PROXY_CONF}
 }
 
 function _ask_proxy_settings()

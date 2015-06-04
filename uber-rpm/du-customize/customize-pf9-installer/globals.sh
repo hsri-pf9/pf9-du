@@ -10,7 +10,7 @@ PROXY_HOST=""
 PROXY_PORT=""
 JSON_TOOL="jsontool.py"
 
-PF9_COMMS_CONF="/etc/pf9/comms.json"
+PF9_COMMS_PROXY_CONF="/etc/pf9/comms_proxy_cfg.json"
 HOSTAGENT_DIR="/var/opt/pf9/hostagent"
 DESIRED_APPS="desired_apps.json"
 
