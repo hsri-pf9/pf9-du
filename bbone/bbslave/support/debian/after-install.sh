@@ -12,6 +12,7 @@ change_file_permissions() {
     chown -R pf9:pf9group /var/cache/pf9apps
     chmod 0440 /etc/sudoers.d/pf9-hostagent
     chmod 0550 /opt/pf9/hostagent/bin/pf9-apt
+    chmod 0550 /opt/pf9/hostagent/bin/openport.py
 }
 
 if [ "$script_step" = "configure" ] && [ -z $configured_version ]; then
