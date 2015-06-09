@@ -172,8 +172,6 @@ class bbone_provider_pf9(bbone_provider_memory):
                     raise ValueError()
                 self.log.info('Received: %s', body)
                 host_state = body['data']
-                host_state['timestamp'] = datetime.datetime.utcnow().\
-                                          strftime("%Y-%m-%d %H:%M:%S.%f")
                 id = host_state['host_id']
                 host_agent_state = host_state['host_agent']
             except (ValueError, TypeError, KeyError):

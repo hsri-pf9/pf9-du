@@ -20,6 +20,7 @@ from pf9app.exceptions import Pf9Exception
 from pf9app.pf9_app import _run_command as pf9_app_run_command
 import glob
 import subprocess
+import datetime
 import shlex
 import re
 from sysinfo import get_sysinfo, get_host_id
@@ -287,6 +288,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
             'opcode': 'status',
             'data': {
                 'host_id': _host_id,
+                'timestamp': datetime.datetime.utcnow().strftime("%Y-%m-%d "
+                                                                 "%H:%M:%S.%f"),
                 'status': status,
                 'info': get_sysinfo(),
                 'hypervisor_info': hypervisor_info(),
