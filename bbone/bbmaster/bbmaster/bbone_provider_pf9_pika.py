@@ -235,7 +235,10 @@ class bbone_provider_pf9(bbone_provider_memory):
             """
             Periodically sends outgoing messages that have been queued.
             """
-
+            for key in ('connection', 'channel'):
+                if key not in self.state:
+                    self.log.warn('send_pending_msgs(): %s is down.' % key)
+                    return
             with self.lock:
                 pending_msgs = self.pending_msgs
                 self.pending_msgs = []
@@ -247,6 +250,10 @@ class bbone_provider_pf9(bbone_provider_memory):
                     body=json.dumps(body))
             self.state['connection'].add_timeout(self.send_pending_msgs_period,
                                                  send_pending_msgs)
+
+        def channel_close_cb(reply_text):
+            msg = 'Channel closed due to %s' % reply_text
+            self.post_to_slack(msg)
 
         amqp_username = self.config.get('amqp', 'username') if \
                  self.config.has_option('amqp', 'username') else 'bbmaster'
@@ -271,7 +278,8 @@ class bbone_provider_pf9(bbone_provider_memory):
                         before_processing_msgs_cb=ping_slaves,
                         consume_cb=consume_msg,
                         virtual_host=virt_host,
-                        ssl_options=ssl_options
+                        ssl_options=ssl_options,
+                        channel_close_cb=channel_close_cb
                         )
 
             except AMQPConnectionError as e:
@@ -325,6 +333,9 @@ class bbone_provider_pf9(bbone_provider_memory):
                                                  routing_key=routing_key_to_bind,
                                                  callback=callback)
 
+            if 'channel' not in self.state:
+                self.log.error('declare_bbslave_q(): channel is down.')
+                raise RuntimeError('declare_bbslave_q(): channel is down.')
             routing_keys_to_bind = [constants.BROADCAST_TOPIC, host_id]
             queue_name = constants.HOSTAGENT_QUEUE_PREFIX + host_id
             self.state['channel'].queue_declare(queue=queue_name,

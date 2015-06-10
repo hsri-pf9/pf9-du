@@ -17,7 +17,8 @@ def io_loop(log,
             recv_keys=None,
             consume_cb=None,
             virtual_host=None,
-            ssl_options=None):
+            ssl_options=None,
+            channel_close_cb=None):
     """
     Connects to AMQP broker and enters message processing loop
     :param str host: The broker host name or IP
@@ -32,6 +33,8 @@ def io_loop(log,
     :param str virtual_host: Virtual host to be used in AMQP broker. Default is
      None (optional)
     :param dict ssl_options: SSL options if SSL is enabled (optional)
+    :param function channel_close_cb: Called when channel is closed, with
+           the AMQP reply_text as parameter
     """
 
     def add_on_connection_close_callback():
@@ -64,6 +67,8 @@ def io_loop(log,
     def on_channel_close(channel, reply_code, reply_text):
         log.warn('Channel closed due to %s', reply_text)
         del state['channel']
+        if channel_close_cb:
+            channel_close_cb(reply_text)
 
     def on_channel_open(channel):
         state['channel'] = channel
@@ -79,7 +84,7 @@ def io_loop(log,
             return
         state['channel'].queue_declare(queue=queue_name,
                                        callback=on_queue_declare,
-                                       exclusive=True)
+                                       exclusive=False)
 
     def on_queue_declare(method_frame):
         # This method would be called back multiple times if there are multiple
