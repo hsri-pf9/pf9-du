@@ -11,6 +11,7 @@ import ConfigParser
 import datetime
 import logging
 import json
+import os
 import threading
 import time
 import rabbit
@@ -100,6 +101,22 @@ def _update_custom_role_settings(app_info, role_settings, roles):
                 else:
                     app_info_temp[setting_name] = ''
 
+def _load_role_confd_files(role_metadata_location, config):
+    confd = os.path.join(role_metadata_location, 'conf.d')
+    if not os.path.isdir(confd):
+        log.warning('Role configuration directory %s does not exist. Not '
+                    'loading role confd files.' % confd)
+        return
+
+    conf_files = [os.path.join(confd, f)
+                  for f in os.listdir(confd)
+                  if f.endswith('.conf')]
+    for conf_file in conf_files:
+        try:
+            config.read(conf_file)
+            log.info('Read role config %s' % conf_file)
+        except ConfigParser.Error as e:
+            log.exception('Failed to parse config file %s.', conf_file)
 
 class RolesMgr(object):
     """
@@ -595,6 +612,8 @@ class ResMgrPf9Provider(ResMgrProvider):
         config.read(config_file)
         global_cfg_file = config.get('resmgr', 'global_config_file')
         config.read(global_cfg_file)
+        role_metadata_dir = config.get('resmgr', 'role_metadata_location')
+        _load_role_confd_files(role_metadata_dir, config)
 
         self.res_mgr_db = ResMgrDB(config)
         self.host_inventory_mgr = HostInventoryMgr(config, self.res_mgr_db)

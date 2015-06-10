@@ -159,6 +159,7 @@ class ResMgrDB(object):
             'rabbit_password' : dict_tokens.RABBIT_PASSWORD_TOKEN
         }
         os_vars.update(param_vals)
+        os_vars.update(self._flat_config())
         out = config_str % os_vars
         return out
 
@@ -748,3 +749,11 @@ class ResMgrDB(object):
                 continue
             dictionary[app] = dict_subst.substitute(dictionary[app], token_role_map[role])
 
+    def _flat_config(self):
+        ret = {}
+        for item in self.config.defaults().iteritems():
+            ret['DEFAULT.%s' % item[0]] = item[1]
+        for section in self.config.sections():
+            for item in self.config.items(section):
+                ret['%s.%s' % (section, item[0])] = item[1]
+        return ret
