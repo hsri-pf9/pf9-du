@@ -48,3 +48,8 @@ class SupportCommandRequestFailed(ResMgrException):
 class RabbitCredentialsConfigureError(ResMgrException):
     def __init__(self, reason):
         super(RabbitCredentialsConfigureError, self).__init__('Failed to get rabbit credentials: %s' % reason)
+
+class DuConfigError(ResMgrException):
+    def __init__(self, reason):
+        super(DuConfigError, self).__init__(
+                'Failed to run on-DU authorization task: %s' % reason)

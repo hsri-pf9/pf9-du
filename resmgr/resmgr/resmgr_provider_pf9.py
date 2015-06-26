@@ -9,6 +9,7 @@ This module provides real implementation of Resource Manager provider interface
 
 import ConfigParser
 import datetime
+import imp
 import logging
 import json
 import os
@@ -25,7 +26,8 @@ from bbcommon.utils import is_satisfied_by
 from dbutils import ResMgrDB
 from exceptions import (BBMasterNotFound, HostNotFound, RoleNotFound,
                         HostConfigFailed, SupportRequestFailed,
-                        SupportCommandRequestFailed, RabbitCredentialsConfigureError)
+                        SupportCommandRequestFailed, RabbitCredentialsConfigureError,
+                        DuConfigError)
 import notifier
 from resmgr_provider import ResMgrProvider, RState
 
@@ -808,6 +810,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         :raises RoleNotFound: if the role is not present
         :raises HostNotFound: if the host is not present
         :raises HostConfigFailed: if setting the configuration fails or times out
+        :raises DuConfigError: If the on_auth event for the role fails.
         :raises BBMasterNotFound: if communication to the backbone fails
         """
         log.info('Assigning role %s to %s with host settings %s',
@@ -836,7 +839,8 @@ class ResMgrPf9Provider(ResMgrProvider):
         try:
             # 1. Record the role addition state in the DB
             # 2. Publish change notification
-            # 3. Push the new configuration to the host
+            # 3. Run on_auth event from configuration
+            # 4. Push the new configuration to the host
             # Push configuration to bbone is idempotent, so we will end up with
             # a converged state eventually.
             log.debug('Updating host %s state after %s role association',
@@ -860,6 +864,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             role_settings = json.loads(host_details[host_id]['role_settings'])
             roles = self.roles_mgr.db_handler.query_roles()
             _update_custom_role_settings(app_info, role_settings, roles)
+            self._on_auth(role_name, app_info)
             log.info('Sending request to backbone to add role %s to %s with config %s',
                      role_name, host_id, app_info)
             self.roles_mgr.push_configuration(host_id, app_info)
@@ -884,6 +889,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         :raises HostNotFound: if the host is not present
         :raises HostConfigFailed: if setting the configuration fails or times out
         :raises BBMasterNotFound: if communication to the backbone fails
+        :raises DuConfigError: If the on_deauth event for the role fails.
         """
         log.info('Removing role %s from %s', role_name, host_id)
         if host_id in _unauthorized_hosts:
@@ -894,6 +900,14 @@ class ResMgrPf9Provider(ResMgrProvider):
         if not active_role_in_db:
             log.error('Role %s is not found in list of active roles', role_name)
             raise RoleNotFound(role_name)
+
+        # recalculate role app parameters for use in deauth event handler
+        host_details = self.res_mgr_db.query_host_and_app_details(host_id)
+        deauthed_app_config = host_details[host_id]['apps_config']
+        role_settings = json.loads(host_details[host_id]['role_settings'])
+        _update_custom_role_settings(deauthed_app_config,
+                                     role_settings,
+                                     [active_role_in_db])
 
         with _role_delete_lock:
             host_inst = self.host_inventory_mgr.get_host(host_id)
@@ -917,6 +931,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             # 1. Record the role removal state in the DB
             # 2. Publish change notification
             # 3. Push the new configuration to the host
+            # 4. Run on_deauth event from configuration
             # Push configuration to bbone is idempotent, so we will end up with
             # a converged state eventually.
             log.debug('Clearing role %s for host %s in DB', role_name, host_id)
@@ -937,10 +952,75 @@ class ResMgrPf9Provider(ResMgrProvider):
             host_details = self.res_mgr_db.query_host_and_app_details(host_id)
             self.roles_mgr.push_configuration(host_id,
                                  host_details[host_id]['apps_config'])
+            self._on_deauth(role_name, deauthed_app_config)
 
     def get_custom_settings(self, host_id, role_name):
         return self.res_mgr_db.get_custom_settings(host_id, role_name)
 
+    def _on_auth(self, role_name, app_config):
+        self._run_event('on_auth', role_name, app_config)
+
+    def _on_deauth(self, role_name, app_config):
+        self._run_event('on_deauth', role_name, app_config)
+
+    def _run_event(self, event_method, role_name, app_config):
+        """
+        A useful app_config dict looks like:
+        'rolename': {
+          'du_config': {
+            'auth_events': {
+              'type': 'python',
+              'module_path': '/path/to/events.py'
+              'params' {
+                'kwarg1': 'val1',
+                'kwarg2': 'val2'
+              }
+            }
+          }
+          ...
+        }
+        """
+        # Dive into the app_config dictionary to find the auth_events
+        # spec. Do nothing if it (or any of the intermediate keys)
+        # is missing.
+        curr = app_config
+        for key in [role_name, 'du_config', 'auth_events']:
+            if curr.has_key(key):
+                curr = curr[key]
+            else:
+                log.debug('No auth events for %s', role_name)
+                return
+        event_spec = curr
+
+        events_type = event_spec.get('type', None)
+        if events_type == 'python':
+            self._run_python_event(event_method, event_spec)
+        else:
+            log.warn('Unknown auth_events type \'%s\'.', events_type)
+
+    def _run_python_event(self, event_method, event_spec):
+        """
+        Run a methon from the python module whose path is in event_spec. Will
+        only raise DuConfigError.
+        """
+        module_path = event_spec.get('module_path', None)
+        params = event_spec.get('params', {})
+        if not module_path:
+            log.warn('No auth events module_path specified in app_config.')
+        else:
+            try:
+                module_name = os.path.splitext(
+                        os.path.basename(module_path))[0]
+                module = imp.load_source(module_name, module_path)
+                method = getattr(module, event_method)
+                method(**params)
+                log.info('Auth event \'%s\' method from %s ran successfully',
+                         event_method, module_path)
+            except:
+                reason = 'Auth event \'%s\' method failed to run from %s' \
+                         % (event_method, module_path)
+                log.exception(reason)
+                raise DuConfigError(reason)
 
 def get_provider(config_file):
     return ResMgrPf9Provider(config_file)

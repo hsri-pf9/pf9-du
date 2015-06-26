@@ -35,6 +35,9 @@ def is_satisfied_by(desired_config, current_config):
         # Remove url because it doesn't truly belong in the state
         if 'url' in app_spec:
             del app_spec['url']
+        # don't consider DU-side role config
+        if 'du_config' in app_spec:
+            del app_spec['du_config']
         if not configutils.is_dict_subset(app_spec, current_config[app_name]):
             return False
     return True
