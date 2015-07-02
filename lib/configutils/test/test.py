@@ -88,17 +88,20 @@ def test_is_dict_subset():
     assert configutils.is_dict_subset(d2, d1)
     # Dict, non identical
     d1 = {'a': 2, 3: 'b', 4:'c'}
-    d2 = {3: 'b', 4:'d'}
+    d2 = {3: 'b', 4: 'd'}
     assert not configutils.is_dict_subset(d2, d1)
     # Dict, with list, identical but unsupported list
     d1 = {'a': 2, 3: ['b', 'c']}
     d2 = {3: ['b', 'c']}
     assert not configutils.is_dict_subset(d2, d1)
-    # Nested dict, identical
+    # Nested dict, identical subdict
     d1 = {'a': 2, 3: {5: {'b': 'c'}}}
     d2 = {3: {5: {'b': 'c'}}}
+    # Nested dict, subdict is a superset
+    d1 = {'a': 2, 3: {5: {'b': 'c', 'd': 'e'}}}
+    d2 = {3: {5: {'b': 'c'}}}
     assert configutils.is_dict_subset(d2, d1)
-    # Nested dict, differ by type
+    # Nested dict, differ by type, OK because 4 == 4.0
     d1 = {'a': 2, 3: {5: {5: 4.0}}}
     d2 = {3: {5: {5: 4}}}
-    assert not configutils.is_dict_subset(d2, d1)
+    assert configutils.is_dict_subset(d2, d1)

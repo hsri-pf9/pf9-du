@@ -148,10 +148,10 @@ def is_dict_subset(dict1, dict2):
             # Currently we support only these datatypes as values in the dict
             return False
         val2 = dict2[key]
-        if issubclass(type1, dict) and not is_dict_subset(val1, val2):
-            # If there is a nested dict, recurse the call. Should do this for
-            # the strict comparison on types.
-            return False
+        if issubclass(type1, dict):
+            # If there is a nested dict, recurse the call.
+            if not is_dict_subset(val1, val2):
+                return False
         elif val1 != val2:
             return False
 

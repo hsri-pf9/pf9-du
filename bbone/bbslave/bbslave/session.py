@@ -494,7 +494,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
 
         # ok to commit to disk now
         save_desired_config(log, desired_config)
-        satisfied =  is_satisfied_by(desired_config, current_config)
+        satisfied = is_satisfied_by(desired_config, current_config)
         if converged != satisfied:
             # I've seen this happen when manually deleting / installing
             # pf9 apps out-of-band outside of pf9-hostagent as part of pf9-comms
