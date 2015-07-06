@@ -82,11 +82,7 @@ def _build_role_parser(subparsers):
                                    dest='role',
                                    required=True,
                                    help='Name of the role that is being applied')
-    role_apply_parser.add_argument('--user_token_file',
-                                   action='store',
-                                   dest='user_token_file',
-                                   required=True,
-                                   help='File containing user token for this operation')
+    _add_credential_arguments(role_apply_parser)
 
 def _build_hostagent_parser(subparsers):
     """
@@ -144,9 +140,9 @@ def _build_hostagent_parser(subparsers):
 
 def _add_credential_arguments(parser):
     parser.add_argument("--user",
-		        action='store',
-		        dest='user',
-		        help='User account to use. Optional if OS_USERNAME is set.')
+                        action='store',
+                        dest='user',
+                        help='User account to use. Optional if OS_USERNAME is set.')
     parser.add_argument("--password",
                         action='store',
                         dest='password',
@@ -540,9 +536,7 @@ def do_set_host_role(options):
         sys.exit(1)
 
     # Set up the headers
-    with open(options.user_token_file) as token_file:
-        auth_token = token_file.read().strip()
-    headers = {'X-Auth-Token': auth_token}
+    headers = {'X-Auth-Token': _get_login_token(options)}
 
     app_ver_endpoint = ''.join([_resmgr_endpoint,
                                 '/roles/',
