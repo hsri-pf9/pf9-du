@@ -3,6 +3,7 @@
 
 __author__ = 'Platform9'
 
+import ConfigParser
 import datetime
 import dict_tokens
 import dict_subst
@@ -158,6 +159,13 @@ class ResMgrDB(object):
             'rabbit_userid' : dict_tokens.RABBIT_USERID_TOKEN,
             'rabbit_password' : dict_tokens.RABBIT_PASSWORD_TOKEN
         }
+        try:
+            param_vals['ceilometer_auth_user'] = self.config.get("pf9-ceilometer", 'auth_user')
+            param_vals['ceilometer_auth_pass'] = self.config.get("pf9-ceilometer", 'auth_pass')
+            param_vals['ceilometer_auth_tenant_name'] = self.config.get("pf9-ceilometer",
+                'auth_tenant_name')
+        except ConfigParser.NoSectionError as e:
+            log.info('Ceilometer is not enabled: %s', e)
         os_vars.update(param_vals)
         os_vars.update(self._flat_config())
         out = config_str % os_vars
