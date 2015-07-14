@@ -53,7 +53,7 @@ def _get_base_dir_url(app_name, config=None):
         '/opt/pf9/www/private'
     baseurl = config.get('bbmaster', baseurl_key) if \
         config and config.has_option('bbmaster', baseurl_key) else \
-        'https://%(host_relative_amqp_fqdn)s:9443/private'
+        '%(download_protocol)s://%(host_relative_amqp_fqdn)s:%(download_port)s/private'
     return basedir, baseurl
 
 
