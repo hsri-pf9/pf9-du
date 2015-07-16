@@ -16,7 +16,7 @@ set -e
 
 # Drop the Platform9 specific part of PYTHONPATH because it interferes with yum
 # See IAAS-3305
-export PYTHONPATH=$(echo "$PYTHONPATH" | sed -e 's/\/opt\/pf9\/python\/lib\/python2.7://')
+export PYTHONPATH=$(echo "$PYTHONPATH" | sed -e 's/\/opt\/pf9\/python\/lib\/python2.7://g')
 
 package_action=$1
 
