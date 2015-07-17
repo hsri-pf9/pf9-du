@@ -3,6 +3,6 @@ pf9	ALL = NOPASSWD: /opt/pf9/hostagent/bin/pf9-apt install /var/cache/pf9apps/*.
           NOPASSWD: /usr/sbin/service pf9-*, \
           NOPASSWD: /bin/df -kh, \
           NOPASSWD: /usr/sbin/aa-status, \
-          NOPASSWD: /sbin/vgs *
+          NOPASSWD: /sbin/vgs
 
 Defaults:pf9 !requiretty

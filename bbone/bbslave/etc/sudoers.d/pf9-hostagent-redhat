@@ -3,7 +3,7 @@ pf9	ALL = NOPASSWD: /opt/pf9/hostagent/bin/pf9-yum install /var/cache/pf9apps/*.
           NOPASSWD: /opt/pf9/hostagent/bin/pf9-yum erase pf9-*, \
           NOPASSWD: /bin/df -kh, \
           NOPASSWD: /sbin/service pf9-*, \
-          NOPASSWD: /sbin/vgs *
+          NOPASSWD: /sbin/vgs
 
 Defaults:pf9 !requiretty
 Defaults!/sbin/service env_keep+=SYSTEMCTL_SKIP_REDIRECT
