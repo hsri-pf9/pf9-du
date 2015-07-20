@@ -128,7 +128,7 @@ def save_desired_config(log, desired_config):
             log.error('Failed to save desired configuration: %s', e)
 
 
-def _run_command(command, log):
+def _run_command(command, log, run_env=environ):
     """
     Runs a command
     :param str command: Command to be executed.
@@ -137,7 +137,7 @@ def _run_command(command, log):
     :rtype: tuple
     """
     try:
-        out = subprocess.check_output(shlex.split(command))
+        out = subprocess.check_output(shlex.split(command), env=run_env)
         # Command was successful, return code must be 0 with relevant output
         return 0, out
     except subprocess.CalledProcessError as e:
