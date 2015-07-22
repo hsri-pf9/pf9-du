@@ -65,7 +65,6 @@ ${BBMASTER_SRC_STAGE}: pre-reqs
 	cp -r ${BBMASTER_DIR}/etc/init.d ${BBMASTER_SRC_STAGE}/etc/rc.d
 	mkdir -p ${PF9_OPT_DIR}/du-customize
 	cp ${BBMASTER_DIR}/support/60-customize-bbmaster ${PF9_OPT_DIR}/du-customize
-	cp ${BBMASTER_DIR}/support/05-generate-certs ${PF9_OPT_DIR}/du-customize
 	mkdir -p ${PF9_OPT_DIR}/support
 
 ${BBMASTER_SRC_TARBALL}: ${BBMASTER_SRC_STAGE}
