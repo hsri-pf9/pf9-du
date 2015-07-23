@@ -13,7 +13,7 @@ import time
 
 from app_db import AppDb
 from pf9_app_cache import get_supported_distro
-from pf9_app import Pf9App, _run_command
+from pf9_app import Pf9App, _run_command_with_custom_pythonpath
 from exceptions import NotInstalled, UpdateOperationFailed, \
     RemoveOperationFailed, InstallOperationFailed, Pf9Exception
 
@@ -22,20 +22,6 @@ if get_supported_distro() == 'debian':
     import apt.debfile
 else:
     import yum
-
-
-def prep_run_env():
-    pf9_python_path = '/opt/pf9/python/lib/python2.7:'
-    run_env = os.environ
-
-    if pf9_python_path in os.environ.get('PYTHONPATH', ''):
-        run_env = copy.deepcopy(os.environ)
-        run_env["PYTHONPATH"] = run_env['PYTHONPATH'].replace(pf9_python_path, '')
-
-    return run_env
-
-
-PKGMGR_RUN_ENV = prep_run_env()
 
 
 class AptPkgMgr(object):
@@ -95,7 +81,7 @@ class AptPkgMgr(object):
         if not self.cache.has_key(appname):
             raise NotInstalled()
         erase_cmd = 'sudo %s erase %s' % (self.apt_rootwrap_path, appname)
-        code, out, err = _run_command(erase_cmd, run_env=PKGMGR_RUN_ENV)
+        code, out, err = _run_command_with_custom_pythonpath(erase_cmd)
         if code:
             self.log.error('Erase command failed : %s. Return code: %d, '
                            'stdout: %s, stderr: %s', erase_cmd, code, out, err)
@@ -109,7 +95,7 @@ class AptPkgMgr(object):
         :raises InstallOperationFailed: if the install operation failed
         """
         install_cmd = 'sudo %s install %s' % (self.apt_rootwrap_path, pkg_path)
-        code, out, err = _run_command(install_cmd, run_env=PKGMGR_RUN_ENV)
+        code, out, err = _run_command_with_custom_pythonpath(install_cmd)
         if code:
             self.log.error('Install command failed: %s. Return code: %d, '
                            'stdout: %s, stderr: %s', install_cmd, code, out, err)
@@ -215,7 +201,7 @@ class YumPkgMgr(object):
         assert len(pkgs) == 1
 
         erase_cmd = 'sudo %s erase %s' % (self.yum_rootwrap_path, appname)
-        code, out, err = _run_command(erase_cmd, run_env=PKGMGR_RUN_ENV)
+        code, out, err = _run_command_with_custom_pythonpath(erase_cmd)
         if code:
             self.log.error('Erase command failed : %s. Return code: %d, '
                            'stdout: %s, stderr: %s', erase_cmd, code, out, err)
@@ -228,7 +214,7 @@ class YumPkgMgr(object):
         :raises InstallOperationFailed: if the install operation failed
         """
         install_cmd = 'sudo %s install %s' % (self.yum_rootwrap_path, pkg_path)
-        code, out, err = _run_command(install_cmd, run_env=PKGMGR_RUN_ENV)
+        code, out, err = _run_command_with_custom_pythonpath(install_cmd)
         if code:
             self.log.error('Install command failed : %s. Return code: %d, '
                            'stdout: %s, stderr: %s', install_cmd, code, out, err)
@@ -242,7 +228,7 @@ class YumPkgMgr(object):
         :raises UpdateOperationFailed: if the update operation failed.
         """
         update_cmd = 'sudo %s update %s' % (self.yum_rootwrap_path, pkg_path)
-        code, out, err = _run_command(update_cmd, run_env=PKGMGR_RUN_ENV)
+        code, out, err = _run_command_with_custom_pythonpath(update_cmd)
         if code:
             self.log.error('Update command failed : %s. Return code: %d, '
                            'stdout: %s, stderr: %s', update_cmd, code, out, err)

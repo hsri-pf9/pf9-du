@@ -16,6 +16,23 @@ CFGSCRIPTCMD = "%s /opt/pf9/%s/config"
 SERVICECMD = "sudo service %s %s"
 
 
+def prune_pf9_python_path():
+    """
+    Removes the Platform9 specific python path if it exists in the environment
+    """
+    pf9_python_path = '/opt/pf9/python/lib/python2.7:'
+    run_env = os.environ
+
+    if pf9_python_path in os.environ.get('PYTHONPATH', ''):
+        run_env = copy.deepcopy(os.environ)
+        run_env["PYTHONPATH"] = run_env['PYTHONPATH'].replace(pf9_python_path, '')
+
+    return run_env
+
+
+ORIG_PYTHON_PATH = prune_pf9_python_path()
+
+
 def _run_command(command, stdout=subprocess.PIPE, run_env=os.environ):
     """
     Runs a command
@@ -25,6 +42,10 @@ def _run_command(command, stdout=subprocess.PIPE, run_env=os.environ):
     stderr is the stderr of the command
     :rtype: tuple
     """
+    # NOTE: There is an oddity noticed with subprocess. Once invoked with the
+    # env parameter, subsequent calls without the env parameter don't seem to
+    # reset the environment to run the command. Needs more investigation. Till
+    # then, always pass an appropriate env parameter.
     proc = subprocess.Popen(command, shell=True,
                             stdin=subprocess.PIPE,
                             stdout=stdout,
@@ -34,6 +55,19 @@ def _run_command(command, stdout=subprocess.PIPE, run_env=os.environ):
     code = proc.returncode
 
     return code, out, err
+
+
+def _run_command_with_custom_pythonpath(command):
+    """
+    Runs a command with the custom Platform9 python path removed. This should
+    allow the command to leverage the global python modules
+    :param str command: Command to be executed.
+    :return: a tuple representing (code, stdout, stderr), where code is the
+    return code of the command, stdout is the standard output of the command and
+    stderr is the stderr of the command
+    :rtype: tuple
+    """
+    return _run_command(command, run_env=ORIG_PYTHON_PATH)
 
 
 class Pf9App(App):
