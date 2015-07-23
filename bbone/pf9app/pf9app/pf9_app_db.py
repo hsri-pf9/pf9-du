@@ -3,7 +3,6 @@
 
 __author__ = 'Platform9'
 
-import copy
 import errno
 import logging
 import os
