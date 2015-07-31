@@ -2,7 +2,7 @@
 set -e -x
 
 NAME=pf9-du
-VERSION=1.0.0
+VERSION=1.3.0
 
 cd $(dirname $0)
 SRCROOT=$(pwd)
