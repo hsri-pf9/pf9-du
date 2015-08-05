@@ -254,8 +254,21 @@ def start(config, log, app_db, agent_app_db, app_cache,
                               'naming convention', fname)
                     continue
 
+                if not os.access(fpath, os.X_OK):
+                    # The file doesn't have execute permissions, skip it
+                    continue
+
                 # Run the command
-                rcode, output = _run_command(fpath, log)
+                try:
+                    rcode, output = _run_command(fpath, log)
+                except Exception as e:
+                    msg = 'Error running extension script: %s' % e
+                    log.error(msg)
+                    # Setting rcode to an invalid system exit code value here
+                    # just to ensure it is processed in below return structure.
+                    rcode = 256
+                    output = msg
+
                 if rcode:
                     # Running the extension failed
                     ext_result = {
@@ -271,7 +284,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
                         }
                     except Exception as e:
                         log.error('Extension data %s is not JSON serializable: %s',
-                                  output, e)
+                                   output, e)
                         ext_result = {
                             'status': 'error',
                             'data': 'Extension returned non JSON serializable data'
