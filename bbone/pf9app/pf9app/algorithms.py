@@ -9,7 +9,9 @@ from app_cache import AppCache
 from configutils.configutils import is_dict_subset
 import logging
 from logging import Logger
-from exceptions import UrlNotSpecified
+from exceptions import InvalidSupportedDistro, UrlNotSpecified
+import platform
+from pf9_app_cache import get_supported_distro
 
 def process_apps(app_db, app_cache, remote_app_class, new_config,
                  non_destructive=False, probe_only=False, log=logging,
@@ -52,13 +54,45 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
                 app.uninstall()
             changes += 1
 
+    def get_os_name():
+        supported_distro = get_supported_distro(log)
+        version = platform.linux_distribution()[1].lower()
+        if supported_distro == 'redhat':
+            if version.startswith('7'):
+                return 'el7'
+            if not version.startswith('6'):
+                log.warn('Could not detect OS name. Defaulting to el6.')
+            return 'el6'
+        elif supported_distro == 'debian':
+            if 'jessie' in version or version.startswith('14'):
+                return 'trusty'
+            if 'wheezy' not in version and not version.startswith('12'):
+                log.warn('Could not detect OS name. Defaulting to precise.')
+            return 'precise'
+        # This code should not be reached if it is kept in sync
+        # with get_supported_distro
+        raise InvalidSupportedDistro('Unexpected supported distro: %s'
+                                     % supported_distro)
+
     def url_from_app_spec(spec):
-        if 'url' not in spec:
+        """
+        Return the url from the app spec and a boolean that indicates
+        whether the url extension needs to be changed.
+        """
+        if 'pkginfo' in spec:
+            baseurl = spec['pkginfo']['baseurl']
+            filename = spec['pkginfo']['filenames_by_os'][get_os_name()]
+            url = ''.join([baseurl, filename])
+            change_extension = False
+        elif 'url' in spec:
+            url = spec['url']
+            change_extension = True
+        else:
             raise UrlNotSpecified
-        url = spec['url']
+
         if url_interpolations:
-            url = url % url_interpolations
-        return url
+            url %= url_interpolations
+        return url, change_extension
 
     for app_name in identical_app_names:
         app = installed_apps[app_name]
@@ -68,9 +102,11 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
         new_app_config = new_app_spec['config']
         if app.version != new_app_spec['version']:
             if not probe_only:
+                url, change_extension = url_from_app_spec(new_app_spec)
                 new_app = remote_app_class(name=app_name,
                                            version=new_app_spec['version'],
-                                           url=url_from_app_spec(new_app_spec),
+                                           url=url,
+                                           change_extension=change_extension,
                                            app_db=app_db,
                                            app_cache=app_cache,
                                            log=log)
@@ -104,9 +140,11 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
             new_app_spec = new_config[app_name]
             new_app_config = new_app_spec['config']
             services = new_app_spec.get('service_states')
+            url, change_extension = url_from_app_spec(new_app_spec)
             new_app = remote_app_class(name=app_name,
                                        version=new_app_spec['version'],
-                                       url=url_from_app_spec(new_app_spec),
+                                       url=url,
+                                       change_extension=change_extension,
                                        app_db=app_db,
                                        app_cache=app_cache,
                                        log=log)

@@ -311,7 +311,8 @@ class Pf9App(App):
 class Pf9RemoteApp(Pf9App, RemoteApp):
     """Class that implements the RemoteApp interface"""
 
-    def __init__(self, name, version, url, app_db, app_cache, log=logging):
+    def __init__(self, name, version, url, change_extension,
+                 app_db, app_cache, log=logging):
         """
         Constructor
         :param str name: Name of the app
@@ -320,10 +321,12 @@ class Pf9RemoteApp(Pf9App, RemoteApp):
         :param AppDb app_db: Instance of the AppDb
         :param AppCache app_cache: Instance of the AppCache
         :param Logger log: Log handler object.
+        :param change_extension: Change the url extension to .deb if a Debian OS is detected
         """
         Pf9App.__init__(self, name=name, version=version, app_db=app_db, installed=False, log=log)
         self.url = url
         self.appcache = app_cache
+        self.change_extension = change_extension
 
 
     def install(self):
@@ -348,7 +351,7 @@ class Pf9RemoteApp(Pf9App, RemoteApp):
         :rtype: str
         :raises DownloadFailed: if the download of the app failed.
         """
-        return self.appcache.download(self.name, self.version, self.url)
+        return self.appcache.download(self.name, self.version, self.url, self.change_extension)
 
 
 class Pf9AgentApp(Pf9RemoteApp):

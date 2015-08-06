@@ -35,3 +35,6 @@ class InstallOperationFailed(Pf9Exception):
 
 class UrlNotSpecified(Pf9Exception):
     pass
+
+class InvalidSupportedDistro(Pf9Exception):
+    pass

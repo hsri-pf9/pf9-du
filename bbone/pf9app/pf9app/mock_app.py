@@ -80,7 +80,8 @@ class MockInstalledApp(App):
 
 
 class MockRemoteApp(MockInstalledApp, RemoteApp):
-    def __init__(self, name, version, url, app_db, app_cache, log=logging):
+    def __init__(self, name, version, url, change_extension,
+                 app_db, app_cache, log=logging):
         """
         Initializes mock remote app.
         :param str name: application name

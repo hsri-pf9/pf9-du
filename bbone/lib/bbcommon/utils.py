@@ -32,12 +32,11 @@ def is_satisfied_by(desired_config, current_config):
         return False
     # Second, the app properties and configurations must match
     for app_name, app_spec in specified_config.iteritems():
-        # Remove url because it doesn't truly belong in the state
-        if 'url' in app_spec:
-            del app_spec['url']
-        # don't consider DU-side role config
-        if 'du_config' in app_spec:
-            del app_spec['du_config']
+        # Remove url, pkginfo, and DU-side role config
+        # because they don't truly belong in the state
+        for config_key in 'url', 'du_config', 'pkginfo':
+            if config_key in app_spec:
+                del app_spec[config_key]
         if not configutils.is_dict_subset(app_spec, current_config[app_name]):
             return False
     return True

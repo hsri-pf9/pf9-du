@@ -15,7 +15,8 @@ import platform
 DOWNLOAD_CHUNK_SIZE = 512 * 1024
 
 SUPPORTED_DEBIAN_DISTROS = set(['debian', 'ubuntu'])
-SUPPORTED_REDHAT_DISTROS = set(['redhat', 'centos'])
+SUPPORTED_REDHAT_DISTROS = set(['redhat', 'centos',
+                                'centos linux', 'scientific linux'])
 
 def get_supported_distro(log=None):
     """
@@ -107,13 +108,15 @@ class Pf9AppCache(AppCache):
         self.log.info("Downloaded file %s to %s", srcurl, destfile)
 
 
-    def download(self, name, version, url):
+    def download(self, name, version, url, change_extension):
         """
         Downloads an application package if not in the cache.
 
         :param str name: Name of the app
         :param str version: Version of the app
         :param str url: Url to download it from, if not in the cache
+        :param bool change_extension: Change the url extension to .deb
+                                      if a Debian OS is detected
         :return: the path of the locally downloaded package file
         :rtype: str
         :raises DownloadFailed: when downloading the file fails
@@ -129,7 +132,7 @@ class Pf9AppCache(AppCache):
             self.log.info("Downloading %s.%s from %s to %s",
                           name, version, url, localdest)
 
-            if get_supported_distro(self.log) == "debian":
+            if change_extension and get_supported_distro(self.log) == "debian":
                 url = "".join(os.path.splitext(url)[:-1]) + ".deb"
                 localdest = "".join(os.path.splitext(localdest)[:-1]) + ".deb"
 
