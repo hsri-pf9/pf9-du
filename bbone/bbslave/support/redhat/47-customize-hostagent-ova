@@ -42,16 +42,8 @@ cp ${CUSTOMIZE_SCRIPT_DIR}/* ${ISO_STAGING_DIR}
 genisoimage -o ${ISO_PATH} -r ${ISO_STAGING_DIR}
 
 pushd ${OVF_BASE_DIR}
-VMDK_SIZE=$(stat -c '%s' ${OVA_SHORT_NAME}-disk1.vmdk)
-ISO_SIZE=$(stat -c '%s' ${ISO_NAME})
-# Add correct VMDK and ISO size to OVF
-sed -e "s/__VMDK_SIZE__/${VMDK_SIZE}/" -e "s/__ISO_SIZE__/${ISO_SIZE}/" ${OVA_SHORT_NAME}-template.ovf > ${OVA_SHORT_NAME}.ovf
-rm -f ${OVA_SHORT_NAME}-template.ovf
-# Create a manifest file
-openssl sha1 ${OVA_SHORT_NAME}{-disk1.vmdk,.ovf} ${ISO_NAME} > ${OVA_SHORT_NAME}.mf
-# Files need to be tar'ed up in a particular order - ovf, mf, vmdk and then iso
 tar -cvf ${OVA_SHORT_NAME}.ova \
-         ${OVA_SHORT_NAME}{.ovf,.mf,-disk1.vmdk} \
+         ${OVA_SHORT_NAME}{.ovf,-disk1.vmdk} \
          ${ISO_NAME}
 popd
 
