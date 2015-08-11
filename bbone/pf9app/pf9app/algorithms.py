@@ -181,6 +181,7 @@ def process_agent_update(agent_config, app_db, app_cache, agent_app_class, log):
     new_agent = agent_app_class(name=agent_config['name'],
                                 version=agent_config['version'],
                                 url=agent_config['url'],
+                                change_extension=True,
                                 app_db=app_db,
                                 app_cache=app_cache,
                                 log=log)

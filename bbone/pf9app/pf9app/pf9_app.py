@@ -358,7 +358,8 @@ class Pf9AgentApp(Pf9RemoteApp):
     """
     Class that implements the host agent app interface
     """
-    def __init__(self, name, version, url, app_db, app_cache, log=logging):
+    def __init__(self, name, version, url, change_extension,
+                 app_db, app_cache, log=logging):
         """
         Constructor
         :param str name: Name of the agent
@@ -369,7 +370,8 @@ class Pf9AgentApp(Pf9RemoteApp):
         :param Logger log: logger object for logging
         """
         Pf9RemoteApp.__init__(self, name=name, version=version, url=url,
-                              app_db=app_db, app_cache=app_cache, log=log)
+                              change_extension=change_extension, app_db=app_db,
+                              app_cache=app_cache, log=log)
 
     def update(self):
         """
