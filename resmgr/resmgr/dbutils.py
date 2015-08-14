@@ -694,8 +694,10 @@ class ResMgrDB(object):
         with self.dbsession() as session:
             try:
                 host = session.query(Host).filter_by(id=host_id).first()
-                role = session.query(Role).filter_by(rolename=role_name, active=True).first()
-                host.roles.remove(role)
+                for role in host.roles:
+                    if role.rolename == role_name:
+                        host.roles.remove(role)
+                        break
             except:
                 log.exception('DB error while removing role %s from host %s',
                               role_name, host_id)
