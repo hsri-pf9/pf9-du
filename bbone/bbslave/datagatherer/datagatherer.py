@@ -26,7 +26,8 @@ captures it at run time for the app.
 
 file_list = [
     '/var/log/pf9/*',
-    '/var/opt/pf9/hypervisor_details'
+    '/var/opt/pf9/hypervisor_details',
+    '/var/log/glance/*',
 ]
 
 support_logging_dir = '/var/log/pf9/support'
