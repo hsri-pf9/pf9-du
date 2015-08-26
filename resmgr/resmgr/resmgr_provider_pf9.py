@@ -983,20 +983,19 @@ class ResMgrPf9Provider(ResMgrProvider):
         # Dive into the app_config dictionary to find the auth_events
         # spec. Do nothing if it (or any of the intermediate keys)
         # is missing.
-        curr = app_config
-        for key in [role_name, 'du_config', 'auth_events']:
-            if curr.has_key(key):
-                curr = curr[key]
-            else:
-                log.debug('No auth events for %s', role_name)
-                return
-        event_spec = curr
+        for app_name, app_details in app_config.iteritems():
+            if 'du_config' not in app_details or \
+               'auth_events' not in app_details['du_config']:
+                log.debug('No auth events for %s', app)
+                continue
 
-        events_type = event_spec.get('type', None)
-        if events_type == 'python':
-            self._run_python_event(event_method, event_spec)
-        else:
-            log.warn('Unknown auth_events type \'%s\'.', events_type)
+            event_spec = app_details['du_config']['auth_events']
+
+            events_type = event_spec.get('type', None)
+            if events_type == 'python':
+                self._run_python_event(event_method, event_spec)
+            else:
+                log.warn('Unknown auth_events type \'%s\'.', events_type)
 
     def _run_python_event(self, event_method, event_spec):
         """
