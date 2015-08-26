@@ -986,7 +986,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         for app_name, app_details in app_config.iteritems():
             if 'du_config' not in app_details or \
                'auth_events' not in app_details['du_config']:
-                log.debug('No auth events for %s', app)
+                log.debug('No auth events for %s', app_name)
                 continue
 
             event_spec = app_details['du_config']['auth_events']
