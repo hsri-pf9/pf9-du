@@ -4,7 +4,7 @@
 function proxy_ask()
 {
     while true; do
-        read -p "Do you want to configure proxy settings? " yn
+        read -p "Do you want to configure proxy settings (yes/no)? " yn
         case $yn in
             [Yy]* ) SETUP_PROXY="true"; _ask_proxy_settings; break;;
             [Nn]* ) SETUP_PROXY="false"; break;;

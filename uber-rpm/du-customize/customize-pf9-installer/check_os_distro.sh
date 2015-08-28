@@ -67,6 +67,10 @@ function _check_version()
 
 function _print_not_supported()
 {
+    if [[ "${SKIP_OS_CHECK}" == "true" ]]; then
+        return 0
+    fi
+
     echo "Sorry but we currently do not support your operating system."
     echo "Please let us know at support@platform9.com"
     echo
