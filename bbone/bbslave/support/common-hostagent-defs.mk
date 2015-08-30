@@ -13,7 +13,7 @@
 # SED_CMD
 
 SRC_DIR := $(SRC_ROOT)/bbone/bbslave
-VERSION ?= 1.2.0
+VERSION ?= 1.3.0
 BUILD_NUMBER ?= 0
 GITHASH=$(shell git rev-parse --short HEAD)
 

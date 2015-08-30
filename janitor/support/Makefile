@@ -12,7 +12,7 @@ BUILD_DIR := $(BUILD_ROOT)/janitor
 JANITOR_DIR :=$(SRC_DIR)
 NOTIFIER_DIR :=$(SRC_ROOT)/lib/notifier
 
-VERSION ?= 1.0.0
+VERSION ?= 1.3.0
 BUILD_NUMBER ?= 0
 RPM_DIR := $(BUILD_DIR)/rpmbuild
 MOCK = /usr/bin/mock -r epel-6-x86_64
