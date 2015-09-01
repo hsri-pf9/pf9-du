@@ -44,16 +44,26 @@ HOSTAGENT_TARBALL_EXPANDEDDIR=`mktemp -d -t pf9-XXX`
 tar -xzf $HOSTAGENT_TARBALL -C $HOSTAGENT_TARBALL_EXPANDEDDIR
 
 # Copy certificates
+# For backward compatibility, CERT_VERSION may be an empty string.
+CERT_VERSION=
+CERTS_DIR=/etc/pf9/certs
+pushd ${CERTS_DIR}
+if ls -vd v* > /dev/null 2>&1; then
+    CERT_VERSION="$(ls -vd v* | tail -n 1)"
+    CERTS_DIR="${CERTS_DIR}/${CERT_VERSION}"
+fi
+popd
+
 mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs
-cp -r /etc/pf9/certs/hostagent $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/
+cp -r ${CERTS_DIR}/hostagent $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/
 chmod 440 $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/hostagent/key.pem
 mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
-cp /etc/pf9/certs/ca/cert.pem $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
+cp ${CERTS_DIR}/ca/cert.pem $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
 
 #clean the RPMBUILD dir
 rm -fr $RPMBUILD_DIR
 mkdir $RPMBUILD_DIR
 
 # Create the DEB
-$HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-deb-build.sh $RPMBUILD_DIR $HOSTAGENT_TARBALL_EXPANDEDDIR $MGMT_FQDN $VERSION $RELEASE $AMQP_USER $AMQP_PASS $DU_IS_CONTAINER
+$HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-deb-build.sh $RPMBUILD_DIR $HOSTAGENT_TARBALL_EXPANDEDDIR $MGMT_FQDN $VERSION $RELEASE $AMQP_USER $AMQP_PASS $DU_IS_CONTAINER "${CERT_VERSION}"
 

@@ -7,7 +7,6 @@ License:          Commercial
 URL:              http://www.platform9.net/
 Source0:          %{name}-%{version}.tar.gz
 BuildArch:        noarch
-#BuildRequires:
 Requires: pf9-resmgr
 Requires: pf9-bbmaster
 Requires: pf9-clarity
@@ -38,4 +37,3 @@ cp -rp * %{buildroot}
 %defattr(-,root,root,-)
 /opt/pf9/du-customize
 %config /etc/pf9/global.conf
-%config /etc/rabbitmq/rabbitmq.config

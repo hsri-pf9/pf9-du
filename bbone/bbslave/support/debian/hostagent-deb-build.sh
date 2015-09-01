@@ -17,6 +17,7 @@ RELEASE="$5"
 AMQP_USER=$6
 AMQP_PASS=$7
 DU_IS_CONTAINER="$8"
+CERT_VERSION="$9"
 
 # The directory where the build is done
 SPEC_FILE_DIR=`mktemp -d -t pf9-XXX`
@@ -35,6 +36,7 @@ sed -i -e "s/CHANGE_TO_YOUR_BROKER_IP/$HOST_IP/" $TARBALL_EXPANDED_LOCATION/etc/
 sed -i -e "s/CHANGE_TO_YOUR_AMQP_USER/$AMQP_USER/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 sed -i -e "s/CHANGE_TO_YOUR_AMQP_PASS/$AMQP_PASS/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 sed -i -e "s/CHANGE_TO_YOUR_DU_IS_CONTAINER_FLAG/$DU_IS_CONTAINER/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
+sed -i -e "s/CHANGE_TO_YOUR_CERT_VERSION/$CERT_VERSION/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 
 mkdir -p $PRIVATE_FILES_DIR
 
