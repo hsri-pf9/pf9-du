@@ -23,7 +23,7 @@ import dict_subst
 import dict_tokens
 
 from bbcommon.utils import is_satisfied_by
-from dbutils import ResMgrDB
+from dbutils import ResMgrDB, role_app_map
 from exceptions import (BBMasterNotFound, HostNotFound, RoleNotFound,
                         HostConfigFailed, SupportRequestFailed,
                         SupportCommandRequestFailed, RabbitCredentialsConfigureError,
@@ -983,10 +983,13 @@ class ResMgrPf9Provider(ResMgrProvider):
         # Dive into the app_config dictionary to find the auth_events
         # spec. Do nothing if it (or any of the intermediate keys)
         # is missing.
+        role_apps = role_app_map[role_name]
         for app_name, app_details in app_config.iteritems():
-            if 'du_config' not in app_details or \
+            if app_name not in role_apps or \
+               'du_config' not in app_details or \
                'auth_events' not in app_details['du_config']:
-                log.debug('No auth events for %s', app_name)
+                log.debug('No auth events for %s and role %s',
+                          app_name, role_name)
                 continue
 
             event_spec = app_details['du_config']['auth_events']
