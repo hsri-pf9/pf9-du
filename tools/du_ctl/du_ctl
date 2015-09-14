@@ -18,6 +18,7 @@ import sys
 import time
 
 logging.basicConfig(level=logging.DEBUG,
+                    stream=sys.stdout,
                     format='%(message)s')
 log = logging.getLogger('du-ctl')
 
