@@ -401,16 +401,16 @@ class ResMgrDB(object):
             try:
                 host = session.query(Host).filter_by(id=host_id).first()
                 if responding:
-                    log.info('Marking the host %s as responding', host_id)
+                    log.info('Marking the host %s(%s) as responding', host.hostname, host_id)
                     host.lastresponsetime = None
                     host.responding = True
                 else:
-                    log.info('Marking the host %s as not responding', host_id)
+                    log.info('Marking the host %s(%s) as not responding', host.hostname, host_id)
                     host.lastresponsetime = datetime.datetime.utcnow()
                     host.responding = False
             except:
-                log.exception('Marking host as %s responding failed',
-                              '' if responding else 'not')
+                log.exception('Marking host %s as %s responding failed',
+                              host_id, '' if responding else 'not')
                 raise
 
     def update_host_hostname(self, host_id, hostname):
