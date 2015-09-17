@@ -1006,16 +1006,17 @@ class ResMgrPf9Provider(ResMgrProvider):
         only raise DuConfigError.
         """
         module_path = event_spec.get('module_path', None)
-        params = event_spec.get('params', {})
         if not module_path:
             log.warn('No auth events module_path specified in app_config.')
         else:
+            params = event_spec.get('params', {})
             try:
                 module_name = os.path.splitext(
                         os.path.basename(module_path))[0]
                 module = imp.load_source(module_name, module_path)
+                # Pass resmgr logger object to auth_event handler method
                 method = getattr(module, event_method)
-                method(**params)
+                method(logger=log, **params)
                 log.info('Auth event \'%s\' method from %s ran successfully',
                          event_method, module_path)
             except:
