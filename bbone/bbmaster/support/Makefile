@@ -18,7 +18,7 @@ CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
 PF9CERT_DIR := $(SRC_ROOT)/lib/pf9cert
 
 
-VERSION ?= 1.3.0
+PF9_VERSION ?= 1.3.0
 BUILD_NUMBER ?= 0
 RPM_DIR := $(BUILD_DIR)/rpmbuild
 MOCK = /usr/bin/mock -r epel-6-x86_64
@@ -28,8 +28,8 @@ TEST_SETUP_DEPS = ${PROD_SETUP_DEPS} ${SRC_ROOT}/bbone/bbslave ${PF9APP_DIR}
 TEST_VENV = ${BUILD_DIR}/test_venv
 TEST_VENV_DEVELOP_CMD=${TEST_VENV}/bin/python setup.py develop
 
-BBMASTER_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-bbmaster-${VERSION}
-BBMASTER_SRC_TARBALL = ${BUILD_DIR}/pf9-bbmaster-${VERSION}.tgz
+BBMASTER_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-bbmaster-${PF9_VERSION}
+BBMASTER_SRC_TARBALL = ${BUILD_DIR}/pf9-bbmaster-${PF9_VERSION}.tgz
 PF9_OPT_DIR = ${BBMASTER_SRC_STAGE}/opt/pf9
 PROD_VENV = ${PF9_OPT_DIR}/bbmaster
 # These are additional modules needed to setup for production purposes
@@ -73,7 +73,7 @@ ${BBMASTER_SRC_TARBALL}: ${BBMASTER_SRC_STAGE}
 
 rpm: ${BBMASTER_SRC_TARBALL}
 	echo "RPM build goes here"
-	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__VERSION__/${VERSION}/" \
+	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__VERSION__/${PF9_VERSION}/" \
 	    -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" \
 	    bbmaster-rpm.spec > ${BUILD_DIR}/bbmaster-rpm.spec
 	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/bbmaster-rpm.spec --resultdir ${RPM_DIR}

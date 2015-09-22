@@ -12,13 +12,13 @@ BUILD_DIR := $(BUILD_ROOT)/janitor
 JANITOR_DIR :=$(SRC_DIR)
 NOTIFIER_DIR :=$(SRC_ROOT)/lib/notifier
 
-VERSION ?= 1.3.0
+PF9_VERSION ?= 1.3.0
 BUILD_NUMBER ?= 0
 RPM_DIR := $(BUILD_DIR)/rpmbuild
 MOCK = /usr/bin/mock -r epel-6-x86_64
 
-JANITOR_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-janitor-${VERSION}
-JANITOR_SRC_TARBALL = ${BUILD_DIR}/pf9-janitor-${VERSION}.tgz
+JANITOR_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-janitor-${PF9_VERSION}
+JANITOR_SRC_TARBALL = ${BUILD_DIR}/pf9-janitor-${PF9_VERSION}.tgz
 PF9_OPT_DIR = ${JANITOR_SRC_STAGE}/opt/pf9
 PROD_VENV = ${PF9_OPT_DIR}/janitor
 # These are additional modules needed to setup for production purposes
@@ -56,7 +56,7 @@ ${JANITOR_SRC_TARBALL}: ${JANITOR_SRC_STAGE}
 	cd ${BUILD_DIR}/srcstage && tar -czf ${JANITOR_SRC_TARBALL} *
 
 rpm: ${JANITOR_SRC_TARBALL}
-	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__VERSION__/${VERSION}/" \
+	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__VERSION__/${PF9_VERSION}/" \
 	    -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" janitor-rpm.spec \
 	    > ${BUILD_DIR}/janitor-rpm.spec
 	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/janitor-rpm.spec --resultdir ${RPM_DIR}

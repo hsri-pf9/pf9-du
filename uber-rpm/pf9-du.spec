@@ -1,6 +1,6 @@
 Summary:          Platform9 deployment unit
 Name:             pf9-du
-Version:          1.3.0
+Version:          __VERSION__
 Release:          __BUILDNUM__.__GITHASH__
 Group:            Applications/System
 License:          Commercial

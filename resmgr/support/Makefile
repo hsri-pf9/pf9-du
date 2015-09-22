@@ -15,13 +15,13 @@ CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
 NOTIFIER_DIR :=$(SRC_ROOT)/lib/notifier
 RABBIT_MGMT_DIR :=$(SRC_ROOT)/lib/rabbit
 
-VERSION ?= 1.3.0
+PF9_VERSION ?= 1.3.0
 BUILD_NUMBER ?= 0
 RPM_DIR := $(BUILD_DIR)/rpmbuild
 MOCK = /usr/bin/mock -r epel-6-x86_64
 
-RESMGR_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-resmgr-${VERSION}
-RESMGR_SRC_TARBALL = ${BUILD_DIR}/pf9-resmgr-${VERSION}.tgz
+RESMGR_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-resmgr-${PF9_VERSION}
+RESMGR_SRC_TARBALL = ${BUILD_DIR}/pf9-resmgr-${PF9_VERSION}.tgz
 PF9_OPT_DIR = ${RESMGR_SRC_STAGE}/opt/pf9
 PROD_VENV = ${PF9_OPT_DIR}/resmgr
 # These are additional modules needed to setup for production purposes
@@ -79,7 +79,7 @@ ${RESMGR_SRC_TARBALL}: ${RESMGR_SRC_STAGE}
 	tar -czf ${RESMGR_SRC_TARBALL} *
 
 rpm: ${RESMGR_SRC_TARBALL}
-	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__VERSION__/${VERSION}/" \
+	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__VERSION__/${PF9_VERSION}/" \
 	    -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" resmgr-rpm.spec \
 	    > ${BUILD_DIR}/resmgr-rpm.spec
 	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/resmgr-rpm.spec --resultdir ${RPM_DIR}
