@@ -771,8 +771,14 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         # Clear out all the roles
         if host_inst['roles']:
-            log.debug('Removing roles and state entries in the database for %s',
-                      host_id)
+            # recalculate role app parameters for use in deauth event handler
+            host_details = self.res_mgr_db.query_host_and_app_details(host_id)
+            deauthed_app_config = host_details[host_id]['apps_config']
+            role_settings = json.loads(host_details[host_id]['role_settings'])
+            roles = self.roles_mgr.db_handler.query_roles_for_host(host_id)
+            _update_custom_role_settings(deauthed_app_config, role_settings, roles)
+
+            log.debug('Removing roles and state entries in the database for %s', host_id)
             _authorized_host_role_status[host_id] = None
             self.res_mgr_db.update_roles_for_host(host_id, roles=[])
             credentials_to_delete = self.res_mgr_db.query_rabbit_credentials(host_id=host_id)
@@ -785,6 +791,9 @@ class ResMgrPf9Provider(ResMgrProvider):
                       host_id)
             self.roles_mgr.push_configuration(host_id, app_info={},
                                               needs_rabbit_subst=False)
+            for role_name in host_inst['roles']:
+                log.debug('Calling deauth event handler for %s role', role_name)
+                self._on_deauth(role_name, deauthed_app_config)
 
     def delete_rabbit_credentials(self, credentials):
         for credential in credentials:
@@ -1059,7 +1068,7 @@ class ResMgrPf9Provider(ResMgrProvider):
 
     def _run_python_event(self, event_method, event_spec):
         """
-        Run a methon from the python module whose path is in event_spec. Will
+        Run a method from the python module whose path is in event_spec. Will
         only raise DuConfigError.
         """
         module_path = event_spec.get('module_path', None)
