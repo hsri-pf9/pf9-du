@@ -14,6 +14,7 @@ test_data_install = [
             'foo': {
                 'version': '1.0',
                 'url': 'http://zz.com/foo-1.0.rpm',
+                'rank': '1.1',
                 'running': True,
                 'config': {
                     'default': {
@@ -36,6 +37,7 @@ test_data_install = [
             'foo': {
                 'version': '1.5',
                 'url': 'http://zz.com/foo-1.5.rpm',
+                'rank': '88.3',
                 'running': True,
                 'config': {
                     'default': {
@@ -51,6 +53,7 @@ test_data_install = [
             'bar': {
                 'version': '1.0',
                 'url': 'http://xx.com/bar-1.0.rpm',
+                'rank': '7.2',
                 'running': False,
                 'config': {
                     'xx': {
@@ -69,6 +72,7 @@ test_data_install = [
             'ostackhost': {
                 'version': '1.8',
                 'url': 'http://www.foo.com/ostackhost-1.8.rpm',
+                'rank': '1.1',
                 'running': True,
                 'config': {
                     'default': {
@@ -84,6 +88,7 @@ test_data_install = [
             'bar': {
                 'version': '1.0',
                 'url': 'http://xx.com/bar-1.0.rpm',
+                'rank': '34.34',
                 'running': False,
                 'config': {
                     'xx': {
@@ -102,6 +107,7 @@ test_data_install = [
             'ostackhost': {
                 'version': '1.8',
                 'url': 'http://www.foo.com/ostackhost-1.8.rpm',
+                'rank': '1.1',
                 'running': False,
                 'config': {
                     'default': {
@@ -134,6 +140,7 @@ test_data_config = [
             'foo': {
                 'version': '1.0',
                 'url': 'http://zz.com/foo-1.0.rpm',
+                'rank': '1.1',
                 'running': True,
                 'config': {
                     'default': {
@@ -156,6 +163,7 @@ test_data_config = [
             'foo': {
                 'version': '1.0',
                 'url': 'http://zz.com/foo-1.0.rpm',
+                'rank': '121.1',
                 'running': False,
                 'config': {
                     'default': {
@@ -178,6 +186,7 @@ test_data_config = [
             'foo': {
                 'version': '2.0',
                 'url': 'http://zz.com/foo-2.0.rpm',
+                'rank': '11.15',
                 'running': False,
                 'config': {
                     'default': {
@@ -200,6 +209,7 @@ test_data_config = [
             'foo': {
                 'version': '2.0',
                 'url': 'http://zz.com/foo-2.0.rpm',
+                'rank': '1.1',
                 'running': False,
                 'config': {
                     'default': {
@@ -222,6 +232,7 @@ test_data_config = [
             'foo': {
                 'version': '2.0',
                 'url': 'http://zz.com/foo-2.0.rpm',
+                'rank': '34.41',
                 'running': False,
                 'config': {
                     'default': {
@@ -244,6 +255,7 @@ test_data_config = [
             'foo': {
                 'version': '3.0',
                 'url': 'http://zz.com/foo-3.0.rpm',
+                'rank': '1.1',
                 'running': True,
                 'config': {
                     'default': {
@@ -265,6 +277,7 @@ test_data_config = [
             'foo': {
                 'version': '3.0',
                 'url': 'http://zz.com/foo-3.0.rpm',
+                'rank': '20.1',
                 'running': False,
                 'config': {
                     'default': {
@@ -295,6 +308,7 @@ test_data_config = [
             'bar': {
                 'version': '2.1',
                 'url': 'http://zz.com/bar-2.2.rpm',
+                'rank': '1.1',
                 'running': False,
                 'config': {
                 }
@@ -309,6 +323,7 @@ test_data_config = [
             'bar': {
                 'version': '2.2',
                 'url': 'http://zz.com/bar-2.2.rpm',
+                'rank': '98.1',
                 'running': False,
                 'config': {
                 }
@@ -325,6 +340,7 @@ test_data_ping = [
             'foo': {
                 'version': '1.0',
                 'url': 'http://zz.com/foo-1.0.rpm',
+                'rank': '7.7',
                 'running': True,
                 'config': {
                     'default': {
@@ -346,6 +362,7 @@ test_data_ping = [
             'foo': {
                 'version': '1.0',
                 'url': 'http://zz.com/foo-1.0.rpm',
+                'rank': '1.1',
                 'running': True,
                 'config': {
                     'default': {
@@ -367,6 +384,7 @@ test_data_ping = [
             'foo': {
                 'version': '1.0',
                 'url': 'http://zz.com/foo-1.0.rpm',
+                'rank': '1.1',
                 'running': True,
                 'config': {
                     'default': {
@@ -402,6 +420,7 @@ test_data_different_number_of_services = [
             'foo': {
                 'version': '1.0',
                 'url': 'http://zz.com/foo-1.0.rpm',
+                'rank': '158.4',
                 'service_states': {},
                 'config': {
                     'default': {
@@ -424,6 +443,7 @@ test_data_different_number_of_services = [
             'foo': {
                 'version': '1.0',
                 'url': 'http://zz.com/foo-1.0.rpm',
+                'rank': '158.4',
                 'service_states': { 'foo': True },
                 'config': {
                     'default': {
@@ -446,6 +466,7 @@ test_data_different_number_of_services = [
             'foo': {
                 'version': '1.0',
                 'url': 'http://zz.com/foo-1.0.rpm',
+                'rank': '158.4',
                 'service_states': { 'foo': False, 'bar': True },
                 'config': {
                     'default': {
@@ -468,6 +489,7 @@ test_data_different_number_of_services = [
             'foo': {
                 'version': '1.5',
                 'url': 'http://zz.com/foo-1.5.rpm',
+                'rank': '5.4',
                 'service_states': { 'foo': True, 'bar': False },
                 'config': {
                     'default': {
@@ -490,6 +512,7 @@ test_data_different_number_of_services = [
             'foo': {
                 'version': '1.0',
                 'url': 'http://zz.com/foo-1.0.rpm',
+                'rank': '158.4',
                 'service_states': { 'bar': False },
                 'config': {
                     'default': {

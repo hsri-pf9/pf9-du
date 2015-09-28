@@ -27,6 +27,7 @@ test_data_0 = {
     'foo': {
         'version': '1.0',
         'url': 'http://zz.com/foo-1.0.rpm',
+        'rank': '3.3',
         'running': True,
         'config': {
             'default': {
@@ -45,6 +46,7 @@ test_data_1 = {
     'ostackhost': {
         'version': '1.8',
         'url': 'http://www.foo.com/ostackhost-1.8.rpm',
+        'rank': '3.3',
         'running': True,
         'config': {
             'default': {

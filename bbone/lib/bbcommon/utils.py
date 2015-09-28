@@ -34,7 +34,7 @@ def is_satisfied_by(desired_config, current_config):
     for app_name, app_spec in specified_config.iteritems():
         # Remove url, pkginfo, and DU-side role config
         # because they don't truly belong in the state
-        for config_key in 'url', 'du_config', 'pkginfo':
+        for config_key in 'url', 'du_config', 'pkginfo', 'rank':
             if config_key in app_spec:
                 del app_spec[config_key]
         if not configutils.is_dict_subset(app_spec, current_config[app_name]):

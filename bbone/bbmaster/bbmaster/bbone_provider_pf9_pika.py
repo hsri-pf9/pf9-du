@@ -377,4 +377,5 @@ class bbone_provider_pf9(bbone_provider_memory):
             body = {'opcode': 'set_config', 'data': desired_apps}
             self._send_msg(host_state['host_id'], body)
 
+
 provider = bbone_provider_pf9()

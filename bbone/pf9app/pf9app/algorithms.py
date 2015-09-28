@@ -46,6 +46,10 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
     deleted_app_names = installed_app_names - specified_app_names
     new_app_names = specified_app_names - installed_app_names
     identical_app_names = installed_app_names & specified_app_names
+
+    new_app_names = get_app_ordering(new_app_names, new_config, log)
+    identical_app_names = get_app_ordering(identical_app_names, new_config, log)
+
     if not non_destructive:
         for app_name in deleted_app_names:
             app = installed_apps[app_name]
@@ -187,3 +191,13 @@ def process_agent_update(agent_config, app_db, app_cache, agent_app_class, log):
                                 log=log)
     new_agent.download()
     new_agent.update()
+
+
+def get_app_ordering(apps_to_order, app_config, log):
+    """
+    Given a list of apps to order and the config dict, return an ordered list
+    of apps based on the app ranks
+    """
+    return sorted(apps_to_order, key=lambda t:
+                                 float(app_config[t].get('rank', 0.0)))
+

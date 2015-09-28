@@ -94,6 +94,7 @@ test_data = {
         "version": "1.3",
         "running": False,
         "url": "http://www.foo.com/app_foo-1.8.rpm",
+        "rank": "1.6",
         "config": {
             "default": {
                 "y":3,
