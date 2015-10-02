@@ -7,6 +7,12 @@ __author__ = 'Platform9'
 Contains utility methods that work with config files/data
 """
 
+import copy
+import json
+import os
+import re
+import shutil
+import tempfile
 import ConfigParser
 import errno
 import json
@@ -156,3 +162,90 @@ def is_dict_subset(dict1, dict2):
             return False
 
     return True
+
+
+SECPAT = re.compile(r'\s*\[\s*(\S+)\s*]')
+KEYPAT = re.compile(r'\s*(\S+)\s*=\s*(\S[^\r\n]*)')
+
+
+def extract_params(params, inifile, cfg= None):
+    """
+    extract dictionary with keys specified in params from an inifile
+    """
+    if cfg is None:
+        cfg = {}
+    with open(inifile, 'r') as f:
+        section = None
+        for line in f.readlines():
+            secmatch = SECPAT.match(line)
+            if secmatch:
+                section = secmatch.group(1)
+            else:
+                keymatch = KEYPAT.match(line)
+                if keymatch:
+                    key, val = keymatch.groups()
+                    if section in params and key in params[section]:
+                        if section in cfg:
+                            cfg[section][key] = val
+                        else:
+                            cfg[section] = {key: val}
+    return cfg
+
+
+def merge_params(params, inifile):
+    """
+    Merge a two-level json dictionary into an ini file.
+    :param params: dictionary with keys representing sections in the
+                   ini file. Values are dictionaries representing
+                   parameter values within the section.
+    :param inifile: File to modify.
+    """
+    # create the file if it's not already there
+    if not os.path.isfile(inifile):
+        open(inifile, 'w').close()
+
+    # Use a copy of the params to keep track of state, removing keys/sections
+    # as we find and modify them in the file. Leftover keys are added at the
+    # end of a section. Leftover sections are added at the end of the file.
+    currsect = None
+    unset = copy.deepcopy(params)
+    with tempfile.NamedTemporaryFile(prefix=os.path.basename(inifile),
+                                     delete=False) as ofile:
+        with open(inifile, 'r') as ifile:
+            for line in ifile.readlines():
+                secmatch = SECPAT.match(line)
+                if secmatch:
+                    if currsect and currsect in unset:
+                        # starting new section, do leftover keys
+                        for key in unset[currsect]:
+                            ofile.write('%s = %s\n' % (key, unset[currsect][key]))
+                        ofile.write('\n')
+                        del unset[currsect]
+                    currsect = secmatch.group(1)
+                    ofile.write('[%s]\n' % currsect)
+                elif currsect in unset:
+                    keymatch = KEYPAT.match(line)
+                    if keymatch and keymatch.group(1) in unset[currsect]:
+                        key = keymatch.group(1)
+                        ofile.write('%s = %s\n' % (key, unset[currsect][key]))
+                        del unset[currsect][key]
+                    else:
+                        ofile.write(line)
+                else:
+                    ofile.write(line)
+            # end of file, leftover keys, sections
+            if currsect in unset:
+                for key in unset[currsect]:
+                    ofile.write('%s = %s\n' % (key, unset[currsect][key]))
+                ofile.write('\n')
+                del unset[currsect]
+            for section, vals in unset.iteritems():
+                if vals:
+                    ofile.write('[%s]\n' % section)
+                    for key, val in vals.iteritems():
+                        ofile.write('%s = %s\n' % (key, val))
+
+    shutil.copy(ofile.name, inifile)
+    os.unlink(ofile.name)
+
+
