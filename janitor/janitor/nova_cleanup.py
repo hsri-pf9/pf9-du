@@ -3,6 +3,9 @@
 # All rights reserved
 #
 
+__author__ = 'Platform9'
+
+import json
 import requests
 import logging
 import utils
@@ -108,6 +111,41 @@ class NovaCleanup(NovaBase):
             if resp.status_code != 204:
                 LOG.error('Skipping hypervisor %s, resp: %d', pf9_id, resp.status_code)
 
+        def is_vmware(resmgr_ids, token):
+            if len(resmgr_ids) == 1 and 'pf9-ostackhost-vmw' in \
+                    utils.get_resmgr_host_roles(self._resmgr_url, token, next(iter(resmgr_ids))):
+                return True
+            return False
+
+        def find_nova_hosts_not_in_resmgr(resmgr_ids, token, project_id):
+            resp = self._nova_request('os-hypervisors/detail', token, project_id)
+
+            if resp.status_code != requests.codes.ok:
+                LOG.error('Unexpected return code: %(code)s when querying hypervisors', dict(code=resp.status_code))
+                return
+
+            nova_data = resp.json()['hypervisors']
+            nova_map = dict()
+            nova_ids = set()
+            vmware = is_vmware(resmgr_ids, token)
+
+            if not vmware:
+                for host in nova_data:
+                    nova_map[host['OS-EXT-PF9-HYP-ATTR:host_id']] = host['id']
+                    nova_ids.add(host['OS-EXT-PF9-HYP-ATTR:host_id'])
+            else:
+                clusters = utils.get_ostackhost_role_data(resmgr_ids,
+                                                          self._resmgr_url,
+                                                          token).split(',')
+                for host in nova_data:
+                    nova_map[host['OS-EXT-PF9-HYP-ATTR:host_id']] = host['id']
+                    # Split the cluster name and verify as Hypervisor hostname is of format
+                    # "domain-c86104(test_cluster)" and role data has just the cluster name
+                    # "test_cluster".
+                    if host['hypervisor_hostname'].split('(')[1].strip(')') not in clusters:
+                        nova_ids.add(host['OS-EXT-PF9-HYP-ATTR:host_id'])
+            return nova_ids.difference(resmgr_ids), nova_map
+
         # 1. Query resmgr hosts
         resp = utils.get_resmgr_hosts(self._resmgr_url, token_id)
 
@@ -118,22 +156,8 @@ class NovaCleanup(NovaBase):
         resmgr_data = resp.json()
         resmgr_ids = set(h['id'] for h in filter(lambda h: h['state'] == 'active', resmgr_data))
 
-        # 2. Query nova hosts
-        resp = self._nova_request('os-hypervisors/detail', token_id, project_id)
-
-        if resp.status_code != requests.codes.ok:
-            LOG.error('Unexpected return code: %(code)s when querying hypervisors', dict(code=resp.status_code))
-            return
-
-        nova_data = resp.json()['hypervisors']
-        nova_map = dict()
-        nova_ids = set()
-        for h in nova_data:
-            nova_map[h['OS-EXT-PF9-HYP-ATTR:host_id']] = h['id']
-            nova_ids.add(h['OS-EXT-PF9-HYP-ATTR:host_id'])
-
-        # 3. Find nova-only hosts
-        nova_only_ids = nova_ids.difference(resmgr_ids)
+        # 2 & 3. Find all nova hosts and nova-only hosts that are not in resmgr
+        nova_only_ids, nova_map = find_nova_hosts_not_in_resmgr(resmgr_ids, token, project_id)
 
         host_to_aggr_map = get_host_to_aggr_map(nova_only_ids)
 
