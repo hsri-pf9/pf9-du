@@ -6,18 +6,38 @@ import platform
 import ConfigParser
 import uuid
 import os
+import re
 import socket
 
+_dist_res = (re.compile("(?:DISTRIB_ID\s*=)\s*(.*)", re.I),
+             re.compile("(?:DISTRIB_RELEASE\s*=)\s*(.*)", re.I),
+             re.compile("(?:DISTRIB_CODENAME\s*=)\s*(.*)", re.I))
+
+def _get_os_info():
+    """
+    The Python platform module detects Ubuntu distributions as Debian,
+    so check the lsb release file first. See IAAS-3596.
+    """
+    try:
+        with open("/etc/lsb-release", "rU") as f:
+            lsb_contents = f.read()
+        dist = [dist_re.search(lsb_contents).group(1).strip()
+                for dist_re in _dist_res
+                if dist_re.search(lsb_contents)]
+    except:
+        dist = []
+    if len(dist) != 3:
+        dist = platform.dist()
+    return ' '.join(dist)
 
 def get_sysinfo():
     """
     Returns a dictionary describing the host and operating system.
     :rtype: dict
     """
-
     return {
         'hostname': socket.getfqdn(),
-        'os_info': ' '.join(platform.dist()),
+        'os_info': _get_os_info(),
         'arch': platform.machine(),
         'os_family': platform.system()
     }
