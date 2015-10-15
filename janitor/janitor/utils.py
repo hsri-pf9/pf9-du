@@ -11,7 +11,6 @@ import time
 
 LOG = logging.getLogger('janitor-daemon')
 
-_TOKEN = None
 
 def _get_auth_token(tenant, user, password):
     data = {
@@ -27,37 +26,39 @@ def _get_auth_token(tenant, user, password):
     url = 'http://localhost:35357/v2.0/tokens'
 
     r = requests.post(url, json.dumps(data),
-            verify=False, headers={'Content-Type': 'application/json'})
+                      verify=False, headers={'Content-Type': 'application/json'})
 
     if r.status_code != requests.codes.ok:
         raise RuntimeError('Token request returned: %d' % r.status_code)
 
     return r.json()['access']['token']
 
-def _need_refresh():
+
+def _need_refresh(token):
     """
     Return True if token should be refreshed.
     """
 
     # TODO check if token is valid by querying keystone
-    global _TOKEN
 
-    str_exp_time = _TOKEN['expires']
+    str_exp_time = token['expires']
     token_time = time.strptime(str_exp_time, '%Y-%m-%dT%H:%M:%SZ')
     current_time = time.gmtime()
 
     return True if time.mktime(token_time) - time.mktime(current_time) < 60 * 5\
         else False
 
-def get_auth_token(tenant, user, password):
 
-    global _TOKEN
+def get_auth_token(tenant, user, password, old_token):
 
-    if not _TOKEN or _need_refresh():
+    token = old_token
+
+    if not old_token or _need_refresh(old_token):
         LOG.debug('Refreshing token...')
-        _TOKEN = _get_auth_token(tenant, user, password)
+        token = _get_auth_token(tenant, user, password)
 
-    return _TOKEN['id'], _TOKEN['tenant']['id']
+    return token
+
 
 def get_resmgr_hosts(resmgr_url, token):
     url = '/'.join([resmgr_url, 'v1', 'hosts'])
@@ -69,6 +70,7 @@ def get_resmgr_hosts(resmgr_url, token):
         LOG.error('Resource manager query failed: %d', resp.status_code)
 
     return resp
+
 
 def get_keystone_credentials(configfile):
     """

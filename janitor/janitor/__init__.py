@@ -4,6 +4,7 @@ from ConfigParser import ConfigParser
 from janitor.nova_cleanup import NovaCleanup
 from janitor.glance_cleanup import GlanceCleanup
 from janitor.network_cleanup import NetworkCleanup
+from janitor.alarms import AlarmsManager
 
 from time import sleep
 from requests import exceptions
@@ -22,11 +23,13 @@ LOG_LEVELS = {
     'DEBUG': logging.DEBUG,
 }
 
+
 def _parse_config(config_file):
     config = ConfigParser()
     config.read(config_file)
 
     return config
+
 
 def _setup_logging(config):
     level = config.get('log', 'level')
@@ -46,6 +49,7 @@ def _setup_logging(config):
     handler.setFormatter(formatter)
     LOG.addHandler(handler)
 
+
 def serve(config_file):
     """
     Run a bunch of periodic background tasks
@@ -58,11 +62,13 @@ def serve(config_file):
     nova_obj = NovaCleanup(conf=cfg)
     glance_obj = GlanceCleanup(conf=cfg)
     nw_obj = NetworkCleanup(conf=cfg)
+    alarm_obj = AlarmsManager(conf=cfg)
     while True:
         try:
             nova_obj.cleanup()
             glance_obj.cleanup()
             nw_obj.cleanup()
+            alarm_obj.manage()
         except (exceptions.ConnectionError, urllib_exceptions.ProtocolError) as e:
             LOG.info('Connection error: {err}, will retry in a bit'.format(err=e))
         except RuntimeError as e:

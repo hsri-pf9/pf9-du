@@ -3,17 +3,17 @@
 # All rights reserved
 #
 
-__author__ = 'Platform9'
-
 import requests
 import logging
-from janitor import utils
-from janitor.base import Base
+import utils
+from base import NovaBase
+
+__author__ = 'Platform9'
 
 LOG = logging.getLogger('janitor-daemon')
 
 
-class NovaCleanup(Base):
+class NovaCleanup(NovaBase):
     """
     Perform maintenance tasks for Nova
     """
@@ -21,18 +21,25 @@ class NovaCleanup(Base):
     def __init__(self, conf):
         super(NovaCleanup, self).__init__(conf)
         self._resmgr_url = conf.get('resmgr', 'endpointURI')
+        self._token = utils.get_auth_token(self._auth_tenant,
+                                           self._auth_user,
+                                           self._auth_pass,
+                                           None)
 
     def cleanup(self):
         """Remove hypervisor and instance information from Nova for
         hosts which have been removed from resmgr
         """
-        token, project_id = utils.get_auth_token(self._auth_tenant,
-                                                 self._auth_user,
-                                                 self._auth_pass)
+        self._token = utils.get_auth_token(self._auth_tenant,
+                                           self._auth_user,
+                                           self._auth_pass,
+                                           self._token)
+        token_id = self._token['id']
+        project_id = self._token['tenant']['id']
 
         def get_affected_instances(nova_only_ids):
             server_list = dict((nova_id, []) for nova_id in nova_only_ids)
-            resp = self._nova_request('servers/detail?all_tenants=1', token, project_id)
+            resp = self._nova_request('servers/detail?all_tenants=1', token_id, project_id)
             if resp.status_code != requests.codes.ok:
                 LOG.error('Unexpected response %(code)s while querying servers', dict(code=resp.status_code))
                 raise RuntimeError('code=%s' % resp.status_code)
@@ -46,7 +53,7 @@ class NovaCleanup(Base):
 
         def get_host_to_aggr_map(nova_only_ids):
             host_to_aggr = dict((nova_id, []) for nova_id in nova_only_ids)
-            resp = self._nova_request('os-aggregates', token, project_id)
+            resp = self._nova_request('os-aggregates', token_id, project_id)
             if resp.status_code != requests.codes.ok:
                 return host_to_aggr
 
@@ -62,7 +69,7 @@ class NovaCleanup(Base):
             LOG.info('Cleaning up interface records from instances on affected hypervisors')
             for srv_id in server_list:
                 resp = self._nova_request('servers/{id}/os-virtual-interfaces'.format(id=srv_id),
-                                          token, project_id)
+                                          token_id, project_id)
 
                 if resp.status_code != requests.codes.ok:
                     raise RuntimeError('Unexpected error code: {code} when querying interfaces'
@@ -73,7 +80,7 @@ class NovaCleanup(Base):
                 for ifce_id in interface_ids:
                     LOG.info('Deleting interface %(id)s', dict(id=ifce_id))
                     json_body = dict(removeVif=ifce_id)
-                    resp = self._nova_request('servers/{srv_id}/action'.format(srv_id=srv_id), token,
+                    resp = self._nova_request('servers/{srv_id}/action'.format(srv_id=srv_id), token_id,
                                                                                project_id, req_type='post',
                                                                                json_body=json_body)
                     if resp.status_code not in (requests.codes.ok, 202):
@@ -86,7 +93,7 @@ class NovaCleanup(Base):
             if pf9_id in host_aggr_map:
                 for aggr_id in host_aggr_map[pf9_id]:
                     resp = self._nova_request('os-aggregates/%s/action' % aggr_id,
-                                              token, project_id,
+                                              token_id, project_id,
                                               json_body={'remove_host': {'host': pf9_id}},
                                               req_type='post')
                     if resp.status_code != requests.codes.ok:
@@ -95,14 +102,14 @@ class NovaCleanup(Base):
                         return
 
             # Remove hypervisor from nova.
-            resp = self._nova_request('os-hypervisors/%s' % str(nova_id), token, project_id,
+            resp = self._nova_request('os-hypervisors/%s' % str(nova_id), token_id, project_id,
                                       req_type='delete')
 
             if resp.status_code != 204:
                 LOG.error('Skipping hypervisor %s, resp: %d', pf9_id, resp.status_code)
 
         # 1. Query resmgr hosts
-        resp = utils.get_resmgr_hosts(self._resmgr_url, token)
+        resp = utils.get_resmgr_hosts(self._resmgr_url, token_id)
 
         if resp.status_code != requests.codes.ok:
             LOG.error('Unexpected code %(code)s during authentication', dict(code=resp.status_code))
@@ -112,7 +119,7 @@ class NovaCleanup(Base):
         resmgr_ids = set(h['id'] for h in filter(lambda h: h['state'] == 'active', resmgr_data))
 
         # 2. Query nova hosts
-        resp = self._nova_request('os-hypervisors/detail', token, project_id)
+        resp = self._nova_request('os-hypervisors/detail', token_id, project_id)
 
         if resp.status_code != requests.codes.ok:
             LOG.error('Unexpected return code: %(code)s when querying hypervisors', dict(code=resp.status_code))

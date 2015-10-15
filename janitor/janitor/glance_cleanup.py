@@ -20,6 +20,8 @@ class GlanceCleanup(object):
         glance_config = conf.get('nova', 'configfile')
         self._auth_user, self._auth_pass, self._auth_tenant = \
                 utils.get_keystone_credentials(glance_config)
+        self._token = utils.get_auth_token(self._auth_tenant, self._auth_user, self._auth_pass,
+                                           None)
 
     def _get_imagelibs(self, token):
         url = '%s/imagelibs' % self._glance_imagelibs_url
@@ -62,9 +64,10 @@ class GlanceCleanup(object):
         Remove images and imagelibrary entries from glance registry hosts that
         no longer show up in resmgr.
         """
-        token, _ = utils.get_auth_token(self._auth_tenant, self._auth_user,
-                self._auth_pass)
+        self._token = utils.get_auth_token(self._auth_tenant, self._auth_user,
+                self._auth_pass, self._token)
 
+        token = self._token['id']
         resp = utils.get_resmgr_hosts(self._resmgr_url, token)
 
         if resp.status_code != 200:

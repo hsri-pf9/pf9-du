@@ -12,11 +12,16 @@ import json
 
 LOG = logging.getLogger('janitor-daemon')
 
+
 class Base(object):
     def __init__(self, conf):
         self._req_timeout = conf.get('DEFAULT', 'requestTimeout')
         self._wait = conf.get('DEFAULT', 'requestWaitPeriod')
 
+
+class NovaBase(Base):
+    def __init__(self, conf):
+        super(NovaBase, self).__init__(conf)
         nova_config = conf.get('nova', 'configfile')
         self._auth_user, self._auth_pass, self._auth_tenant = \
                 utils.get_keystone_credentials(nova_config)
