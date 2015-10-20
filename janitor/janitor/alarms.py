@@ -103,7 +103,8 @@ class AlarmsManager(NovaBase):
         (2) Alarms for which hosts are missing
         """
 
-        self._nova_token = get_auth_token(self._auth_tenant, self._auth_user, self._auth_pass, self._nova_token)
+        self._nova_token = get_auth_token(self._auth_tenant, self._auth_user,
+                                          self._auth_pass, self._nova_token)
 
 
         resp = self._nova_request('os-hypervisors/detail', self._nova_token['id'],
@@ -115,7 +116,8 @@ class AlarmsManager(NovaBase):
 
         nova_host_list = set([s['OS-EXT-PF9-HYP-ATTR:host_id'] for s in resp.json()['hypervisors']])
 
-        self._ceil_token = get_auth_token(self._ceil_tenant, self._ceil_user, self._ceil_pass, self._ceil_token)
+        self._ceil_token = get_auth_token(self._ceil_tenant, self._ceil_user,
+                                          self._ceil_pass, self._ceil_token)
         resp = self._request('alarms', self._ceil_token['id'],
                              self._ceil_token['tenant']['id'])
         if resp.status_code != requests.codes.ok:
@@ -123,7 +125,8 @@ class AlarmsManager(NovaBase):
                       dict(code=resp.status_code))
             return set(), set()
 
-        alarms = resp.json()
+        alarms = filter(lambda a: a['threshold_rule']['meter_name'] == "pf9.services.nodes.compute.status",
+                        resp.json())
         alarm_hosts = set([a['name'] for a in alarms])
 
         missing_alarm_hosts = nova_host_list.difference(alarm_hosts)
