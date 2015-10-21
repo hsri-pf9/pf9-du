@@ -53,3 +53,13 @@ class DuConfigError(ResMgrException):
     def __init__(self, reason):
         super(DuConfigError, self).__init__(
                 'Failed to run on-DU authorization task: %s' % reason)
+
+class ServiceNotFound(ResMgrException):
+    def __init__(self, val):
+        super(ServiceNotFound, self).__init__('Service %s not found' % val)
+
+
+class ServiceConfigFailed(ResMgrException):
+    def __init__(self, reason):
+        super(ServiceCofigFailed, self).__init__(
+            'Failed to set service configuration: %s' % reason)

@@ -42,6 +42,7 @@ rm -rf ${RPM_BUILD_ROOT}
 %config /etc/pf9/resmgr-paste.ini
 %config /etc/pf9/resmgr_config.py
 /etc/pf9/resmgr_roles
+/etc/pf9/resmgr_svc_configs
 /etc/rc.d/init.d/
 %dir /var/log/pf9
 

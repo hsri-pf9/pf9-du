@@ -18,8 +18,8 @@ import time
 
 from contextlib import contextmanager
 from exceptions import HostNotFound, HostConfigFailed, RoleNotFound
-from sqlalchemy import create_engine, Column, String, ForeignKey, Table
-from sqlalchemy import Boolean, DateTime, UniqueConstraint
+from sqlalchemy import create_engine, Column, String, Text, ForeignKey, Table
+from sqlalchemy import Boolean, DateTime, UniqueConstraint, types
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
@@ -39,6 +39,19 @@ _host_lock = threading.Lock()
 
 # Maps roles to apps according the role metadata
 role_app_map = {}
+
+class JsonBlob(types.TypeDecorator):
+    """ SQLAlchemy custom data type for JSON objects. Saves JSON as a string and
+    retrieves it as a JSON object
+    """
+    impl = Text
+
+    def process_bind_param(self, value, dialect):
+        return json.dumps(value)
+
+    def process_result_value(self, value, dialect):
+        return json.loads(value)
+
 
 # Association table between hosts and roles
 role_host_assoc_table = Table('host_role_map', Base.metadata,
@@ -104,6 +117,26 @@ class Host(Base):
                 self.hostosinfo, self.lastresponsetime, self.responding,
                 self.role_settings)
 
+class Service(Base):
+    """ ORM class for service_configs table"""
+    __tablename__ = 'service_configs'
+
+    service_name = Column(String(512), primary_key=True)
+    config_script_path = Column(String(512))
+    settings = Column(JsonBlob())
+
+    def to_dict(self):
+        """ Converts a row to a dict object"""
+        d = dict()
+        for attr in self.__table__.columns:
+            d[attr.name] = getattr(self, attr.name)
+
+        return d
+
+    def __repr__(self):
+        return "<Service(service_name='%s', config_script_path='%s', settings='%s')>" %\
+                (self.service_name, self.config_script_path, self.settings)
+
 
 class ResMgrDB(object):
     """
@@ -121,6 +154,7 @@ class ResMgrDB(object):
         # Populate/Update the roles table, if needed.
         log.info('Setting up roles in the database')
         self.setup_roles()
+        self.setup_service_config()
 
     def _setup_config(self, config):
         """
@@ -214,6 +248,26 @@ class ResMgrDB(object):
         for role, role_info in discovered_roles.iteritems():
             for version, version_details in role_info.items():
                 self.save_role_in_db(role, version, version_details)
+
+    def setup_service_config(self):
+        """
+        Update service config settings based on metadata on the filesystem.
+        """
+        log.info('Setting up service config in the database')
+        file_pattern = '/etc/pf9/resmgr_svc_configs/*.json'
+
+        for f in glob.glob(file_pattern):
+            with open(f) as fp:
+                try:
+                    data = json.load(fp)
+                    for svc, details in data.iteritems():
+                        svc_db = self.query_service_config(svc)
+                        settings = svc_db['settings'] if svc_db else details['settings']
+                        self.set_service_config(svc, details['path'], settings)
+                except:
+                    log.exception('Error loading the service config file %s', f)
+                    continue
+
 
     @property
     def dbengine(self):
@@ -764,3 +818,52 @@ class ResMgrDB(object):
             for item in self.config.items(section):
                 ret['%s.%s' % (section, item[0])] = item[1]
         return ret
+
+    def set_service_config(self, service_name, config_script_path, settings):
+        """
+        Update all service properties for a service
+        """
+        log.info('Setting config settings for service %s', service_name)
+        with self.dbsession() as session:
+            try:
+                new_svc = Service(service_name=service_name,
+                                  config_script_path=config_script_path,
+                                  settings=settings)
+                session.merge(new_svc)
+            except:
+                log.exception('DB error while updating service %s', service_name)
+                raise
+
+    def update_service_settings(self, service_name, settings):
+        """
+        Update the settings for a particular service
+        """
+        log.info('Setting config settings for service %s', service_name)
+        with self.dbsession() as session:
+            try:
+                svc = session.query(Service).filter_by(service_name=service_name).first()
+                svc.settings = settings
+            except:
+                log.exception('DB error while updating settings for service %s',
+                              service_name)
+                raise
+
+    def query_service_config(self, service_name):
+        """Query a single service's config details"""
+        log.info('Querying service_name %s settings', service_name)
+        with self.dbsession() as session:
+            results = session.query(Service).filter_by(service_name=service_name).first()
+
+        return results.to_dict() if results else {}
+
+    def get_service_configs(self):
+        """Query all the service config details"""
+        log.info('Querying all service configs')
+        out = []
+        with self.dbsession() as session:
+            results = session.query(Service).all()
+
+        for r in results:
+            out.append(r.to_dict())
+
+        return out

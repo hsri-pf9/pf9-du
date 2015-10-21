@@ -274,3 +274,42 @@ class HostsController(RestController):
         except (HostConfigFailed, BBMasterNotFound):
             log.exception('Host delete operation failed')
             abort(500)
+
+
+class ServicesController(RestController):
+    @enforce(required = ['admin'])
+    @expose('json')
+    def get_one(self, service_name):
+        log.debug('Getting details for service %s', service_name)
+        out = _provider.get_service_settings(service_name)
+        if not out:
+            # Service doesn't exist
+            log.error('No matching service found for %s', service_name)
+            abort(404)
+        return out['settings']
+
+    @enforce(required = ['admin'])
+    @expose('json')
+    def put(self, service_name):
+        msg_body = pecan.request.body
+        if len(msg_body) == 0:
+            msg_body = {}
+        else:
+            try:
+                msg_body = pecan.request.json_body
+            except Exception as e:
+                abort(400, str(e))
+
+        if not isinstance(msg_body, dict):
+            abort(400, 'Invalid JSON body')
+
+        log.debug('Setting service %s with settings %s', service_name, msg_body)
+        try:
+            _provider.set_service_settings(service_name, msg_body)
+        except ServiceNotFound:
+            log.exception('Service %s is not found', service_name)
+            abort(404)
+        except ServiceConfigFailed:
+            # Running the service config script failed
+            log.exception('Setting service config failed')
+            abort(500)

@@ -60,6 +60,7 @@ ${RESMGR_SRC_STAGE}: pre-reqs
 	mkdir -p ${RESMGR_SRC_STAGE}/var/log/pf9
 	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9
 	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9/resmgr_roles
+	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9/resmgr_svc_configs
 	cp ${RESMGR_DIR}/etc/pf9/resmgr.conf ${RESMGR_SRC_STAGE}/etc/pf9/
 	cp ${RESMGR_DIR}/etc/pf9/resmgr_config.py ${RESMGR_SRC_STAGE}/etc/pf9/
 	cp ${RESMGR_DIR}/etc/pf9/resmgr-paste.ini ${RESMGR_SRC_STAGE}/etc/pf9/

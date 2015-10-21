@@ -21,13 +21,14 @@ import requests
 import string
 import dict_subst
 import dict_tokens
+import subprocess
 
 from bbcommon.utils import is_satisfied_by
 from dbutils import ResMgrDB, role_app_map
 from exceptions import (BBMasterNotFound, HostNotFound, RoleNotFound,
                         HostConfigFailed, SupportRequestFailed,
                         SupportCommandRequestFailed, RabbitCredentialsConfigureError,
-                        DuConfigError)
+                        DuConfigError, ServiceNotFound, ServiceConfigFailed)
 import notifier
 from resmgr_provider import ResMgrProvider, RState
 
@@ -119,6 +120,14 @@ def _load_role_confd_files(role_metadata_location, config):
             log.info('Read role config %s' % conf_file)
         except ConfigParser.Error as e:
             log.exception('Failed to parse config file %s.', conf_file)
+
+
+def _run_script(cmd):
+    try:
+        subprocess.check_call(cmd)
+    except:
+        log.exception('Failed running %s', cmd)
+        raise
 
 class RolesMgr(object):
     """
@@ -639,6 +648,8 @@ class ResMgrPf9Provider(ResMgrProvider):
         self.setup_rabbit_credentials()
         self.bb_url = config.get('backbone', 'endpointURI')
 
+        self.run_service_config()
+
         # Setup a thread to poll backbone state regularly to detect changes to
         # hosts.
         self.bbone_poller = BbonePoller(config, self.res_mgr_db,
@@ -646,6 +657,17 @@ class ResMgrPf9Provider(ResMgrProvider):
         t = threading.Thread(target=self.bbone_poller.run)
         t.daemon = True
         t.start()
+
+
+    def run_service_config(self):
+        svcs = self.res_mgr_db.get_service_configs()
+
+        for s in svcs:
+            log.info('Running service config for %s at startup', s['service_name'])
+            try:
+                _run_script([s['service_name'], json.dumps(s['settings'])])
+            except:
+                log.exception('Running script %s failed', s['config_script_path'])
 
     def setup_rabbit_credentials(self):
         """
@@ -963,6 +985,31 @@ class ResMgrPf9Provider(ResMgrProvider):
             self.roles_mgr.push_configuration(host_id,
                                  host_details[host_id]['apps_config'])
             self._on_deauth(role_name, deauthed_app_config)
+
+    def _invoke_service_cfg_script(self, service_name):
+        svc_info = self.get_service_settings(service_name)
+        if not svc_info:
+            raise ServiceNotFound(service_name)
+
+        try:
+            _run_script([svc_info['config_script_path'],
+                json.dumps(svc_info['settings'])])
+        except Exception as e:
+            raise ServiceConfigFailed(e)
+
+    def set_service_settings(self, service_name, settings):
+        """
+        Update the DB with the settings for the service. Invoke the service
+        configuration script following that.
+        """
+        self.res_mgr_db.update_service_settings(service_name, settings)
+        self._invoke_service_cfg_script(service_name)
+
+    def get_service_settings(self, service_name):
+        """
+        Get the service settings in the DB
+        """
+        return self.res_mgr_db.query_service_config(service_name)
 
     def get_custom_settings(self, host_id, role_name):
         return self.res_mgr_db.get_custom_settings(host_id, role_name)
