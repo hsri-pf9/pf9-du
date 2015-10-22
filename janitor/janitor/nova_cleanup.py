@@ -157,7 +157,7 @@ class NovaCleanup(NovaBase):
         resmgr_ids = set(h['id'] for h in filter(lambda h: h['state'] == 'active', resmgr_data))
 
         # 2 & 3. Find all nova hosts and nova-only hosts that are not in resmgr
-        nova_only_ids, nova_map = find_nova_hosts_not_in_resmgr(resmgr_ids, token, project_id)
+        nova_only_ids, nova_map = find_nova_hosts_not_in_resmgr(resmgr_ids, token_id, project_id)
 
         host_to_aggr_map = get_host_to_aggr_map(nova_only_ids)
 
