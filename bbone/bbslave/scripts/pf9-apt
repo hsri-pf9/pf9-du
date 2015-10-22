@@ -78,7 +78,7 @@ def _erase_package(package_name, cache):
     if not package_name.startswith("pf9-"):
         raise Exception("Invalid package: %s" % package_name)
     package = cache[package_name]
-    package.mark_delete()
+    package.mark_delete(purge=True)
     cache.commit()
 
 if __name__ == '__main__':
