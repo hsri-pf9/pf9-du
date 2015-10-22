@@ -210,6 +210,15 @@ class RolesMgr(object):
 
         return result
 
+    def _filter_host_configuration(self, app_info):
+        """
+        Filter out the app configuration that is not needed
+        by the host.
+        """
+        for app_name, app_spec in app_info.iteritems():
+            if 'du_config' in app_spec:
+                del app_spec['du_config']
+
     def push_configuration(self, host_id, app_info,
                            needs_hostid_subst=True,
                            needs_rabbit_subst=True):
@@ -225,6 +234,7 @@ class RolesMgr(object):
             app_info = substitute_host_id(app_info, host_id)
         if needs_rabbit_subst:
             self.db_handler.substitute_rabbit_credentials(app_info, host_id)
+        self._filter_host_configuration(app_info)
         log.info('Applying configuration %s to %s', app_info, host_id)
         url = "%s/v1/hosts/%s/apps" % (self.bb_url, host_id)
         try:
