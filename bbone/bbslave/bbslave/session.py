@@ -42,7 +42,8 @@ _allowed_commands_regexes = ['^sudo service pf9-[-\w]+ (stop|start|status|restar
 # The value specifies whether the command starts a remote ssh session.
 _allowed_commands = {
     'rm -rf /var/cache/pf9apps/*': False,
-    '/opt/pf9/comms/utils/forward_ssh.sh': True
+    '/opt/pf9/comms/utils/forward_ssh.sh': True,
+    '/opt/pf9/pf9-neutron/bin/neutron_forwarder.sh': False
 }
 
 HYPERVISOR_INFO_FILE = '/var/opt/pf9/hypervisor_details'
