@@ -665,7 +665,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         for s in svcs:
             log.info('Running service config for %s at startup', s['service_name'])
             try:
-                _run_script([s['service_name'], json.dumps(s['settings'])])
+                _run_script([s['config_script_path'], json.dumps(s['settings'])])
             except:
                 log.exception('Running script %s failed', s['config_script_path'])
 
