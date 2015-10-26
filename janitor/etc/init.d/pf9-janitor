@@ -13,24 +13,12 @@
 # Description: The platform9 maintenance task service
 ### END INIT INFO
 
+. /etc/rc.d/init.d/functions
+
 name=pf9-janitor
 root=/opt/pf9/janitor
 cmd="$root/bin/python $root/bin/janitor-daemon.py"
 pidfile=/var/run/pf9/janitor.pid
-
-status() {
-    if [ ! -e $pidfile ]; then
-        echo "$name service is not running"
-        return 1
-    elif ! kill -0 `cat $pidfile` >> /dev/null 2>&1; then
-        rm -f $pidfile
-        echo "$name service is not running"
-        return 1
-    else
-        echo "$name service is running"
-        return 0
-    fi
-}
 
 case "$1" in
   start)
@@ -60,7 +48,7 @@ case "$1" in
     fi
     ;;
   status)
-    status
+    status -p $pidfile "$cmd"
     RETVAL=$?
     ;;
   *)
