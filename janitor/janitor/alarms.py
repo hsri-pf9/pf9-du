@@ -152,7 +152,8 @@ class AlarmsManager(NovaBase):
                         severity='critical',
                         name=h,
                         period=self._default_interval,
-                        threshold_rule=threshold_rule)
+                        threshold_rule=threshold_rule,
+                        description='Alarm when compute service is down for over an hour')
             resp = self._request('alarms', self._ceil_token['id'], self._ceil_token['tenant']['id'],
                                  req_type='post', json_body=data)
             if resp.status_code not in [requests.codes.ok, 201, 204]:
