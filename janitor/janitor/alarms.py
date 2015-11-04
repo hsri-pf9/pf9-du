@@ -21,7 +21,7 @@ LOG = logging.getLogger('janitor-daemon')
 class AlarmsManager(NovaBase):
     def __init__(self, conf):
         super(AlarmsManager, self).__init__(conf)
-        self._evaluation_periods = conf.get('ceilometer', 'eval_periods') or 6
+        self._evaluation_periods = conf.get('ceilometer', 'eval_periods') or 3
         self._endpoint = conf.get('ceilometer', 'apiEndpoint')
         # TODO Look into alarm ownership and visibility
         ceilometer_config = conf.get('ceilometer',
@@ -153,7 +153,7 @@ class AlarmsManager(NovaBase):
                         name=h,
                         period=self._default_interval,
                         threshold_rule=threshold_rule,
-                        description='Alarm when compute service is down for over an hour')
+                        description='Alarm when compute service is down for over 30 minutes')
             resp = self._request('alarms', self._ceil_token['id'], self._ceil_token['tenant']['id'],
                                  req_type='post', json_body=data)
             if resp.status_code not in [requests.codes.ok, 201, 204]:
