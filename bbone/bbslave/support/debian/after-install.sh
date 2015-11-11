@@ -18,7 +18,7 @@ change_file_permissions() {
 if [ "$script_step" = "configure" ] && [ -z $configured_version ]; then
     # Create the pf9 user and group
     grep ^pf9group: /etc/group > /dev/null 2>&1 || groupadd pf9group
-    id pf9 > /dev/null 2>&1 || useradd -g pf9group -d / -s /usr/sbin/nologin -c "Platform9 user" pf9
+    id pf9 > /dev/null 2>&1 || useradd -g pf9group -d /opt/pf9/home -s /usr/sbin/nologin --create-home -c "Platform9 user" pf9
     # In cases where pf9 user exists but is not part of the pf9group, explicitly
     # add them
     usermod -aG pf9group pf9
