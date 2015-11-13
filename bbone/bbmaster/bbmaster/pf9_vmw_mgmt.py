@@ -41,6 +41,6 @@ def get_service_config():
 def _is_vmware_appliance(host_state):
     hyp_info = host_state.get('hypervisor_info', False)
     if hyp_info:
-        if hyp_info.get('hypervisor_type', 'KVM') == 'VMWareCluster':
+        if hyp_info.get('hypervisor_type', 'KVM') == 'VMWareCluster' or hyp_info.get('hypervisor_type') == 'VMWareNeutron':
             return True
     return False
