@@ -111,11 +111,6 @@ class NovaCleanup(NovaBase):
             if resp.status_code != 204:
                 LOG.error('Skipping hypervisor %s, resp: %d', pf9_id, resp.status_code)
 
-        def is_vmware(resmgr_ids, token):
-            if len(resmgr_ids) == 1 and 'pf9-ostackhost-vmw' in \
-                    utils.get_resmgr_host_roles(self._resmgr_url, token, next(iter(resmgr_ids))):
-                return True
-            return False
 
         def find_nova_hosts_not_in_resmgr(resmgr_ids, token, project_id):
             resp = self._nova_request('os-hypervisors/detail', token, project_id)
@@ -127,9 +122,8 @@ class NovaCleanup(NovaBase):
             nova_data = resp.json()['hypervisors']
             nova_map = dict()
             nova_ids = set()
-            vmware = is_vmware(resmgr_ids, token)
 
-            if not vmware:
+            if not is_vmware:
                 for host in nova_data:
                     nova_map[host['OS-EXT-PF9-HYP-ATTR:host_id']] = host['id']
                     nova_ids.add(host['OS-EXT-PF9-HYP-ATTR:host_id'])
@@ -154,10 +148,21 @@ class NovaCleanup(NovaBase):
             return
 
         resmgr_data = resp.json()
-        resmgr_ids = set(h['id'] for h in filter(lambda h: h['state'] == 'active', resmgr_data))
+        resmgr_kvm_ids = set(h['id'] for h in filter(lambda h:
+                                'pf9-ostackhost' in h['roles'] or
+                                'pf9-ostackhost-neutron' in h['roles'],
+                                resmgr_data))
+
+        resmgr_vmw_ids = set(h['id'] for h in filter(lambda h:
+                                'pf9-ostackhost-vmw' in h['roles'] or
+                                'pf9-ostackhost-neutron-vmw' in h['roles'],
+                                resmgr_data))
+
+        is_vmware = True if resmgr_vmw_ids else False
 
         # 2 & 3. Find all nova hosts and nova-only hosts that are not in resmgr
-        nova_only_ids, nova_map = find_nova_hosts_not_in_resmgr(resmgr_ids, token_id, project_id)
+        nova_only_ids, nova_map = find_nova_hosts_not_in_resmgr(resmgr_kvm_ids | resmgr_vmw_ids,
+                                                                token_id, project_id)
 
         host_to_aggr_map = get_host_to_aggr_map(nova_only_ids)
 
