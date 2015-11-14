@@ -35,16 +35,6 @@ _support_file_location = None
 _common_config_path = None
 _converge_attempts = 0
 _hostagent_info = {}
-_allowed_commands_regexes = ['^sudo service pf9-[-\w]+ (stop|start|status|restart)$']
-
-# Dictionary of potentially allowed commands.
-# The key is the command string.
-# The value specifies whether the command starts a remote ssh session.
-_allowed_commands = {
-    'rm -rf /var/cache/pf9apps/*': False,
-    '/opt/pf9/comms/utils/forward_ssh.sh': True,
-    '/opt/pf9/pf9-neutron/bin/neutron_forwarder.sh': False
-}
 
 HYPERVISOR_INFO_FILE = '/var/opt/pf9/hypervisor_details'
 DEFAULT_ALLOW_REMOTE_SSH_FILE_PATH = '/etc/pf9/allow_remote_ssh'
@@ -193,6 +183,19 @@ def start(config, log, app_db, agent_app_db, app_cache,
 
     def is_remote_ssh_allowed():
         return os.path.isfile(allow_remote_ssh_file_path)
+
+    # Dictionary of potentially allowed commands.
+    # The key is the regular expression of the command.
+    # The value, if not None, is a callback that returns a boolean
+    # indicating whether the command is allowed.
+    _allowed_commands_regexes = {
+        '^sudo service pf9-[-\w]+ (stop|start|status|restart)$': None,
+        '^rm -rf /var/cache/pf9apps/\*$': None,
+        '^/opt/pf9/pf9-neutron/bin/neutron_forwarder\.sh$': None,
+        '^/opt/pf9/comms/utils/forward_ssh\.sh$': is_remote_ssh_allowed,
+        '^/opt/pf9/comms/utils/forward_ssh\.sh "ssh-rsa A{4}[\w+/]+={1,3} pf9 host remote ssh key"$':
+            is_remote_ssh_allowed,
+    }
 
     def hypervisor_info():
         hypervisor_info = dict()
@@ -408,12 +411,10 @@ def start(config, log, app_db, agent_app_db, app_cache,
         to the backbone master through rabbitmq broker.
         """
         def _is_command_allowed():
-            if command in _allowed_commands:
-                is_remote_ssh = _allowed_commands[command]
-                return not is_remote_ssh or is_remote_ssh_allowed()
             for regex in _allowed_commands_regexes:
+                is_allowed_cb = _allowed_commands_regexes[regex]
                 regex = re.compile(regex)
-                if regex.match(command):
+                if regex.match(command) and (not is_allowed_cb or is_allowed_cb()):
                     return True
             return False
 
