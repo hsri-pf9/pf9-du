@@ -39,6 +39,25 @@ _hostagent_info = {}
 HYPERVISOR_INFO_FILE = '/var/opt/pf9/hypervisor_details'
 DEFAULT_ALLOW_REMOTE_SSH_FILE_PATH = '/etc/pf9/allow_remote_ssh'
 
+def _handle_iaas_3166(log, disable_iaas_1366_handling, desired_config):
+    """
+    IAAS-3166: if pf9-comms is installed but not running, set it to running
+    state to ensure we can communicate with the DU. This situation can happen if
+    pf9-hostagent and pf9-comms packages are installed manually outside of the
+    installer, and pf9-hostagent service is started first.
+    :param log: logger
+    :param disable_iaas_1366_handling: whether to skip this logic
+    :param desired_config: the desired configuration to modify
+    :return:
+    """
+    if disable_iaas_1366_handling:
+        return
+    if 'pf9-comms' in desired_config:
+        if 'running' in desired_config['pf9-comms']:
+            if not desired_config['pf9-comms']['running']:
+                log.info('IAAS-1366: forcing pf9-comms to running state')
+                desired_config['pf9-comms']['running'] = True
+
 def _set_desired_config_basedir_path(config):
     """
     Initializes the path of the base directory that will contain the
@@ -168,6 +187,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
     heartbeat_period = int(config.get('hostagent', 'heartbeat_period'))
     extensions_path = config.get('hostagent', 'extensions_path') if \
         config.has_option('hostagent', 'extensions_path') else '/opt/pf9/hostagent/extensions'
+    disable_iaas_1366_handling = config.get('hostagent', 'disable_iaas_1366_handling') if \
+        config.has_option('hostagent', 'disable_iaas_1366_handling') else False
     _load_host_agent_info(agent_app_db)
     _set_desired_config_basedir_path(config)
     _persist_host_id()
@@ -512,6 +533,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
                           'config. Message : %s', msg)
             return
 
+        _handle_iaas_3166(log, disable_iaas_1366_handling, desired_config)
         # ok to commit to disk now
         save_desired_config(log, desired_config)
         satisfied = is_satisfied_by(desired_config, current_config)
