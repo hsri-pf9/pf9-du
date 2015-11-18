@@ -116,8 +116,8 @@ class NovaCleanup(NovaBase):
             resp = self._nova_request('os-hypervisors/detail', token, project_id)
 
             if resp.status_code != requests.codes.ok:
-                LOG.error('Unexpected return code: %(code)s when querying hypervisors', dict(code=resp.status_code))
-                return
+                raise RuntimeError('Unexpected return code: %(code)s when '
+                                   'querying hypervisors'.format(code=resp.status_code))
 
             nova_data = resp.json()['hypervisors']
             nova_map = dict()
@@ -161,8 +161,13 @@ class NovaCleanup(NovaBase):
         is_vmware = True if resmgr_vmw_ids else False
 
         # 2 & 3. Find all nova hosts and nova-only hosts that are not in resmgr
-        nova_only_ids, nova_map = find_nova_hosts_not_in_resmgr(resmgr_kvm_ids | resmgr_vmw_ids,
-                                                                token_id, project_id)
+        try:
+            nova_only_ids, nova_map = find_nova_hosts_not_in_resmgr(
+                                            resmgr_kvm_ids | resmgr_vmw_ids,
+                                            token_id, project_id)
+        except Exception, e:
+            LOG.error('Error finding nova hosts: %s', e)
+            return
 
         host_to_aggr_map = get_host_to_aggr_map(nova_only_ids)
 
