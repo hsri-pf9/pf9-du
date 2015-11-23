@@ -227,7 +227,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
         if os.path.isfile(HYPERVISOR_INFO_FILE):
             try:
                 with open(HYPERVISOR_INFO_FILE, 'r') as host_details:
-                   hypervisor_info['hypervisor_type'] = json.loads(host_details.read()).get('hypervisor_type')
+                   hypervisor_info['hypervisor_type'] = json.loads(host_details.read()).get('hypervisor_type', 'VMWareCluster')
             except Exception as e:
                 log.error('Setting default vmware hypervisor type as VMWareCluster due to: %s' % e)
                 hypervisor_info['hypervisor_type'] = 'VMWareCluster'
