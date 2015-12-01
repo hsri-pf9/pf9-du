@@ -129,8 +129,7 @@ class Pf9AppCache(AppCache):
             if not os.path.exists(localdir):
                 os.makedirs(localdir)
             localdest = os.path.join(localdir, filename)
-            self.log.info("Downloading %s.%s from %s to %s",
-                          name, version, url, localdest)
+            self.log.info("Downloading %s.%s", name, version)
 
             if change_extension and get_supported_distro(self.log) == "debian":
                 url = "".join(os.path.splitext(url)[:-1]) + ".deb"
