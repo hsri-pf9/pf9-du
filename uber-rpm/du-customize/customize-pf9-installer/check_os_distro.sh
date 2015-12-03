@@ -72,15 +72,22 @@ function _print_not_supported()
     fi
 
     echo "Sorry but we currently do not support your operating system."
+    echo "You can add the '--skip-os-check' option to the installer"
+    echo "if you really want to proceed with the installation."
+    echo
     echo "Please let us know at support@platform9.com"
     echo
 
-    while true; do
-        read -p "Do you still want to continue? (yes/no) " yn
-        case $yn in
-            [Yy]* ) break;;
-            [Nn]* ) exit 0;;
-            *) echo "Please answer yes or no.";;
-        esac
-    done
+    if [[ "${TTY_AVAILABLE}" == "false" ]]; then
+        # Let the users explicity set the --skip-os-check
+        # option if they want to continue installation
+        exit 1
+    fi
+
+    read -p "Do you still want to continue? (yes/no) " yn
+    case $yn in
+        [Yy]* ) return 0;;
+        [Nn]* ) exit 0;;
+        *) echo "Please answer yes or no."; exit 1;;
+    esac
 }

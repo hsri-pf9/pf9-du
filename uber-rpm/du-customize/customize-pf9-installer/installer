@@ -191,7 +191,9 @@ function main()
     pre_install_check
 
     if [[ "${ASK_PROXY}" == "true" ]]; then
-        proxy_ask
+        if [[ "${TTY_AVAILABLE}" == "true" ]]; then
+            proxy_ask
+        fi
     fi
 
     distro_install

@@ -3,14 +3,12 @@
 
 function proxy_ask()
 {
-    while true; do
-        read -p "Do you want to configure proxy settings (yes/no)? " yn
-        case $yn in
-            [Yy]* ) SETUP_PROXY="true"; _ask_proxy_settings; break;;
-            [Nn]* ) SETUP_PROXY="false"; break;;
-            *) echo "Please answer yes or no.";;
-        esac
-    done
+    read -p "Do you want to configure proxy settings (yes/no)? " yn
+    case $yn in
+        [Yy]* ) SETUP_PROXY="true"; _ask_proxy_settings; return 0;;
+        [Nn]* ) SETUP_PROXY="false"; return 0;;
+        *) echo "Please answer yes or no."; exit 1;;
+    esac
 }
 
 function proxy_setup()

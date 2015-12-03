@@ -6,6 +6,7 @@
 # always ask if user wants to configure proxy settings
 ASK_PROXY="true"
 SETUP_PROXY="true"
+TTY_AVAILABLE="true"
 SKIP_OS_CHECK="false"
 VMWARE="false"
 PROXY_HOST=""
@@ -44,4 +45,10 @@ which service > /dev/null 2>&1
 if [[ $? != "0" ]]; then
     echo "Cannot find the command 'service' in $PATH. Exiting..."
     exit 1
+fi
+
+tty -s
+if [[ $? != "0" ]]; then
+    echo "No TTY available. Skipping all prompts..."
+    TTY_AVAILABLE="false"
 fi
