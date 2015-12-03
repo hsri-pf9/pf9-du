@@ -25,6 +25,7 @@ function test_host()
         format_print $host "OK"
     else
         format_print $host "FAILED"
+        exit 1
     fi
 }
 
