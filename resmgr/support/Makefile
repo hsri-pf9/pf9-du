@@ -99,7 +99,7 @@ pre-reqs: ${VENV}
 	# the keystone client has to be installed with pip. Installing with setuptools exposes
 	# https://bitbucket.org/pypa/setuptools/issue/73/typeerror-dist-must-be-a-distribution
 	source ${VENV}/bin/activate &&  \
-	pip install python-keystoneclient &&  \
+	pip install oslo.config==1.13.0 oslo.i18n==2.0.0 oslo.serialization==1.6.0 oslo.utils==1.7.0 python-keystoneclient==0.11.2 && \
 	pip install Paste==1.7.5.1 && \
 	pip install PasteDeploy && \
 	deactivate
