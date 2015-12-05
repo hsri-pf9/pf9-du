@@ -13,7 +13,7 @@
 # SED_CMD
 
 SRC_DIR := $(SRC_ROOT)/bbone/bbslave
-PF9_VERSION ?= 1.3.0
+HOSTAGENT_VERSION ?= 1.5.0
 BUILD_NUMBER ?= 0
 GITHASH=$(shell git rev-parse --short HEAD)
 
@@ -26,7 +26,7 @@ VENV_INSTALL_CMD=$(VENV_DIR)/bin/python setup.py install
 PF9APP_DIR :=$(SRC_ROOT)/bbone/pf9app
 BBLIBCOMMON_DIR :=$(SRC_ROOT)/bbone/lib
 CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
-SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(PF9_VERSION)/"
+SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(HOSTAGENT_VERSION)/"
 
 PYTHON_DOWNLOAD_URL := netsvc/yum-repo-frozen/hostagent-components/python.tgz
 
