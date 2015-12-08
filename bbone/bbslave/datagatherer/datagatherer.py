@@ -21,13 +21,9 @@ captures it at run time for the app.
 2. Run a command on the host and capture its output in a file in the bundle.
 """
 
-# TODO: For now, hardcoded list of files of interest. Should maintain
-# this list out of the hostagent scope
-
 file_list = [
     '/var/log/pf9/*',
     '/var/opt/pf9/hypervisor_details',
-    '/var/log/glance/*',
 ]
 
 support_logging_dir = '/var/log/pf9/support'
