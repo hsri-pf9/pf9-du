@@ -63,7 +63,7 @@ $(VENV_DIR): $(PYTHON_DIR)
 	# init script are different. This will allow the start-stop-daemon to
 	# determine if the imagelibrary is running by looking at the program names.
 	cd $(VENV_DIR)/bin && ln -s pf9-hostagent pf9-hostd
-	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/support/
+	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/support/allowed_commands
 	cp $(SRC_DIR)/support_scripts/common/* $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/support
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/extensions
 	cp $(SRC_DIR)/extensions/* $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/extensions

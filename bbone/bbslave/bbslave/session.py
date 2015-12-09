@@ -26,7 +26,7 @@ import re
 from sysinfo import get_sysinfo, get_host_id
 from bbcommon.utils import is_satisfied_by, get_ssl_options
 from os.path import exists, join
-from os import makedirs, rename, unlink, environ
+from os import makedirs, rename, unlink, environ, listdir
 from pika.exceptions import AMQPConnectionError
 
 _host_id = get_host_id()
@@ -37,7 +37,6 @@ _converge_attempts = 0
 _hostagent_info = {}
 
 HYPERVISOR_INFO_FILE = '/var/opt/pf9/hypervisor_details'
-DEFAULT_ALLOW_REMOTE_SSH_FILE_PATH = '/etc/pf9/allow_remote_ssh'
 
 def _handle_iaas_3166(log, disable_iaas_1366_handling, desired_config):
     """
@@ -180,9 +179,6 @@ def start(config, log, app_db, agent_app_db, app_cache,
     }
     allow_exit_opcode = config.getboolean('hostagent', 'allow_exit_opcode') if \
         config.has_option('hostagent', 'allow_exit_opcode') else False
-    allow_remote_ssh_file_path = config.get('hostagent',
-        'allow_remote_ssh_file_path') if config.has_option('hostagent',
-        'allow_remote_ssh_file_path') else DEFAULT_ALLOW_REMOTE_SSH_FILE_PATH
     max_converge_attempts = int(config.get('hostagent', 'max_converge_attempts'))
     heartbeat_period = int(config.get('hostagent', 'heartbeat_period'))
     extensions_path = config.get('hostagent', 'extensions_path') if \
@@ -202,21 +198,39 @@ def start(config, log, app_db, agent_app_db, app_cache,
 
     # ------------ nested functions ------------------
 
-    def is_remote_ssh_allowed():
-        return os.path.isfile(allow_remote_ssh_file_path)
+    def load_allowed_commands():
+        """
+        Scan a well known location and load files to match allowed commands.
+        This is an extensible mechanism, packages installed with hostagent
+        can add new commands as needed.
+        :return: A dictionary of allowed commands.
+        """
+        # Dictionary of potentially allowed commands.
+        #  The key is the regular expression of the command.
+        #  The value, if not None, is a callback that returns a boolean
+        #  indicating whether the command is allowed.
 
-    # Dictionary of potentially allowed commands.
-    # The key is the regular expression of the command.
-    # The value, if not None, is a callback that returns a boolean
-    # indicating whether the command is allowed.
-    _allowed_commands_regexes = {
-        '^sudo service pf9-[-\w]+ (stop|start|status|restart)$': None,
-        '^rm -rf /var/cache/pf9apps/\*$': None,
-        '^/opt/pf9/pf9-neutron/bin/neutron_forwarder\.sh$': None,
-        '^/opt/pf9/comms/utils/forward_ssh\.sh$': is_remote_ssh_allowed,
-        '^/opt/pf9/comms/utils/forward_ssh\.sh "ssh-rsa A{4}[\w+/]+={1,3} pf9 host remote ssh key"$':
-            is_remote_ssh_allowed,
-    }
+        allowed_cmd_patterns = [
+            '^sudo service pf9-[-\w]+ (stop|start|status|restart)$',
+            '^rm -rf /var/cache/pf9apps/\*$'
+        ]
+
+        support_cmd_drop_dir = config.get('hostagent', 'allowed_commands_dir')
+
+        files = [f for f in listdir(support_cmd_drop_dir)
+                 if os.path.isfile(join(support_cmd_drop_dir, f))]
+
+        for f in files:
+            with open(f) as fh:
+                for l in fh.readlines():
+                    line = l.strip()
+                    if not line:
+                        continue
+                    allowed_cmd_patterns.append(line)
+
+        log.debug('Support command patterns: %s', allowed_cmd_patterns)
+        return allowed_cmd_patterns
+
 
     def hypervisor_info():
         hypervisor_info = dict()
@@ -436,11 +450,11 @@ def start(config, log, app_db, agent_app_db, app_cache,
         Handle the request to run the support command and send the output
         to the backbone master through rabbitmq broker.
         """
-        def _is_command_allowed():
-            for regex in _allowed_commands_regexes:
-                is_allowed_cb = _allowed_commands_regexes[regex]
+        def _is_command_allowed(allowed_commands):
+
+            for regex in allowed_commands:
                 regex = re.compile(regex)
-                if regex.match(command) and (not is_allowed_cb or is_allowed_cb()):
+                if regex.match(command):
                     return True
             return False
 
@@ -455,7 +469,11 @@ def start(config, log, app_db, agent_app_db, app_cache,
 
         try:
             data = msg['data']
-            if _is_command_allowed():
+            # This list is prepared each time support command is issued.
+            # Presuming this is OK as running support is a special, infrequent
+            # operation
+            allowed_commands = load_allowed_commands()
+            if _is_command_allowed(allowed_commands):
                 log.info('Running command: %s' % command)
                 # If the command involves the hostagent service,
                 # do not capture the stdout due to issues with restarting
