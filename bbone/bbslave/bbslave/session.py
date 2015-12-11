@@ -210,14 +210,10 @@ def start(config, log, app_db, agent_app_db, app_cache,
         #  The value, if not None, is a callback that returns a boolean
         #  indicating whether the command is allowed.
 
-        allowed_cmd_patterns = [
-            '^sudo service pf9-[-\w]+ (stop|start|status|restart)$',
-            '^rm -rf /var/cache/pf9apps/\*$'
-        ]
-
+        allowed_cmd_patterns = []
         support_cmd_drop_dir = config.get('hostagent', 'allowed_commands_dir')
 
-        files = [f for f in listdir(support_cmd_drop_dir)
+        files = [join(support_cmd_drop_dir, f) for f in listdir(support_cmd_drop_dir)
                  if os.path.isfile(join(support_cmd_drop_dir, f))]
 
         for f in files:
