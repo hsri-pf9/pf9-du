@@ -903,7 +903,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             host_details = self.res_mgr_db.query_host_and_app_details(host_id)
             app_info = host_details[host_id]['apps_config']
             role_settings = json.loads(host_details[host_id]['role_settings'])
-            roles = self.roles_mgr.db_handler.query_roles()
+            roles = self.res_mgr_db.query_roles_for_host(host_id)
             _update_custom_role_settings(app_info, role_settings, roles)
             self._on_auth(role_name, app_info)
             log.info('Sending request to backbone to add role %s to %s with config %s',
