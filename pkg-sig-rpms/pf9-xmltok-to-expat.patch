@@ -1,0 +1,41 @@
+diff -u orig/Makefile diffs/Makefile
+--- orig/Makefile	2015-12-14 17:47:45.502852798 -0800
++++ diffs/Makefile	2015-12-14 17:47:40.310852543 -0800
+@@ -1,6 +1,6 @@
+ CC = gcc
+ CFLAGS = -Wall -g -O2
+-LDFLAGS = -lxmltok -lxmlparse
++LDFLAGS = -lexpat
+ 
+ #TESTING=1
+ 
+diff -u orig/xml-parse.c diffs/xml-parse.c
+--- orig/xml-parse.c	2015-12-14 17:47:45.963852812 -0800
++++ diffs/xml-parse.c	2015-12-14 17:47:40.310852543 -0800
+@@ -31,7 +31,7 @@
+ #include <sys/stat.h>
+ #include <obstack.h>
+ 
+-#include <xmltok/xmlparse.h>
++#include <expat.h>
+ 
+ #include "debsig.h"
+ 
+@@ -48,7 +48,7 @@
+ #define parse_error(fmt, args...) \
+ { \
+     parse_err_cnt++; \
+-    ds_printf(DS_LEV_DEBUG , "%d: " fmt , XML_GetCurrentLineNumber(parser) , ## args); \
++    ds_printf(DS_LEV_DEBUG , "%d: " fmt , (int)XML_GetCurrentLineNumber(parser) , ## args); \
+ }
+ 
+ static void *xmalloc(size_t size) {
+@@ -270,7 +270,7 @@
+ 	    ds_printf(DS_LEV_DEBUG,
+ 		"%s at line %d",
+ 		XML_ErrorString(XML_GetErrorCode(parser)),
+-		XML_GetCurrentLineNumber(parser));
++		(int)XML_GetCurrentLineNumber(parser));
+ 	    parse_err_cnt++;
+ 	    break;
+ 	}

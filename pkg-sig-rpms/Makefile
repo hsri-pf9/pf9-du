@@ -1,7 +1,6 @@
 SOURCE_SHA2SUMS=\
-7ad5e4466da1f59ce95111432345a4d4beeda602f8c28be6e09f79e32043916a  build/SOURCES/Config-File-1.50.tar.gz\n\
-fee1c098bee5a3f726219d8ec59a767d44a7e0a0bfe81b7f207e61ce6e20b7c2  build/SOURCES/dpkg-sig_0.13.1+nmu2.tar.gz\n\
-
+ee446635e246bc6575822b353d59f9f409e3ac9b1e139d887cf318adc814053c  build/SOURCES/debsig-verify_0.8.tar.gz\n\
+bae1e8bb28a6ab921e77dcadb1fc65f2058f4ff50255d090baa42cf918f760cc  build/SOURCES/debsigs_0.1.18.tar.xz\n\
 
 
 build:
@@ -11,18 +10,20 @@ rpmenv: build
 	mkdir -p build/{RPMS/noarch,RPMS/x86_64,SRPMS,SPECS,BUILDROOT,SOURCES}
 
 sources: rpmenv
-	spectool -g -S -C build/SOURCES perl-Config-File.spec
-	spectool -g -S -C build/SOURCES dpkg-sig.spec
-	# lol rpm doesn't have built-in support for source verification
+	./sync_sources.sh debsigs.spec build/SOURCES 1
+	./sync_sources.sh debsig-verify.spec build/SOURCES 1
 	echo -ne "$(SOURCE_SHA2SUMS)" | sha256sum -c -
 
-perl-Config-rpms: build rpmenv sources
-	rpmbuild --define "_topdir $(shell pwd)/build" -bb perl-Config-File.spec
+debsig-verify-patches: rpmenv
+	cp pf9-xmltok-to-expat.patch build/SOURCES
 
-dpkg-sig-rpms: build rpmenv sources
-	rpmbuild --define "_topdir $(shell pwd)/build" -bb dpkg-sig.spec
+debsigs-rpms: build rpmenv sources
+	rpmbuild --define "_topdir $(shell pwd)/build" -bb debsigs.spec
 
-rpms: perl-Config-rpms dpkg-sig-rpms
+debsig-verify-rpms: build rpmenv sources debsig-verify-patches
+	rpmbuild --define "_topdir $(shell pwd)/build" -bb debsig-verify.spec
+
+rpms: debsigs-rpms debsig-verify-rpms
 
 clean:
 	rm -rf build
