@@ -74,13 +74,16 @@ class TokenDecoder(object):
                 log.debug('Extracted token from cookie')
         if not encoded_token:
             encoded_token = environ['HTTP_X_AUTH_TOKEN']
-        # Decode the base64 encoded token string.
-        compressed_token = base64.b64decode(encoded_token)
-        # Decompress the string to get the actual token
-        token = zlib.decompress(compressed_token)
+        try:
+            # Decode the base64 encoded token string.
+            compressed_token = base64.b64decode(encoded_token)
 
+            # Decompress the string to get the actual token
+            token = zlib.decompress(compressed_token)
+        except (zlib.error, TypeError):
+            log.info('Token is not compressed, sending raw cookie value')
+            token = encoded_token
         return token
-
 
 def filter_factory(global_conf, **local_conf):
     """
