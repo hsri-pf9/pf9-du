@@ -248,4 +248,30 @@ def merge_params(params, inifile):
     shutil.copy(ofile.name, inifile)
     os.unlink(ofile.name)
 
+def merge_and_delete_params(params, inifile):
+    """
+    Merge input to inifile and remove entries if params specifies it.
+    :param params: dictionary with keys representing sections in the
+                   ini file. Values are dictionaries representing
+                   parameter values within the section.
+    :param inifile: File to modify.
+    """
+    ini_json = inifile_to_json(inifile)
+    ## Compare each key value pair in sections & merge the incoming config.
+    ## If there is a new section or a new key to a section, add it to the
+    ## ini_json completing the merge.
+
+    for section, conf_pair_dict in params.iteritems():
+        if section not in ini_json:
+            ini_json[section] = {}
+        for config_name, config_value in conf_pair_dict.iteritems():
+            if config_value == 'REMOVE_KEY':
+                ini_json[section].pop(config_name,"")
+                continue
+            ini_json[section][config_name] = config_value
+
+    ## Convert the ini json back into ini file.
+    ini_obj = json_to_ini(ini_json)
+    with open(inifile, "w") as fp:
+        ini_obj.write(fp)
 
