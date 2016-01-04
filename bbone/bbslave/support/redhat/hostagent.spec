@@ -49,7 +49,9 @@ rm -rf $RPM_BUILD_ROOT
 %post
 change_file_permissions() {
     chown -R pf9:pf9group /var/log/pf9
-    chown -R pf9:pf9group /etc/pf9/
+    chown pf9:pf9group /etc/pf9/
+    chown -R pf9:pf9group /etc/pf9/certs
+    chown pf9:pf9group /etc/pf9/hostagent.conf
     chown -R pf9:pf9group /var/opt/pf9/
     chown -R pf9:pf9group /var/cache/pf9apps
 }
