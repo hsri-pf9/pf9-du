@@ -77,11 +77,11 @@ class BBoneIntegrationTest(unittest.TestCase):
 
         self.config = ConfigParser.ConfigParser()
         self.config.read([slave_conf, master_conf])
-        amqp_host = self.config.get('amqp', 'host')
+        amqp_host = self.config.get('amqp_host', 'host')
         self.amqp_endpoint = "http://%s:15672/api" % amqp_host
         self.config.set('amqp', 'virtual_host', vhost.generate_amqp_vhost())
         vhost.prep_amqp_broker(self.config, logging, self.amqp_endpoint)
-        
+
         use_ssl = 'BBONE_TEST_USE_SSL' in env
         if use_ssl:
             self.config.add_section('ssl')

@@ -29,7 +29,8 @@ amqp_endpoint = "http://%s:15672/api" % amqp_host
 
 config = ConfigParser()
 config.add_section('amqp')
-config.set('amqp', 'host', amqp_host)
+config.add_section('amqp_host')
+config.set('amqp_host', 'host', amqp_host)
 config.set('amqp', 'username', 'guest')
 config.set('amqp', 'password', 'm1llenn1umFalc0n')
 config.set('amqp', 'virtual_host', vhost.generate_amqp_vhost())
@@ -164,7 +165,7 @@ def _exercise_testroutine(test_data):
         declare_bbslave_q(host_id)
 
     io_loop(log=log,
-            host=config.get('amqp', 'host'),
+            host=config.get('amqp_host', 'host'),
             queue_name='',
             credentials=credentials,
             exch_name=constants.BBONE_EXCHANGE,

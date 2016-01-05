@@ -24,7 +24,7 @@ def receive_messages():
     config.read(constants.CONFIG_FILE)
 
     connection = pika.BlockingConnection(pika.ConnectionParameters(
-        host=config.get('amqp', 'host'), credentials=pika.PlainCredentials(
+        host=config.get('amqp_host', 'host'), credentials=pika.PlainCredentials(
             username=config.get('amqp', 'username'),
             password=config.get('amqp', 'password')
     )))

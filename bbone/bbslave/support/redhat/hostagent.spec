@@ -71,6 +71,8 @@ elif [ "$1" = "2" ]; then
     # During an upgrade, hostagent files are reverted to the default owner and
     # group. So, permissions must be reassigned.
     change_file_permissions
+    # Restart comms in case certs were upgraded
+    service pf9-comms condrestart
     # In case of an upgrade, restart the service if it's running
     service pf9-hostagent condrestart
 fi

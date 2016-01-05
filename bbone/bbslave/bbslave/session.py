@@ -169,7 +169,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
     :param int channel_retry_period: Channel retry period in seconds
     """
 
-    amqp_host = config.get('amqp', 'host')
+    amqp_host = config.get('amqp_host', 'host')
     download_protocol = config.get('download', 'protocol')
     download_port = config.get('download', 'port')
     url_interpolations = {
