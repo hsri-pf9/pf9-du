@@ -21,18 +21,20 @@ function create_appliance {
     ova_symlink_name=$3
     ova_path=$4
     iso_name=$5
+    vmdk_name=$6
     
     pushd ${OVF_BASE_DIR}
-    VMDK_SIZE=$(stat -c '%s' ${ova_short_name}-disk1.vmdk)
+    VMDK_SIZE=$(stat -c '%s' ${vmdk_name})
     ISO_SIZE=$(stat -c '%s' ${iso_name})
     # Add correct VMDK and ISO size to OVF
     sed -e "s/__VMDK_SIZE__/${VMDK_SIZE}/" -e "s/__ISO_SIZE__/${ISO_SIZE}/" ${ova_short_name}-template.ovf > ${ova_short_name}.ovf
     rm -f ${ova_short_name}-template.ovf
     # Create a manifest file
-    openssl sha1 ${ova_short_name}{-disk1.vmdk,.ovf} ${iso_name} > ${ova_short_name}.mf
+    openssl sha1 ${vmdk_name} ${ova_short_name}.ovf ${iso_name} > ${ova_short_name}.mf
     # Files need to be tar'ed up in a particular order - ovf, mf, vmdk and then iso
     tar -cvf ${ova_short_name}.ova \
-             ${ova_short_name}{.ovf,.mf,-disk1.vmdk} \
+             ${ova_short_name}{.ovf,.mf} \
+             ${vmdk_name} \
              ${iso_name}
     popd
 
@@ -51,13 +53,8 @@ MGMT_FQDN=${MGMT_FQDN:-${DU_FQDN}}
 
 CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOT_DIR=$CURR_DIR/../
-NEUTRON_VMW_ENABLED=0
-if [ $# -gt 0 ]; then
-    if [[ "$1" =~ ^--neutron_vmw=[t|T]rue ]]; then
-        NEUTRON_VMW_ENABLED=1
-    fi
-fi
 
+APPLIANCE_DISK_NAME=platform9-vmware-appliance-v2-disk1.vmdk
 INSTALLER_FILENAME=platform9-install-redhat.sh
 INSTALLER_PATH=${PRIVATE_FILES_DIR}/${INSTALLER_FILENAME}
 CUSTOMIZE_SCRIPT_DIR=/opt/pf9/du-customize/vmw_scripts
@@ -66,13 +63,6 @@ OVA_SHORT_NAME=platform9-vmware-appliance
 OVA_NAME=${OVA_SHORT_NAME}-${VERSION}-${RELEASE}.ova
 OVA_PATH=${PRIVATE_FILES_DIR}/${OVA_SHORT_NAME}-${VERSION}-${RELEASE}.ova
 OVA_SYMLINK_NAME=${OVA_SHORT_NAME}.ova
-
-# Neutron network node appliance
-# These variables will be used only if NEUTRON_VMW_ENABLED==1
-NW_OVA_SHORT_NAME=platform9-vmware-appliance-v2
-NW_OVA_NAME=${NW_OVA_SHORT_NAME}-${VERSION}-${RELEASE}.ova
-NW_OVA_PATH=${PRIVATE_FILES_DIR}/${NW_OVA_NAME}
-NW_OVA_SYMLINK_NAME=${NW_OVA_SHORT_NAME}.ova
 
 ISO_NAME=hostagent.iso
 ISO_PATH=${OVF_BASE_DIR}/${ISO_NAME}
@@ -85,14 +75,8 @@ cp ${INSTALLER_PATH} ${ISO_INSTALLER_DIR}
 cp ${CUSTOMIZE_SCRIPT_DIR}/* ${ISO_STAGING_DIR}
 genisoimage -o ${ISO_PATH} -r ${ISO_STAGING_DIR}
 
-create_appliance ${OVA_SHORT_NAME} ${OVA_NAME} ${OVA_SYMLINK_NAME} ${OVA_PATH} ${ISO_NAME}
-
-# Create network node appliance if NEUTRON_VMW_ENABLED==1
-if [ "${NEUTRON_VMW_ENABLED}" -eq "1" ]; then
-    create_appliance ${NW_OVA_SHORT_NAME} ${NW_OVA_NAME} ${NW_OVA_SYMLINK_NAME} ${NW_OVA_PATH} ${ISO_NAME}  
-fi
+create_appliance ${OVA_SHORT_NAME} ${OVA_NAME} ${OVA_SYMLINK_NAME} ${OVA_PATH} ${ISO_NAME} ${APPLIANCE_DISK_NAME}
 
 # Cleanup
 rm -fr $OVF_BASE_DIR
 rm -fr $ISO_STAGING_DIR
-
