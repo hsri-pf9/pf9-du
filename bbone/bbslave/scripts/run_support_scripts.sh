@@ -26,6 +26,8 @@ cd "$support_script_dir"
 
 exit_code=0
 for script in *; do
+    # Skip directories and non-executable files
+    test -d $script && continue
     ! test -x $script && continue
     echo "[Running $script]"
     script_outfile="${support_logging_dir}/${script%.sh}.txt"
