@@ -80,7 +80,7 @@ def _update_custom_role_settings(app_info, role_settings, roles):
     :type dict:
     :param roles: Active roles in the database
     """
-    new_roles = dict((role.rolename, json.loads(role.customizable_settings)) for role in roles)
+    new_roles = dict((role.rolename, role.customizable_settings) for role in roles)
 
     # Iterate over all apps in app_info
     for given_app_name in app_info.keys():
@@ -156,7 +156,7 @@ class RolesMgr(object):
         for role in query_op:
             default_settings = dict((setting_name, setting['default'])
                                     for (setting_name, setting)
-                                    in json.loads(role.customizable_settings).iteritems())
+                                    in role.customizable_settings.iteritems())
             role_attrs = {
                 'name': role.rolename,
                 'display_name': role.displayname,
@@ -179,7 +179,7 @@ class RolesMgr(object):
         if role:
             default_settings = dict((setting_name, setting['default'])
                                     for (setting_name, setting)
-                                    in json.loads(role.customizable_settings).iteritems())
+                                    in role.customizable_settings.iteritems())
             result = {
                 role.rolename: {
                     'name': role.rolename,
@@ -199,7 +199,7 @@ class RolesMgr(object):
         if role:
             return dict((app, config['version'])
                         for (app, config)
-                        in json.loads(role.desiredconfig).iteritems())
+                        in role.desiredconfig.iteritems())
         return None
 
     def active_role_config(self):
@@ -214,7 +214,7 @@ class RolesMgr(object):
         for role in query_op:
             result[role.rolename] = {
                 'role_id': role.id,
-                'config': json.loads(role.desiredconfig)
+                'config': role.desiredconfig
             }
 
         return result
@@ -532,7 +532,7 @@ class BbonePoller(object):
                         host)
                     role_settings = authorized_hosts[host]['role_settings']
                     roles = self.rolemgr.db_handler.query_roles_for_host(host)
-                    _update_custom_role_settings(expected_cfg, json.loads(role_settings), roles)
+                    _update_custom_role_settings(expected_cfg, role_settings, roles)
                     self.db_handle.substitute_rabbit_credentials(expected_cfg, host)
                     if not is_satisfied_by(expected_cfg, host_info[cfg_key]):
                         log.debug('Pushing new configuration for %s, config: %s. '
@@ -679,7 +679,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         # Maps roles to rabbit permissions
         rabbit_permissions_map = {}
         for role in self.res_mgr_db.query_roles():
-            rabbit_permissions_map[role.rolename] = json.loads(role.rabbit_permissions)
+            rabbit_permissions_map[role.rolename] = role.rabbit_permissions
 
         for credential in self.res_mgr_db.query_rabbit_credentials():
             rabbit_permissions = rabbit_permissions_map[credential.rolename]
@@ -774,7 +774,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             # recalculate role app parameters for use in deauth event handler
             host_details = self.res_mgr_db.query_host_and_app_details(host_id)
             deauthed_app_config = host_details[host_id]['apps_config']
-            role_settings = json.loads(host_details[host_id]['role_settings'])
+            role_settings = host_details[host_id]['role_settings']
             roles = self.roles_mgr.db_handler.query_roles_for_host(host_id)
             _update_custom_role_settings(deauthed_app_config, role_settings, roles)
 
@@ -828,7 +828,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             rabbit_password = self.random_string_generator()
         self._rabbit_mgmt_cl.create_user(rabbit_user, rabbit_password)
         active_role = self.res_mgr_db.query_role(role_name)
-        permissions = json.loads(active_role.rabbit_permissions)
+        permissions = active_role.rabbit_permissions
         try:
             self._rabbit_mgmt_cl.set_permissions(rabbit_user,
                                                  permissions['config'],
@@ -902,7 +902,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             # Rely on the role config values set in the DB to send to bbmaster
             host_details = self.res_mgr_db.query_host_and_app_details(host_id)
             app_info = host_details[host_id]['apps_config']
-            role_settings = json.loads(host_details[host_id]['role_settings'])
+            role_settings = host_details[host_id]['role_settings']
             roles = self.res_mgr_db.query_roles_for_host(host_id)
             _update_custom_role_settings(app_info, role_settings, roles)
             self._on_auth(role_name, app_info)
@@ -945,7 +945,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         # recalculate role app parameters for use in deauth event handler
         host_details = self.res_mgr_db.query_host_and_app_details(host_id)
         deauthed_app_config = host_details[host_id]['apps_config']
-        role_settings = json.loads(host_details[host_id]['role_settings'])
+        role_settings = host_details[host_id]['role_settings']
         _update_custom_role_settings(deauthed_app_config,
                                      role_settings,
                                      [active_role_in_db])

@@ -4,6 +4,7 @@
 __author__ = 'Platform9'
 
 import ConfigParser
+import copy
 import datetime
 import dict_tokens
 import dict_subst
@@ -78,10 +79,10 @@ class Role(Base):
     version = Column(String(60))
     displayname = Column(String(60))
     description = Column(String(256))
-    desiredconfig = Column(String(2048))
+    desiredconfig = Column(JsonBlob())
     active = Column(Boolean()) # indicates if this is the active version of the role
-    customizable_settings = Column(String(2048))
-    rabbit_permissions = Column(String(2048))
+    customizable_settings = Column(JsonBlob())
+    rabbit_permissions = Column(JsonBlob())
     UniqueConstraint('rolename', 'version', name='constraint1')
 
     def __repr__(self):
@@ -104,7 +105,7 @@ class Host(Base):
     hostosinfo = Column(String(256))
     lastresponsetime = Column(DateTime(), default=None) # timestamp when last status was recorded
     responding = Column(Boolean)
-    role_settings = Column(String(2048))
+    role_settings = Column(JsonBlob())
     roles = relationship("Role", secondary=role_host_assoc_table,
                          backref='hosts', collection_class=set)
     rabbit_credentials = relationship('RabbitCredential',
@@ -161,7 +162,7 @@ class ResMgrDB(object):
         Sets up the configuration data for a role
         :param dict config: config structure as a JSON object
         :return: Configuration data after value substitutions
-        :rtype: str
+        :rtype: dict
         """
 
         # The params that can be substituted in a config string can either be
@@ -200,7 +201,7 @@ class ResMgrDB(object):
         os_vars.update(param_vals)
         os_vars.update(self._flat_config())
         out = config_str % os_vars
-        return out
+        return json.loads(out)
 
     def _load_roles_from_files(self):
         """
@@ -327,7 +328,7 @@ class ResMgrDB(object):
             try:
                 host = session.query(Host).filter_by(id=host_id).first()
                 if host:
-                    role_settings = json.loads(host.role_settings)
+                    role_settings = host.role_settings
                     if role_name not in role_settings:
                         log.error('Host %s does not have role %s', host_id, role_name)
                         raise RoleNotFound(role_name)
@@ -346,7 +347,7 @@ class ResMgrDB(object):
         """
         role = self.query_role(role_name)
         default_settings = {}
-        for default_setting_name, default_setting in json.loads(role.customizable_settings).iteritems():
+        for default_setting_name, default_setting in role.customizable_settings.iteritems():
                 default_settings[default_setting_name] = default_setting['default']
         return default_settings
 
@@ -386,7 +387,11 @@ class ResMgrDB(object):
                         if host:
                             # Update the existing custom settings
                             # with the specified custom settings
-                            settings = json.loads(host.role_settings)
+                            # NOTE: role_settings is managed as a custom
+                            # datatype in SQLAlchemy. This makes the property
+                            # non mutable. deepcopy is needed to update
+                            # role_settings.
+                            settings = copy.deepcopy(host.role_settings)
                             if role_name not in settings:
                                 settings[role_name] = {}
                             settings[role_name].update(settings_to_add)
@@ -400,7 +405,7 @@ class ResMgrDB(object):
                                         hostarch=host_details['arch'],
                                         hostosinfo=host_details['os_info'],
                                         responding=True,
-                                        role_settings=json.dumps(settings))
+                                        role_settings=settings)
                         try:
                             log.info('Adding/updating host %s', host_id)
                             session.merge(new_host)
@@ -498,8 +503,8 @@ class ResMgrDB(object):
                         description=details['description'],
                         desiredconfig=self._setup_config(details['config']),
                         active=True,
-                        customizable_settings=json.dumps(details['customizable_settings']),
-                        rabbit_permissions=json.dumps(details['rabbit_permissions']))
+                        customizable_settings=details['customizable_settings'],
+                        rabbit_permissions=details['rabbit_permissions'])
 
         with self.dbsession() as session:
             try:
@@ -674,7 +679,7 @@ class ResMgrDB(object):
             for host in results:
                 assigned_apps = {}
                 for role in host.roles:
-                    assigned_apps.update(json.loads(role.desiredconfig))
+                    assigned_apps.update(role.desiredconfig)
 
                 out[host.id] = {
                     'hostname': host.hostname,
