@@ -25,17 +25,23 @@ PAYLOAD="payload"
 PAYLOAD_TAR=${PAYLOAD}.tar
 
 INSTALL_SCRIPT="installer"
+GLOBALS_SCRIPT="globals.sh"
 DECOMPRESS_SCRIPT="decompress"
 export TMP_INSTALLER=`mktemp /tmp/pf9-installer-XXXXX`
+export TMP_GLOBALS=`mktemp /tmp/pf9-globals-XXXXX`
 
 # replace identifier in the installer
 # with a specific Linux distribution name
 function customize_installer()
 {
     local distro=$1
+    local du_fqdn=$2
 
-    sed -e "s/^DISTRO$/DISTRO='${distro}'/" \
+    sed -e "s/__DISTRO__/'${distro}'/" \
             $INSTALL_SCRIPT > $TMP_INSTALLER
+
+    sed -e "s/__DU_FQDN__/'${du_fqdn}'/" \
+            $GLOBALS_SCRIPT > $TMP_GLOBALS
 }
 
 function setup_payload()
@@ -49,17 +55,19 @@ function setup_payload()
 
     # copy the main install script
     cp $TMP_INSTALLER ${INSTALL_SCRIPT}
+    cp $TMP_GLOBALS ${GLOBALS_SCRIPT}
     # copy the distro specific install script
     cp ../${distro_install} ${distro_install}
 
     cp ../wait.sh wait.sh
     cp ../proxy.sh proxy.sh
-    cp ../globals.sh globals.sh
     cp ../support.sh support.sh
     cp ../jsontool.py  jsontool.py
+    cp ../nettool.py nettool.py
     cp ../check_os_distro.sh  check_os_distro.sh
     cp ../check_sudoers.sh  check_sudoers.sh
     cp ../check_ports.sh check_ports.sh
+    cp ../check_network.sh  check_network.sh
     cp ../support.common support.common
     cp ../support.${distro} support.${distro}
 
@@ -94,11 +102,13 @@ function build_installer()
 
 function main()
 {
+    # used for checking DNS resolution
+    local du_fqdn=$1
     for distro in "${DISTROS[@]}"
     do
-        echo "Customizing installer for $distro"
+        echo "Customizing $distro installer for $du_fqdn"
 
-        customize_installer "$distro"
+        customize_installer "$distro" "$du_fqdn"
         setup_payload       "$distro"
         build_installer     "$distro"
 
@@ -107,7 +117,13 @@ function main()
         # move the installers to a well-known location
         mv ${BIN_NAME}* ${LOCATION}
         rm -f ${TMP_INSTALLER}
+        rm -f ${TMP_GLOBALS}
     done
 }
 
-main
+if [[ $# != "1" ]]; then
+   echo "usage: $0 <DU_FQDN>"
+   exit 1
+fi
+
+main $@

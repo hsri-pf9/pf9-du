@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 # Copyright (c) 2015 Platform9 Systems Inc.
 
 function check_sudoers()

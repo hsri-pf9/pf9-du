@@ -13,6 +13,9 @@ PROXY_HOST=""
 PROXY_PORT=""
 JSON_TOOL="jsontool.py"
 
+# to be replaced by the build script
+DU_FQDN=__DU_FQDN__
+
 PF9_COMMS_PROXY_CONF="/etc/pf9/comms_proxy_cfg.json"
 HOSTAGENT_DIR="/var/opt/pf9/hostagent"
 DESIRED_APPS="desired_apps.json"

@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 # Copyright (c) 2015 Platform9 Systems Inc.
 
 # If we have redhat|centos|scientific-linux
