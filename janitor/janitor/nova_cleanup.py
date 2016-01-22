@@ -71,6 +71,7 @@ class NovaCleanup(NovaBase):
         def cleanup_servers(server_list):
             LOG.info('Cleaning up interface records from instances on affected hypervisors')
             for srv_id in server_list:
+                LOG.info('Cleaning up interfaces of instance {server_id}'.format(server_id=srv_id))
                 resp = self._nova_request('servers/{id}/os-virtual-interfaces'.format(id=srv_id),
                                           token_id, project_id)
 
@@ -95,6 +96,7 @@ class NovaCleanup(NovaBase):
             # Remove host from all aggregates
             if pf9_id in host_aggr_map:
                 for aggr_id in host_aggr_map[pf9_id]:
+                    LOG.info('Removing host {host_id} from aggregate {aggr_id}'.format(host_id=pf9_id, aggr_id=aggr_id))
                     resp = self._nova_request('os-aggregates/%s/action' % aggr_id,
                                               token_id, project_id,
                                               json_body={'remove_host': {'host': pf9_id}},
@@ -109,9 +111,8 @@ class NovaCleanup(NovaBase):
                                       req_type='delete')
 
             if resp.status_code != 204:
-                LOG.error('Skipping hypervisor %s, resp: %d', pf9_id, resp.status_code)
+                LOG.error('Error removing hypervisor %s, resp: %d', pf9_id, resp.status_code)
                 raise RuntimeError('code=%d' % resp.status_code)
-
 
         def find_nova_hosts_not_in_resmgr(resmgr_ids, token, project_id):
             resp = self._nova_request('os-hypervisors/detail', token, project_id)

@@ -50,6 +50,7 @@ class NetworkCleanup(NovaBase):
         network_to_inst = dict((net_id, []) for net_id in network_ids)
 
         for instance_id in instance_ids:
+            LOG.info('Querying interfaces for {server_id}'.format(server_id=instance_id))
             resp = self._nova_request('servers/{srv_id}/os-virtual-interfaces'.
                                       format(srv_id=instance_id),
                                       token_id, project_id)
