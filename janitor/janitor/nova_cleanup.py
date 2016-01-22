@@ -11,7 +11,6 @@ import logging
 import utils
 from base import NovaBase
 
-__author__ = 'Platform9'
 
 LOG = logging.getLogger('janitor-daemon')
 
@@ -44,8 +43,8 @@ class NovaCleanup(NovaBase):
             server_list = dict((nova_id, []) for nova_id in nova_only_ids)
             resp = self._nova_request('servers/detail?all_tenants=1', token_id, project_id)
             if resp.status_code != requests.codes.ok:
-                LOG.error('Unexpected response %(code)s while querying servers', dict(code=resp.status_code))
-                raise RuntimeError('code=%s' % resp.status_code)
+                LOG.error('Unexpected response {code} while querying servers', dict(code=resp.status_code))
+                raise RuntimeError('code=%d' % resp.status_code)
 
             for server in resp.json()['servers']:
                 if server['OS-EXT-SRV-ATTR:host'] in nova_only_ids:
@@ -58,7 +57,8 @@ class NovaCleanup(NovaBase):
             host_to_aggr = dict((nova_id, []) for nova_id in nova_only_ids)
             resp = self._nova_request('os-aggregates', token_id, project_id)
             if resp.status_code != requests.codes.ok:
-                return host_to_aggr
+                LOG.error('Unexpected response {code} while querying aggregates', dict(code=resp.status_code))
+                raise RuntimeError('code=%d' % resp.status_code)
 
             for aggr in resp.json()['aggregates']:
                 aggr_hosts = aggr['hosts']
@@ -102,7 +102,7 @@ class NovaCleanup(NovaBase):
                     if resp.status_code != requests.codes.ok:
                         LOG.error('Unexpected response code %d when removing host: %s from'
                                   ' aggregate: %d', resp.status_code, pf9_id, aggr_id)
-                        return
+                        raise RuntimeError('code=%d' % resp.status_code)
 
             # Remove hypervisor from nova.
             resp = self._nova_request('os-hypervisors/%s' % str(nova_id), token_id, project_id,
@@ -110,13 +110,14 @@ class NovaCleanup(NovaBase):
 
             if resp.status_code != 204:
                 LOG.error('Skipping hypervisor %s, resp: %d', pf9_id, resp.status_code)
+                raise RuntimeError('code=%d' % resp.status_code)
 
 
         def find_nova_hosts_not_in_resmgr(resmgr_ids, token, project_id):
             resp = self._nova_request('os-hypervisors/detail', token, project_id)
 
             if resp.status_code != requests.codes.ok:
-                raise RuntimeError('Unexpected return code: %(code)s when '
+                raise RuntimeError('Unexpected return code: {code} when '
                                    'querying hypervisors'.format(code=resp.status_code))
 
             nova_data = resp.json()['hypervisors']
@@ -144,7 +145,7 @@ class NovaCleanup(NovaBase):
         resp = utils.get_resmgr_hosts(self._resmgr_url, token_id)
 
         if resp.status_code != requests.codes.ok:
-            LOG.error('Unexpected code %(code)s during authentication', dict(code=resp.status_code))
+            LOG.error('Unexpected code {code} during authentication', dict(code=resp.status_code))
             return
 
         resmgr_data = resp.json()
@@ -188,6 +189,10 @@ class NovaCleanup(NovaBase):
                 return
 
             # 6. Clean up hosts found in nova, but not with resmgr
-            cleanup_hosts(nova_map[pf9_id], pf9_id, host_to_aggr_map)
+            try:
+                cleanup_hosts(nova_map[pf9_id], pf9_id, host_to_aggr_map)
+            except:
+                # cleanup hosts logs errors, so just return
+                return
 
 

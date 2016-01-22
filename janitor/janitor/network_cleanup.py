@@ -93,13 +93,18 @@ class NetworkCleanup(NovaBase):
 
         resp = self._nova_request('os-hypervisors/detail', token_id, project_id)
 
-        if resp:
-            hypervisor_json = resp.json()
-            if 'hypervisors' in hypervisor_json:
-                for h in hypervisor_json['hypervisors']:
-                    host_nets = h['OS-EXT-PF9-HYP-ATTR:networks']
-                    for n in host_nets:
-                        host_networks.add(n['uuid'])
+        if not resp or resp.status_code != requests.codes.ok:
+            status_code = 'Null Resp' if not resp else str(resp.status_code)
+            msg = '[Network cleanup] Error querying hypervisors. Response code {code}'.format(code=status_code)
+            LOG.error(msg)
+            return
+
+        hypervisor_json = resp.json()
+        if 'hypervisors' in hypervisor_json:
+            for h in hypervisor_json['hypervisors']:
+                host_nets = h['OS-EXT-PF9-HYP-ATTR:networks']
+                for n in host_nets:
+                    host_networks.add(n['uuid'])
 
         dangling_networks = network_uuids - host_networks
 
