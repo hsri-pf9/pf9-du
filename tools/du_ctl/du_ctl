@@ -24,7 +24,7 @@ log = logging.getLogger('du-ctl')
 
 _bbmaster_endpoint = 'http://localhost:8082/v1/hosts'
 _resmgr_endpoint = 'http://localhost:8083/v1'
-_keystone_endpoint = 'http://localhost:5000/v2.0/tokens'
+_keystone_endpoint = 'http://localhost:8080/keystone_admin/v2.0/tokens'
 
 _parser = argparse.ArgumentParser()
 
