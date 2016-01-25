@@ -23,7 +23,7 @@ def _get_auth_token(tenant, user, password):
         }
     }
 
-    url = 'http://localhost:35357/v2.0/tokens'
+    url = 'http://localhost:8080/keystone/v2.0/tokens'
 
     r = requests.post(url, json.dumps(data),
                       verify=False, headers={'Content-Type': 'application/json'})
