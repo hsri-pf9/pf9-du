@@ -48,9 +48,18 @@ class JsonBlob(types.TypeDecorator):
     impl = Text
 
     def process_bind_param(self, value, dialect):
+        # Deal with possible NULL values in the field
+        # NOTE: This doesn't treat '' as a NULL field
+        if value is None:
+            return None
+
         return json.dumps(value)
 
     def process_result_value(self, value, dialect):
+        # Deal with possible NULL values in the field
+        if value is None:
+            return None
+
         return json.loads(value)
 
 
