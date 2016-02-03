@@ -18,15 +18,13 @@ function proxy_setup()
 
     echo "Setting up proxy with: "
     echo "host: $host"
-    echo "proxy: $port"
+    echo "port: $port"
 
     echo "{\"http_proxy\":{\"host\":\"$host\", \"port\":$port}}" > ${PF9_COMMS_PROXY_CONF}
 }
 
 function _ask_proxy_settings()
 {
-    echo
-    echo "Please do not include 'http://' in front of the host"
     echo
     echo "Example: "
     echo "proxy host: squid.mycompany.com "
@@ -37,20 +35,15 @@ function _ask_proxy_settings()
         read -p "proxy host: " PROXY_HOST
         read -p "proxy port: " PROXY_PORT
 
-        validate_proxyhost "${PROXY_HOST}"
-
-        if [[ $? == "0" ]]; then # if it matches https?://
-            echo
-            echo "Please do not include 'http://' or 'https://' on your host"
-            continue
-        fi
+        echo "Stripping http/https schema..."
         echo
+        PROXY_HOST=$(strip_http_schema "${PROXY_HOST}")
 
         echo "These are your proxy settings:"
         echo "host: $PROXY_HOST"
         echo "port: $PROXY_PORT"
 
-        read -p "Are these correct? " yn
+        read -p "Are these correct? (yes/no) " yn
         case $yn in
             [Yy]* ) break;;
             [Nn]* ) continue;;
@@ -59,10 +52,12 @@ function _ask_proxy_settings()
     done
 }
 
-function validate_proxyhost()
+function strip_http_schema()
 {
-    # Check if it begins with http:// or https://
-    local host=$1
-    echo $host | grep -E -q "^https?://"
-    return $?
+    local proxy_host=$1
+    if echo $proxy_host | grep -E -q "^https?://"; then
+        proxy_host=$(echo $proxy_host | sed -n -e 's/^https\?\:\/\///p')
+    fi
+    echo $proxy_host
 }
+

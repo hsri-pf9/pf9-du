@@ -40,18 +40,12 @@ while getopts ":-:" optchar; do
                     ;;
                 proxy=*)
                     PROXYINFO=${OPTARG#*=}
+                    PROXYINFO=$(strip_http_schema "${PROXYINFO}")
                     # replace every instance of ':' with ' '
                     PROXYARR=(${PROXYINFO//:/ })
+
                     PROXY_HOST=${PROXYARR[0]}
                     PROXY_PORT=${PROXYARR[1]}
-
-                    validate_proxyhost ${PROXYINFO}
-
-                    if [[ $? == "0" ]]; then # if it matches https?://
-                        echo
-                        echo "Please do not include 'http://' or 'https://' on your host"
-                        exit 1
-                    fi
 
                     ASK_PROXY="false"
                     SETUP_PROXY="true"
@@ -175,7 +169,7 @@ function pre_install_check()
         echo "${PKG_MANAGER} is not installed. Exiting..."
         exit 1
     fi
-    ${QUERY_PKGS} | grep pf9
+    ${QUERY_PKGS} | grep pf9-
     # fail if we match (exit code = 0) at least one package
     # no reinstallation for now
     if [[ $? == "0" ]]; then
