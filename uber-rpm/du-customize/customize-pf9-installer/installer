@@ -9,6 +9,7 @@ source $(dirname $0)/proxy.sh
 source $(dirname $0)/support.sh
 source $(dirname $0)/check_os_distro.sh
 source $(dirname $0)/check_sudoers.sh
+source $(dirname $0)/check_ports.sh
 source $(dirname $0)/installer.${DISTRO}
 
 function cleanup()
@@ -162,6 +163,9 @@ function pre_install_check()
 
     # Check if sudoers.d is included
     check_sudoers
+
+    # Check if any ports we need are currently in use
+    check_ports
 
     echo "Checking if package manager is available"
     which ${PKG_MANAGER}
