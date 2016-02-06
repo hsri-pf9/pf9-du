@@ -79,6 +79,7 @@ rpm: ${BBMASTER_SRC_TARBALL}
 	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/bbmaster-rpm.spec --resultdir ${RPM_DIR}
 	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
 	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm
+	${SRC_ROOT}/sign_packages.sh ${RPM_DIR}/RPMS/*/pf9-bbmaster*.rpm
 	rm -f ${BUILD_DIR}/*.src.rpm
 
 pre-reqs : ${VENV}

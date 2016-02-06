@@ -37,6 +37,7 @@ hostagent-tarball-rpm-debian: $(HOSTAGENT_TARBALL)
 	cp -r ${BUILD_DIR}/* ${BUILD_DIR}/../SOURCES
 	mv ${BUILD_DIR}/../SOURCES ${BUILD_DIR}
 	rpmbuild -bb $(BUILD_DIR)/hostagent-tarball-rpm.spec --define "_topdir $(BUILD_DIR)"
+	$(SRC_ROOT)/sign_packages.sh $(BUILD_DIR)/RPMS/*/pf9-hostagent-tarball-debian*.rpm
 
 hostagent-tarball-rpm-debian: TARGET_DISTRO = debian
 

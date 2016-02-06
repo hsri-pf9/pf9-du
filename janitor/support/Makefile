@@ -63,6 +63,7 @@ rpm: ${JANITOR_SRC_TARBALL}
 	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
 	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm
 	rm -f ${BUILD_DIR}/*.src.rpm
+	${SRC_ROOT}/sign_packages.sh ${RPM_DIR}/RPMS/*/pf9-janitor*.rpm
 
 pre-reqs: ${VENV}
 	cd ${NOTIFIER_DIR} && ${VENV_CMD}

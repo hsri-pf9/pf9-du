@@ -21,6 +21,7 @@ ${BUILD_DIR}:
 rpm: ${BUILD_DIR}
 	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" du-tools-rpm.spec > ${BUILD_DIR}/du-tools-rpm.spec
 	rpmbuild -bb --define "_topdir ${RPM_DIR}" --define "_src_dir ${DU_TOOLS_DIR}" --define "_version ${PF9_VERSION}" ${BUILD_DIR}/du-tools-rpm.spec
+	${SRC_ROOT}/sign_packages.sh ${RPM_DIR}/RPMS/*/pf9-du-tools*.rpm
 
 clean:
 	rm -rf $(BUILD_DIR)

@@ -34,3 +34,4 @@ rm -rf $NAME-$PF9_VERSION
 MOCK="/usr/bin/mock -r epel-6-x86_64"
 $MOCK --buildsrpm --spec $NAME.spec --sources . --resultdir SRPMS
 $MOCK --rebuild SRPMS/*.src.rpm --resultdir RPMS
+${SRCROOT}/../sign_packages.sh RPMS/*/pf9-du*.rpm
