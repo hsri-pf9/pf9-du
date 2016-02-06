@@ -44,7 +44,7 @@ hostagent-tarball-rpm-redhat: $(HOSTAGENT_TARBALL)
 	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
 	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm
 	rm -f ${BUILD_DIR}/*.src.rpm
-	$(SRC_ROOT)/sign_packages.sh ${RPM_DIR}/RPMS/*/pf9-hostagent-tarball*.rpm
+	$(SRC_ROOT)/sign_packages.sh ${RPM_DIR}/pf9-hostagent-tarball*.rpm
 
 hostagent-tarball-rpm-redhat: TARGET_DISTRO = redhat
 
