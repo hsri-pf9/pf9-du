@@ -76,8 +76,8 @@ class GlanceCleanup(object):
             return
 
         resmgr_data = resp.json()
-        resmgr_ids = set(h['id']
-                for h in filter(lambda h: h['state'] == 'active', resmgr_data))
+        resmgr_ids = set(h['id'] for h in resmgr_data
+            if h['state'] == 'active' and 'pf9-glance-role' in h['roles'])
 
         images = self._get_images(token)
         for image in images:
