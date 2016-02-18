@@ -21,7 +21,7 @@ PF9CERT_DIR := $(SRC_ROOT)/lib/pf9cert
 PF9_VERSION ?= 1.3.0
 BUILD_NUMBER ?= 0
 RPM_DIR := $(BUILD_DIR)/rpmbuild
-MOCK = /usr/bin/mock -r epel-6-x86_64
+MOCK = /usr/bin/mock -r epel-7-x86_64
 
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${PROD_SETUP_DEPS} ${SRC_ROOT}/bbone/bbslave ${PF9APP_DIR}
@@ -54,7 +54,7 @@ ${BUILD_DIR}:
 
 ${VENV}: ${BUILD_DIR}
 	mkdir -p $@
-	virtualenv ${VENV}
+	$(SRC_ROOT)/build-venv.sh ${VENV}
 
 ${BBMASTER_SRC_STAGE}: pre-reqs
 	mkdir -p ${BBMASTER_SRC_STAGE}/etc/pf9

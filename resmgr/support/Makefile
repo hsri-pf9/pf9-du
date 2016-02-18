@@ -18,7 +18,7 @@ RABBIT_MGMT_DIR :=$(SRC_ROOT)/lib/rabbit
 PF9_VERSION ?= 1.3.0
 BUILD_NUMBER ?= 0
 RPM_DIR := $(BUILD_DIR)/rpmbuild
-MOCK = /usr/bin/mock -r epel-6-x86_64
+MOCK = /usr/bin/mock -r epel-7-x86_64
 
 RESMGR_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-resmgr-${PF9_VERSION}
 RESMGR_SRC_TARBALL = ${BUILD_DIR}/pf9-resmgr-${PF9_VERSION}.tgz
@@ -50,7 +50,7 @@ ${BUILD_DIR}:
 
 ${VENV}: ${BUILD_DIR}
 	mkdir -p $@
-	virtualenv ${VENV}
+	$(SRC_ROOT)/build-venv.sh ${VENV}
 
 ${RESMGR_SRC_STAGE}: pre-reqs
 	source ${VENV}/bin/activate && \

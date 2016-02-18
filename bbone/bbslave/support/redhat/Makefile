@@ -11,14 +11,14 @@
 include ../../../../common-defs.mk
 
 BUILD_DIR := $(BUILD_ROOT)/hostagent/redhat
-PYTHON_VERSION = 2.6
+PYTHON_VERSION = 2.7
 
 # This defines SRC_DIR, VENV_DIR, HOSTAGENT_TARBALL,
 # HOSTAGENT_TARBALL_SRCDIR and SED_CMD
 include ../common-hostagent-defs.mk
 
 RPM_DIR := $(BUILD_DIR)/rpmbuild
-MOCK = /usr/bin/mock -r epel-6-x86_64
+MOCK = /usr/bin/mock -r epel-7-x86_64
 
 $(HOSTAGENT_TARBALL): $(VENV_DIR)
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/rc.d/init.d
@@ -56,7 +56,7 @@ COVERAGE_ZIP = ${SRC_ROOT}/coverage.zip
 DISTUTILS_DEBUG = 1
 
 ${TEST_VENV}: ${BUILD_DIR}
-	virtualenv ${TEST_VENV}
+	$(SRC_ROOT)/build-venv.sh ${TEST_VENV}
 
 pre-reqs : ${TEST_VENV}
 	for pkg in ${TEST_SETUP_DEPS}; do \
