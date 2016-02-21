@@ -151,7 +151,6 @@ class AlarmsManager(NovaBase):
             data = dict(type='threshold',
                         severity='critical',
                         name=h,
-                        period=self._default_interval,
                         threshold_rule=threshold_rule,
                         description='Alarm triggers when compute service is down for over 30 minutes')
             resp = self._request('alarms', self._ceil_token['id'], self._ceil_token['tenant']['id'],
