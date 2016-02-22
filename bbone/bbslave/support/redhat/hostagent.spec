@@ -1,3 +1,5 @@
+%global _python_bytecompile_errors_terminate_build 0
+
 Name:           pf9-hostagent
 Version:        %{_version}
 Release:        %{_release}
