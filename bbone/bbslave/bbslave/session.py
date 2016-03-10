@@ -33,7 +33,6 @@ _host_id = get_host_id()
 _desired_config_basedir_path = None
 _support_file_location = None
 _common_config_path = None
-_converge_attempts = 0
 _hostagent_info = {}
 
 HYPERVISOR_INFO_FILE = '/var/opt/pf9/hypervisor_details'
@@ -194,7 +193,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
     # that would have allowed nested functions to assign parent (but not global)
     # variables. A dictionary is a work-around, since dictionary items can
     # be written without having write access to the dictionary variable itself.
-    state = {}
+    state = {'converge_attempts': 0}
 
     # ------------ nested functions ------------------
 
@@ -502,7 +501,6 @@ def start(config, log, app_db, agent_app_db, app_cache,
         Handles an incoming message, which can be an internal heartbeat.
         :param dict msg: message deserialized from JSON
         """
-        global _converge_attempts
         desired_config = load_desired_config(log)
         try:
             if msg['opcode'] not in ('ping', 'heartbeat', 'set_config',
@@ -535,7 +533,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 return
             if msg['opcode'] == 'set_config':
                 desired_config = msg['data']
-                _converge_attempts = 0
+                state['converge_attempts'] = 0
             else:
                 if msg['opcode'] == 'ping':
                     log.info('Received ping message')
@@ -565,15 +563,15 @@ def start(config, log, app_db, agent_app_db, app_cache,
             send_status('ok', current_config)
             return
 
-        if _converge_attempts >= max_converge_attempts:
+        if state['converge_attempts'] >= max_converge_attempts:
             log.info('In failed state until next set_config message...')
             send_status('failed', current_config, desired_config)
             return
 
         log.info('--- Converging ---')
         send_status('converging', current_config, desired_config)
-        _converge_attempts += 1
-        if _converge_attempts == max_converge_attempts:
+        state['converge_attempts'] += 1
+        if state['converge_attempts'] == max_converge_attempts:
                 # This is the last convergence attempt. Generate the support
                 # request and send it to the DU as part of the last
                 # convergence attempt
@@ -601,9 +599,9 @@ def start(config, log, app_db, agent_app_db, app_cache,
             desired_config = None
         else:
             # TODO: increase heartbeat period when retrying, up to a limit
-            if _converge_attempts >= max_converge_attempts:
+            if state['converge_attempts'] >= max_converge_attempts:
                 log.error('Entering failed state after %d converge attempts',
-                          _converge_attempts)
+                          state['converge_attempts'])
                 status = 'failed'
             else:
                 status = 'retrying'
