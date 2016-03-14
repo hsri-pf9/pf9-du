@@ -61,6 +61,9 @@ test_data_1 = {
     }
 }
 
+class WaitTimeoutException(Exception):
+    pass
+
 class BBoneIntegrationTest(unittest.TestCase):
 
     def setUp(self):
@@ -115,17 +118,51 @@ class BBoneIntegrationTest(unittest.TestCase):
 
     def tearDown(self):
         self.master.terminate()
-        self.master.wait(self.wait_timeout)
-        if self.master.returncode is None:
+        try:
+            self._wait_until_generic(self.master.poll, 1, None)
+        except WaitTimeoutException as ex:
             self.master.kill()
         for slave in self.slaves:
             slave.terminate()
-            slave.wait(self.wait_timeout)
-            if slave.returncode is None:
+            try:
+                self._wait_until_generic(slave.poll, 1, None)
+            except WaitTimeoutException as ex:
                 slave.kill()
         vhost.clean_amqp_broker(self.config, logging, self.amqp_endpoint)
         unlink(self.tmp_slave_conf.name)
         unlink(self.tmp_master_conf.name)
+
+    def _wait_until_generic(self, callback, delta, check_callback,
+                            *largs, **kwargs):
+        """
+        Waits for an acceptable return of callback(*args, **kwargs).
+
+        :type callback: callable
+        :param callback: function to call and examine response for
+        :type delta: int
+        :param delta: time between callback return checks
+        :type check_callback: callable
+        :param check_callback: function that returns True
+                               if the return value of callback(*args)
+                               is acceptable. The default is a value
+                               that is anything other than None.
+        """
+        curtime = time.time()
+        maxtime = curtime + self.wait_timeout
+        while curtime < maxtime:
+            ret = callback(*largs, **kwargs)
+            if check_callback:
+                if check_callback(ret) == True:
+                    return ret
+            elif ret != None:
+                return ret
+            time.sleep(delta)
+            curtime = time.time()
+        ex = WaitTimeoutException()
+        ex.callback = callback
+        ex.largs = largs
+        ex.kwargs = kwargs.copy()
+        raise ex
 
     def _wait_until(self, callback, *args):
         """
