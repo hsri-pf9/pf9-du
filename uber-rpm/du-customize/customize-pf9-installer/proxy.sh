@@ -40,8 +40,13 @@ function _ask_proxy_settings()
         PROXY_HOST=$(strip_http_schema "${PROXY_HOST}")
 
         echo "These are your proxy settings:"
-        echo "host: $PROXY_HOST"
-        echo "port: $PROXY_PORT"
+        echo "host: \"$PROXY_HOST\""
+        echo "port: \"$PROXY_PORT\""
+
+        if [[ -z "${PROXY_HOST}" || -z "${PROXY_PORT}" ]]; then
+          echo "Skipping proxy setup since the proxy host or the proxy port is not set."
+          SETUP_PROXY="false"
+        fi
 
         read -p "Are these correct? (yes/no) " yn
         case $yn in
