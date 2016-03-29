@@ -12,9 +12,9 @@ echo ""
 
 export TMPDIR=`mktemp -d /tmp/pf9-install-XXXXX`
 
-ARCHIVE=`awk '/^__PF9_ARCHIVE__/ {print NR + 1; exit 0; }' $0`
+ARCHIVE=`awk '/^__PF9_ARCHIVE__/ {print NR + 1; exit 0; }' "$0"`
 
-tail -n+$ARCHIVE $0 | tar xzv -C $TMPDIR > /dev/null
+tail -n+$ARCHIVE "$0" | tar xzv -C $TMPDIR > /dev/null
 
 cd $TMPDIR
 ./installer "$@"
