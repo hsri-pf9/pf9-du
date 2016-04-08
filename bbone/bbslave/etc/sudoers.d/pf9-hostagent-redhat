@@ -5,6 +5,8 @@ pf9	ALL = NOPASSWD: /opt/pf9/hostagent/bin/pf9-yum install /var/cache/pf9apps/*.
           NOPASSWD: /sbin/service pf9-*, \
           NOPASSWD: /usr/bin/yum clean all, \
           NOPASSWD: /sbin/vgs, \
+          NOPASSWD: /bin/mkdir -p /opt/pf9/home, \
+          NOPASSWD: /bin/chown -R pf9\:pf9group /opt/pf9/home, \
           NOPASSWD: /usr/bin/ovs-vsctl list-br
 
 Defaults:pf9 !requiretty

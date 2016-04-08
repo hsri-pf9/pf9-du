@@ -61,7 +61,12 @@ change_file_permissions() {
 if [ "$1" = "1" ]; then
     # Create the pf9 user and group
     grep ^pf9group: /etc/group &>/dev/null || groupadd pf9group
-    id pf9 &>/dev/null || useradd -g pf9group -d /opt/pf9/home -s /sbin/nologin --create-home -c "Platform9 user" pf9
+    homedir=/opt/pf9/home
+    id pf9 &>/dev/null || useradd -g pf9group -d ${homedir} -s /sbin/nologin --create-home -c "Platform9 user" pf9
+    # Create pf9 home directory ourselves if necessary due to IAAS-4714
+    source /opt/pf9/hostagent/bin/create_pf9_homedir.sh
+    create_pf9_homedir_if_absent ${homedir}
+
     # In cases where pf9 user exists but is not part of the pf9group, explicitly
     # add them
     usermod -aG pf9group pf9
