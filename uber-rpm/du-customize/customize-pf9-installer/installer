@@ -104,7 +104,7 @@ function check_services_running()
         local host_uuid=`ls -l ${HOSTAGENT_DIR} | grep "^d" | tr -s ' ' | cut -d' ' -f9`
 
         local desired_apps="${HOSTAGENT_DIR}/${host_uuid}/${DESIRED_APPS}"
-        wait_file_exists 30 $desired_apps
+        wait_file_exists 90 $desired_apps
         check_exit_code_and_generate_support_bundle $?
 
         local comms_state=`python ${JSON_TOOL} --query pf9-comms.running ${desired_apps}`

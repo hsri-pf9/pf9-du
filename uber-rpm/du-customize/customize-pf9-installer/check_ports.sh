@@ -19,7 +19,7 @@ function check_ports()
             for port in "${IMPORTANT_PORTS[@]}"
             do
                 echo "Checking port $port"
-                $tool -lptn | grep ":$port"
+                $tool -lptn | grep ":$port "
                 if [[ $? == "0" ]]; then
                     in_use $port
                 fi
