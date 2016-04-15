@@ -516,13 +516,6 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 else:
                     log.error('Unexpected "exit" opcode.')
                 return
-            current_config = get_current_config()
-            if msg['opcode'] == 'set_agent':
-                log.info('Received set_agent message')
-                if desired_config is None:
-                    desired_config = current_config
-                update_agent(msg['data'], current_config, desired_config)
-                return
             if msg['opcode'] == 'get_support':
                 log.info('Received get_support message')
                 process_support_request()
@@ -530,6 +523,13 @@ def start(config, log, app_db, agent_app_db, app_cache,
             if msg['opcode'] == 'support_command':
                 log.info('Received support_command message: %s' % msg['command'])
                 process_support_command(msg['command'])
+                return
+            current_config = get_current_config()
+            if msg['opcode'] == 'set_agent':
+                log.info('Received set_agent message')
+                if desired_config is None:
+                    desired_config = current_config
+                update_agent(msg['data'], current_config, desired_config)
                 return
             if msg['opcode'] == 'set_config':
                 desired_config = msg['data']
