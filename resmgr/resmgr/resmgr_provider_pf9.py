@@ -85,14 +85,15 @@ def _update_custom_role_settings(app_info, role_settings, roles):
     # Iterate over all apps in app_info
     for given_app_name in app_info.keys():
         for role_name, settings in new_roles.iteritems():
+            # Role is considered only if it is part of the provided role_settings
+            # AND part of the app name
+            if role_name not in role_settings:
+                continue
+            # TODO: We should really have a better way of making this association between app and role
+            if given_app_name not in role_name:
+                continue
+
             for setting_name, setting in settings.iteritems():
-                # Role is considered only if it is part of the provided role_settings
-                # AND part of the app name
-                if role_name not in role_settings:
-                    continue
-                # TODO: We should really have a better way of making this association between app and role
-                if given_app_name not in role_name:
-                    continue
                 path = setting['path'].split('/')
                 # Traverse the config according to the path of the default setting.
                 # Then, insert the custom role setting into the app info
