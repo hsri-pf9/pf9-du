@@ -26,7 +26,7 @@ def get_addresses_and_names():
         if os.path.isfile("/usr/bin/ovs-vsctl"):
             process = subprocess.Popen(["sudo", "ovs-vsctl", "list-br"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = process.communicate()
-            if not err:
+            if not process.returncode:
                 ovs_list = out.split()
     except:
         pass
