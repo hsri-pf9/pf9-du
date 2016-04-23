@@ -48,9 +48,6 @@ class bbone_provider_pf9(bbone_provider_memory):
         self.support_dir_location = self.config.get('bbmaster',
                                                     'support_file_store')
         self.pending_msgs = []
-        self.slack_attempts = self.config.getint('slack', 'max_posts') if \
-            self.config.has_option('slack', 'max_posts') else 5
-
         self.firmware_apps_config = get_fw_apps_cfg(config=self.config)
         t = threading.Thread(target=self._io_thread)
         t.daemon = True
@@ -125,32 +122,6 @@ class bbone_provider_pf9(bbone_provider_memory):
         body = {'opcode': 'set_agent', 'data': agent_data}
         # TODO: Think if this should be done with a retry logic
         self._send_msg(host_id, body)
-
-    def post_to_slack(self, msg):
-        """
-        Post messages to #bbmaster on Slack
-        """
-        if self.slack_attempts <= 0:
-            self.log.warn('Could not post message to Slack: %s '
-                          'Maximum number of Slack posts reached'
-                          % str(msg))
-            return
-        if (not self.config.has_option('slack', 'enabled') or
-                not self.config.getboolean('slack', 'enabled')):
-            return
-        url = 'https://hooks.slack.com/services/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'
-        json_body = json.dumps({'text' : msg, 'username' : socket.getfqdn()})
-        try:
-            resp = requests.post(url, data=json_body)
-        except:
-            self.log.error('Failed to send request to the Slack bbmaster webhook')
-            return
-
-        if resp.status_code == requests.codes.ok:
-            self.slack_attempts -= 1
-        else:
-            self.log.error('Sending slack message failed. HTTP error code: %s'
-                           % resp.status_code)
 
     # ----- these methods execute in the I/O thread -----
 
@@ -258,7 +229,6 @@ class bbone_provider_pf9(bbone_provider_memory):
 
         def channel_close_cb(reply_text):
             msg = 'Channel closed due to %s' % reply_text
-            self.post_to_slack(msg)
 
         amqp_username = self.config.get('amqp', 'username') if \
                  self.config.has_option('amqp', 'username') else 'bbmaster'
@@ -295,7 +265,6 @@ class bbone_provider_pf9(bbone_provider_memory):
                 msg = ('Unexpected IndexError. Closing the connection and '
                        'retrying in %d seconds.' % self.retry_period)
                 self.log.exception(msg)
-                self.post_to_slack(msg)
             except:
                 self.log.exception('Unexpected exception in IO thread. ' +
                                    'Closing the connection and retrying ' +
