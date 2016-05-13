@@ -17,7 +17,6 @@ set -e
 package_action=$1
 
 app_cache_dir=/var/cache/pf9apps/
-package_name_prefix="pf9-"
 
 usage() {
     echo "Usage: $0 install PACKAGE_PATH " 1>&2
@@ -66,11 +65,6 @@ case "$package_action" in
         ;;
     erase)
         package_name=$2
-        starts_with $package_name $package_name_prefix
-        if [[ "$?" != "0" ]]; then
-            echo "Invalid package name: $package_name" 1>&2
-            exit 1
-        fi
         yum -y erase $package_name
         retval=$?
         ;;
