@@ -6,6 +6,7 @@ from janitor.glance_cleanup import GlanceCleanup
 from janitor.network_cleanup import NetworkCleanup
 from janitor.alarms import AlarmsManager
 
+import subprocess
 from time import sleep
 from requests import exceptions
 import requests.packages.urllib3.exceptions as urllib_exceptions
@@ -50,6 +51,24 @@ def _setup_logging(config):
     LOG.addHandler(handler)
 
 
+def _run_command(command, stdout=subprocess.PIPE):
+    proc = subprocess.Popen(command, shell=True,
+                            stdin=subprocess.PIPE,
+                            stdout=stdout,
+                            stderr=subprocess.PIPE)
+    out, err = proc.communicate()
+    code = proc.returncode
+
+    return code, out, err
+
+
+def check_for_neutron():
+    code, out, err = _run_command("/usr/sbin/service openstack-neutron-server status")
+    LOG.info("openstack-neutron-server status, code=%d stdout=%s stderr=%s", code, out, err)
+    # Refer to LSB specification for the codes. If code is 0, then service is
+    # assumed to be running.
+    return code == 0
+
 def serve(config_file):
     """
     Run a bunch of periodic background tasks
@@ -63,16 +82,24 @@ def serve(config_file):
     glance_obj = GlanceCleanup(conf=cfg)
     nw_obj = NetworkCleanup(conf=cfg)
     alarm_obj = AlarmsManager(conf=cfg)
+
+    neutron_present = check_for_neutron()
+
     while True:
-        try:
-            nova_obj.cleanup()
-            glance_obj.cleanup()
-            nw_obj.cleanup()
-            alarm_obj.manage()
-        except (exceptions.ConnectionError, urllib_exceptions.ProtocolError) as e:
-            LOG.info('Connection error: {err}, will retry in a bit'.format(err=e))
-        except RuntimeError as e:
-            LOG.error('Unexpected error %s', e)
+        # pshanbhag:
+        # See IAAS-5438. To avoid janitor triggering a VM network cleanup, we
+        # will temporarily make janitor do nothing on Neutron setups. This can
+        # go away once we have a good fix in place for IAAS-5438
+        if not neutron_present:
+            try:
+                nova_obj.cleanup()
+                glance_obj.cleanup()
+                nw_obj.cleanup()
+                alarm_obj.manage()
+            except (exceptions.ConnectionError, urllib_exceptions.ProtocolError) as e:
+                LOG.info('Connection error: {err}, will retry in a bit'.format(err=e))
+            except RuntimeError as e:
+                LOG.error('Unexpected error %s', e)
 
         sleep(int(cfg.get('DEFAULT', 'pollInterval')))
 
