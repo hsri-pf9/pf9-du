@@ -58,16 +58,13 @@ def _run_command(command, stdout=subprocess.PIPE):
                             stderr=subprocess.PIPE)
     out, err = proc.communicate()
     code = proc.returncode
-
     return code, out, err
 
 
 def check_for_neutron():
-    code, out, err = _run_command("/usr/sbin/service openstack-neutron-server status")
-    LOG.info("openstack-neutron-server status, code=%d stdout=%s stderr=%s", code, out, err)
-    # Refer to LSB specification for the codes. If code is 0, then service is
-    # assumed to be running.
-    return code == 0
+    code, out, err = _run_command("/bin/crudini --get /etc/nova/nova.conf DEFAULT network_api_class")
+    LOG.info("Neutron check output, code=%d stdout=%s stderr=%s", code, out, err)
+    return code == 0 and out.strip() == "nova.network.neutronv2.api.API"
 
 def serve(config_file):
     """
