@@ -62,7 +62,7 @@ mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs
 cp -r ${CERTS_DIR}/hostagent $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/
 chmod 440 $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/hostagent/key.pem
 mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
-cp ${CERTS_DIR}/ca/cert.pem $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
+cp ${CERTS_DIR}/ca/cert*.pem $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
 
 #clean the RPMBUILD dir
 rm -fr $RPMBUILD_DIR
