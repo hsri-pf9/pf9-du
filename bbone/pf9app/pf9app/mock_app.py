@@ -38,10 +38,6 @@ class MockInstalledApp(App):
         # Use the old of way of managing services: use the app's name
         return False
 
-    def has_desired_service_states(self, desired):
-        current = self.get_service_states()
-        return current == desired
-
     def set_desired_service_states(self, services, stop_all=False):
         # Since this is using the old way of managing services, we
         # should only have one service to manage with the same name

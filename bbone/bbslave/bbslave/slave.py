@@ -45,7 +45,6 @@ def reconnect_loop(config):
 
     use_mock = config.has_option('hostagent', 'USE_MOCK')
     if use_mock:
-
         # dynamically import class from the config file
         if config.has_option('hostagent', 'mock_app_class'):
             mock_app_class = config.get('hostagent', 'mock_app_class')

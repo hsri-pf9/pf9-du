@@ -43,15 +43,21 @@ class AptPkgMgr(object):
         :return: dict of pf9 apps mapped to its details (name, version)
         :rtype: dict
         """
+        self.log.debug('-- query_pf9_apps begin --')
         self.cache.open()
         out = {}
-        for pkg in self.cache:
+        items = 0
+        pkgs = 0
+        for pkg in self.cache.get_providing_packages('pf9app'):
+            pkgs += 1
             for version in pkg.versions:
-                if "pf9app" in version.provides:
-                    out[pkg.name] = {
-                        'name' : pkg.name,
-                        'version' : version.source_version
-                    }
+                items += 1
+                out[pkg.name] = {
+                    'name' : pkg.name,
+                    'version' : version.source_version
+                }
+        self.log.debug('-- query_pf9_apps end with %d pkgs and %d items --' %
+                       (pkgs, items))
         return out
 
     def query_pf9_agent(self):
@@ -254,6 +260,9 @@ class Pf9AppDb(AppDb):
         else:
             self.pkgmgr = YumPkgMgr(self.log)
 
+    def make_app(self, name, version):
+        return Pf9App(name, version, self, log=self.log)
+
     def query_installed_apps(self):
         """
         Returns a dictionary representing installed applications.
@@ -264,8 +273,7 @@ class Pf9AppDb(AppDb):
         appMap = {}
         installed = self.pkgmgr.query_pf9_apps()
         for app, val in installed.iteritems():
-            appMap[app] = Pf9App(app, val['version'], self, log=self.log)
-
+            appMap[app] = self.make_app(app, val['version'])
         return appMap
 
     def app_installed(self, app):

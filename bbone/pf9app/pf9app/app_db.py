@@ -55,3 +55,34 @@ class AppDb(object):
         :param str path: Local path to the package to be upgraded
         """
         pass
+
+    def make_app(self, name, version):
+        """
+        Returns an installed app object from package name and version
+        :param name: Name of package
+        :param version: Version of package
+        """
+        pass
+
+    def get_current_config(self):
+        """
+        Computes the current application configuration.
+        :return: a dictionary representing the aggregate app configuration.
+        :rtype: dict
+        """
+        apps = self.query_installed_apps()
+        config = {}
+        for app_name, app in apps.iteritems():
+            if app.implements_service_states:
+                config[app_name] = {
+                    'version': app.version,
+                    'config': app.get_config(),
+                    'service_states': app.get_service_states()
+                }
+            else:
+                config[app_name] = {
+                    'version': app.version,
+                    'running': app.running,
+                    'config': app.get_config()
+                }
+        return config

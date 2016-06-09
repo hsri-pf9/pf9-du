@@ -62,21 +62,6 @@ class App(object):
         pass
 
     @abstractmethod
-    def has_desired_service_states(self, desired):
-        """
-        Returns True if Pf9App has the desired running state for each service
-        :param dict desired: a dictionary of services to check where the
-        keys are the names of the services and values are booleans corresponding
-        to their desired running state.
-        {
-            "pf9-ostackhost": True,
-            "pf9-novncproxy": False
-        }
-        :rtype: bool
-        """
-        pass
-
-    @abstractmethod
     def set_desired_service_states(self, services, stop_all=False):
         """
         Sets the desired running state for each service.

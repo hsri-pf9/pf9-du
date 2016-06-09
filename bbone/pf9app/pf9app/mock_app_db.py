@@ -8,7 +8,6 @@ import logging
 from app_db import AppDb
 from app import App
 
-
 class MockAppDb(AppDb):
 
     def __init__(self, log=logging):
@@ -34,3 +33,7 @@ class MockAppDb(AppDb):
             'name': 'mock-hostagent',
             'version': '1.0.1-1'
         }
+
+    def make_app(self, name, version):
+        assert self.apps[name].version == version
+        return self.apps[name]

@@ -15,6 +15,7 @@ from pf9_app_cache import get_supported_distro
 
 def process_apps(app_db, app_cache, remote_app_class, new_config,
                  non_destructive=False, probe_only=False, log=logging,
+                 current_config=None,
                  url_interpolations=None):
     """
     Processes the transition from a current to a new application configuration.
@@ -33,6 +34,8 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
     :param bool probe_only: determine if changes are needed, but don't
      actually perform the changes.
     :param Logger log: logger
+    :param dict current_config: optional current application/service state.
+     if not specified, the function will obtain the current state from the appdb
     :param dict url_interpolations: An optional dictionary containing
      string substitutions for the url property of a pf9 application
     :return: the number of application changes
@@ -40,8 +43,15 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
     """
 
     changes = 0
-    installed_apps = app_db.query_installed_apps()
-    installed_app_names = set(installed_apps.keys())
+    if current_config is None:
+        current_config = app_db.get_current_config()
+    installed_app_names = set(current_config.keys())
+    installed_apps = {}
+    for installed_app_name in installed_app_names:
+        installed_apps[installed_app_name] = app_db.make_app(
+            installed_app_name,
+            current_config[installed_app_name]['version']
+        )
     specified_app_names = set(new_config.keys())
     deleted_app_names = installed_app_names - specified_app_names
     new_app_names = specified_app_names - installed_app_names
@@ -127,7 +137,8 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
                 new_app.set_desired_service_states(services)
             changes += 1
         else:
-            if not is_dict_subset(new_app_config, app.get_config()):
+            if not is_dict_subset(new_app_config,
+                                  current_config[app_name]['config']):
                 # The app's set_config script is responsible for restarting
                 # or reloading the app service after the change if app is running.
                 if not probe_only:
@@ -135,7 +146,10 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
                 changes += 1
             if services is None:
                 services = { app_name : new_app_spec['running'] }
-            if not app.has_desired_service_states(services):
+            current_services = current_config[app_name]['service_states'] if \
+                'service_states' in current_config[app_name] else \
+                {app_name: current_config[app_name]['running']}
+            if current_services != services:
                 if not probe_only:
                     app.set_desired_service_states(services)
                 changes += 1

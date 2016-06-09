@@ -251,21 +251,9 @@ def start(config, log, app_db, agent_app_db, app_cache,
         :return: a dictionary representing the aggregate app configuration.
         :rtype: dict
         """
-        apps = app_db.query_installed_apps()
-        config = {}
-        for app_name, app in apps.iteritems():
-            if app.implements_service_states:
-                config[app_name] = {
-                    'version': app.version,
-                    'config': app.get_config(),
-                    'service_states': app.get_service_states()
-                }
-            else:
-                config[app_name] = {
-                    'version': app.version,
-                    'running': app.running,
-                    'config': app.get_config()
-                }
+        log.debug('get_current_config begin')
+        config = app_db.get_current_config()
+        log.debug('get_current_config end')
         return config
 
     def get_extension_data():
@@ -363,7 +351,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
                               routing_key=constants.MASTER_TOPIC,
                               body=json.dumps(msg))
 
-    def valid_and_converged(desired_config):
+    def valid_and_converged(current_config, desired_config):
         """
         Checks if desired configuration is valid, and if so, returns
         whether the current configuration already satisfies it.
@@ -372,6 +360,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
         assert desired_config is not None
         return process_apps(app_db, app_cache, remote_app_class,
                             desired_config, probe_only=True, log=log,
+                            current_config=current_config,
                             url_interpolations=url_interpolations) == 0
 
     def update_agent(agent_info, current_config, desired_config):
@@ -501,6 +490,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
         Handles an incoming message, which can be an internal heartbeat.
         :param dict msg: message deserialized from JSON
         """
+        log.debug('--- handle_msg begin for opcode %s ---' % msg['opcode'])
         desired_config = load_desired_config(log)
         try:
             if msg['opcode'] not in ('ping', 'heartbeat', 'set_config',
@@ -539,7 +529,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
                     log.info('Received ping message')
                 if desired_config is None:
                     desired_config = current_config
-            converged = valid_and_converged(desired_config)
+            converged = valid_and_converged(current_config, desired_config)
         except (TypeError, KeyError, Pf9Exception):
             log.exception('Bad message, app config or reading current app '
                           'config. Message : %s', msg)
@@ -580,6 +570,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
         try:
             process_apps(app_db, app_cache, remote_app_class,
                          desired_config, log=log,
+                         current_config=current_config,
                          url_interpolations=url_interpolations)
         except Pf9Exception as e:
             log.error('Exception during apps processing: %s', type(e))
@@ -590,7 +581,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
             log.exception('Reading current configuration failed.')
             return
 
-        converged = valid_and_converged(desired_config)
+        converged = valid_and_converged(current_config, desired_config)
         if converged:
             assert is_satisfied_by(desired_config, current_config)
             status = 'ok'

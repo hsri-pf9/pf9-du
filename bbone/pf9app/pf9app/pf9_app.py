@@ -174,11 +174,12 @@ class Pf9App(App):
         }
         :rtype: bool
         """
-        self.log.debug("Checking whether services have the desired state")
+        self.log.debug("has_desired_service_states for %s begin" % self.name)
         if self.implements_service_states:
             current_state = self.get_service_states()
         else:
             current_state = { self.app_name: self.running }
+        self.log.debug("has_desired_service_states for %s end" % self.name)
         return current_state == desired
 
     def set_desired_service_states(self, services, stop_all=False):
@@ -205,6 +206,7 @@ class Pf9App(App):
             "pf9-novncproxy": True
         }
         """
+        self.log.debug('get_service_states for %s begin' % self.name)
         services_dict = {}
         for service_name in self.services:
 
@@ -216,6 +218,7 @@ class Pf9App(App):
             # Refer to LSB specification for the codes. If code is 0, then service is
             # assumed to be running.
             services_dict[service_name] = code == 0
+        self.log.debug('get_service_states for %s end' % self.name)
         return services_dict
 
     def _set_run_state(self, service, run_state):
