@@ -143,11 +143,8 @@ class bbone_provider_pf9(bbone_provider_memory):
                     raise ValueError()
                 self.log.info('Received: %s', body)
                 host_state = body['data']
-                if 'timestamp' not in host_state:
-                    # This is for backward compatibility, when we moved the
-                    # host ping timestamp from bbmaster to the host
-                    host_state['timestamp'] = datetime.datetime.utcnow().\
-                                              strftime("%Y-%m-%d %H:%M:%S.%f")
+                host_state['timestamp_on_du'] = datetime.datetime.utcnow().\
+                                                strftime("%Y-%m-%d %H:%M:%S.%f")
                 id = host_state['host_id']
                 host_agent_state = host_state['host_agent']
             except (ValueError, TypeError, KeyError):

@@ -30,16 +30,21 @@ from exceptions import (BBMasterNotFound, HostNotFound, RoleNotFound,
                         SupportCommandRequestFailed, RabbitCredentialsConfigureError,
                         DuConfigError, ServiceNotFound, ServiceConfigFailed)
 import notifier
-from resmgr_provider import ResMgrProvider, RState
+from resmgr_provider import ResMgrProvider
 
 log = logging.getLogger('resmgr')
+
+TIMEDRIFT_MSG_LEVEL = 'warn'
+TIMEDRIFT_MSG = 'Host clock may be out of sync'
 
 # Maintain some state for resource manager
 _unauthorized_hosts = {}
 _unauthorized_host_status_time = {}
+_unauthorized_host_status_time_on_du = {}
 _authorized_host_role_status = {}
 _hosts_hypervisor_info = {}
 _hosts_extension_data = {}
+_hosts_message_data = {}
 _host_lock = threading.Lock()
 _role_delete_lock = threading.RLock()
 
@@ -283,11 +288,11 @@ class HostInventoryMgr(object):
         result = {}
         query_op = self.db_handler.query_hosts()
         for host in query_op:
-            host['state'] = RState.active if host['roles'] else RState.inactive
             if _authorized_host_role_status.get(host['id']):
                 host['role_status'] = _authorized_host_role_status[host['id']]
             host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
             host['extensions'] = _hosts_extension_data.get(host['id'], '')
+            host['message'] = _hosts_message_data.get(host['id'], '')
             result[host['id']] = host
 
         # Add unauthorized hosts into the result
@@ -297,6 +302,7 @@ class HostInventoryMgr(object):
                 host = _unauthorized_hosts[id]
                 host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
                 host['extensions'] = _hosts_extension_data.get(host['id'], '')
+                host['message'] = _hosts_message_data.get(host['id'], '')
                 result[host['id']] = host
 
         return result
@@ -331,7 +337,6 @@ class HostInventoryMgr(object):
         """
         host = self.db_handler.query_host(host_id)
         if host:
-            host['state'] = RState.active if host['roles'] else RState.inactive
             if _authorized_host_role_status.get(host_id):
                 host['role_status'] = _authorized_host_role_status[host_id]
             host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
@@ -387,8 +392,28 @@ class BbonePoller(object):
             threshold = self.default_non_responsive_host_timeout
         current_time = datetime.datetime.utcnow()
         time_delta = current_time - status_time
-        return time_delta < threshold
+        return time_delta < threshold and -time_delta < threshold
 
+    def _add_host_message(self, host_id, level, msg):
+        if host_id not in _hosts_message_data:
+            _hosts_message_data[host_id] = {}
+        message = _hosts_message_data[host_id]
+
+        if level not in message:
+            message[level] = []
+        message_list = message[level]
+
+        if msg not in message_list:
+            message_list.append(msg)
+
+    def _remove_host_message(self, host_id, level, msg):
+        if host_id not in _hosts_message_data:
+            return
+        message = _hosts_message_data[host_id]
+
+        if level not in message:
+            return
+        message[level].remove(msg)
 
     def _process_new_hosts(self, host_ids):
         """
@@ -413,17 +438,20 @@ class BbonePoller(object):
             unauth_host = {
                 'id': host,
                 'roles': [],
-                'state': RState.inactive,
                 'info': host_info['info']
             }
 
             status_time = datetime.datetime.strptime(host_info['timestamp'],
                                                      "%Y-%m-%d %H:%M:%S.%f")
+            host_responding = self._responding_within_threshold(status_time)
 
+            status_time_on_du = datetime.datetime.strptime(host_info['timestamp_on_du'],
+                                                           "%Y-%m-%d %H:%M:%S.%f")
+            host_on_du_responding = self._responding_within_threshold(status_time_on_du)
 
-            if not self._responding_within_threshold(status_time):
-                # A host that has not responded past the threshold can be ignored
-                # TODO: This should probably go in backbone master land
+            if not host_responding and host_on_du_responding:
+                self._add_host_message(host, TIMEDRIFT_MSG_LEVEL, TIMEDRIFT_MSG)
+            elif not host_responding:
                 continue
 
             # TODO: There is a potential case here where we want to clear out remnant
@@ -435,6 +463,7 @@ class BbonePoller(object):
             log.info('adding new host %s to unauthorized hosts' % unauth_host)
             _unauthorized_hosts[host] = unauth_host
             _unauthorized_host_status_time[host] = status_time
+            _unauthorized_host_status_time_on_du[host] = status_time_on_du
             _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
             _hosts_extension_data[host] = host_info.get('extensions', '')
 
@@ -454,6 +483,7 @@ class BbonePoller(object):
                     log.warn("Unauthorized host being removed: %s", host)
                     _unauthorized_hosts.pop(host, None)
                     _unauthorized_host_status_time.pop(host, None)
+                    _unauthorized_host_status_time_on_du.pop(host, None)
                     _hosts_hypervisor_info.pop(host, None)
                     _hosts_extension_data.pop(host, None)
                     self.notifier.publish_notification('delete', 'host', host)
@@ -486,26 +516,38 @@ class BbonePoller(object):
 
             status_time = datetime.datetime.strptime(host_info['timestamp'],
                                                      "%Y-%m-%d %H:%M:%S.%f")
+
             hostname = host_info['info']['hostname']
             _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
             _hosts_extension_data[host] = host_info.get('extensions', '')
+
+            host_status = host_info['status']
+            if host_status in ('converging', 'retrying'):
+                responding_threshold = self.converging_non_responsive_host_timeout
+            else:
+                responding_threshold = self.default_non_responsive_host_timeout
+            responding = self._responding_within_threshold(status_time,
+                                                           responding_threshold)
+            if responding:
+                self._remove_host_message(host, TIMEDRIFT_MSG_LEVEL, TIMEDRIFT_MSG)
+                responding_on_du = True
+            else:
+                status_time_on_du = datetime.datetime.strptime(host_info['timestamp_on_du'],
+                                                               "%Y-%m-%d %H:%M:%S.%f")
+                responding_on_du = self._responding_within_threshold(status_time_on_du,
+                                                                     responding_threshold)
+                if responding_on_du:
+                    self._add_host_message(host, TIMEDRIFT_MSG_LEVEL, TIMEDRIFT_MSG)
+
             if host in authorized_hosts:
-                # host is in authorized list
-                host_status = host_info['status']
-                if host_status in ('converging', 'retrying'):
-                    responding_threshold = self.converging_non_responsive_host_timeout
-                else:
-                    responding_threshold = self.default_non_responsive_host_timeout
-                responding = self._responding_within_threshold(status_time,
-                                                               responding_threshold)
-                if authorized_hosts[host]['responding'] != responding:
+                if authorized_hosts[host]['responding'] != (responding or responding_on_du):
                     # If host status is responding and is marked as not
                     # responding, tag it as responding. And vice versa
-                    self.db_handle.mark_host_state(host, responding=responding)
+                    self.db_handle.mark_host_state(host, responding=(responding or responding_on_du))
                     self.notifier.publish_notification('change', 'host', host)
                     log.info('Marking %s as %s responding, status time: %s',
-                             host, '' if responding else 'not', host_info['timestamp'])
-                if not responding:
+                             host, '' if (responding or responding_on_du) else 'not', host_info['timestamp'])
+                if not (responding or responding_on_du):
                     # If not responding, nothing more to do
                     continue
 
@@ -550,6 +592,7 @@ class BbonePoller(object):
                 # for a lock here.
                 # See http://effbot.org/pyfaq/what-kinds-of-global-value-mutation-are-thread-safe.htm
                 _unauthorized_host_status_time[host] = status_time
+                _unauthorized_host_status_time_on_du[host] = status_time_on_du
                 # TODO: Is there a need to update the unauthorized hosts with more data
                 # returned from bbone?
                 if _unauthorized_hosts[host]['info']['hostname'] != hostname:
@@ -564,7 +607,8 @@ class BbonePoller(object):
         cleanup_hosts = []
         with _host_lock:
             for id in _unauthorized_hosts.iterkeys():
-                if not self._responding_within_threshold(_unauthorized_host_status_time[id]):
+                if not (self._responding_within_threshold(_unauthorized_host_status_time[id])
+                        or self._responding_within_threshold(_unauthorized_host_status_time_on_du[id])):
                     # Maintain a list of hosts that are past the threshold
                     cleanup_hosts.append(id)
 
@@ -574,6 +618,8 @@ class BbonePoller(object):
             for id in cleanup_hosts:
                 _unauthorized_hosts.pop(id, None)
                 _unauthorized_host_status_time.pop(id, None)
+                _unauthorized_host_status_time_on_du.pop(id, None)
+                _hosts_message_data.pop(id, None)
                 self.notifier.publish_notification('delete', 'host', id)
 
     def process_hosts(self):
@@ -869,14 +915,8 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         host_roles = self.res_mgr_db.query_host(host_id, fetch_role_ids=True)
 
-        initially_inactive = host_inst['state'] == RState.inactive
         host_inst['roles'].append(role_name)
         _authorized_host_role_status[host_id] = None
-
-        if initially_inactive:
-            assert host_id in _unauthorized_hosts
-            host_inst['state'] = RState.activating
-            notifier.publish_notification('change', 'host', host_id)
 
         try:
             # 1. Record the role addition state in the DB
@@ -899,6 +939,7 @@ class ResMgrPf9Provider(ResMgrProvider):
                 # Once added to the DB, remove it from the unauthorized host dict
                 _unauthorized_hosts.pop(host_id, None)
                 _unauthorized_host_status_time.pop(host_id, None)
+                _unauthorized_host_status_time_on_du.pop(host_id, None)
 
             # Rely on the role config values set in the DB to send to bbmaster
             host_details = self.res_mgr_db.query_host_and_app_details(host_id)
@@ -911,8 +952,6 @@ class ResMgrPf9Provider(ResMgrProvider):
                      role_name, host_id, app_info)
             self.roles_mgr.push_configuration(host_id, app_info)
         except:
-            if initially_inactive:
-                host_inst['state'] = RState.inactive
             try:
                 self._rabbit_mgmt_cl.delete_user(rabbit_user)
             except:

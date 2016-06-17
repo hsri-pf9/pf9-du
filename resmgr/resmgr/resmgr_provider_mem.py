@@ -7,7 +7,7 @@ __author__ = "Platform9"
 This module is mock implementation of resource manager provider interface
 """
 
-from resmgr_provider import ResMgrProvider, RState
+from resmgr_provider import ResMgrProvider
 from exceptions import RoleNotFound, HostNotFound
 import notifier
 import logging
@@ -95,9 +95,6 @@ class ResMgrMemProvider(ResMgrProvider):
         if host_id not in self.hosts.keys():
             raise HostNotFound(host_id)
 
-        if self.hosts[host_id]['state'] != RState.active:
-            return
-
         del self.hosts[host_id]
         return
 
@@ -131,16 +128,9 @@ class ResMgrMemProvider(ResMgrProvider):
 
         host, role = self._get_host_roles(host_id, role_id)
 
-        #TODO:Right now, this mapping is one to one to keep status consistent.
-        # Revisit
-        if host['state'] != RState.inactive:
-            return
-
         # Mock host configuration
-        host['state'] = RState.activating
         host['roles'].append(role_id)
 
-        host['state'] = RState.active
         if self.publish_notifications:
             notifier.publish_notification('change', 'host', host_id)
 
@@ -151,14 +141,11 @@ class ResMgrMemProvider(ResMgrProvider):
         host, role = self._get_host_roles(host_id, role_id)
 
         # TODO: error handling
-        if host['state'] != RState.active or \
-                not host['roles'] or role_id not in host['roles']:
+        if not host['roles'] or role_id not in host['roles']:
             return
 
         host['roles'].remove(role_id)
 
-        if not host['roles']:
-            host['state'] = RState.inactive
         if self.publish_notifications:
             notifier.publish_notification('change', 'host', host_id)
 

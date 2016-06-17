@@ -1,5 +1,4 @@
 from resmgr.tests import FunctionalTest
-from resmgr.resmgr_provider import RState
 
 
 class TestResMgr(FunctionalTest):
@@ -61,13 +60,13 @@ class TestResMgr(FunctionalTest):
             self.app.put(''.join(['/v1/hosts/', k1_id, '/roles/', k2]))
             one_host = self._get_one_host(k1_id)
 
-            assert one_host['state'] == RState.active
+            assert one_host['roles']
 
             self.app.delete(''.join(['/v1/hosts/', k1_id, '/roles/', k2]))
 
             one_host = self._get_one_host(k1_id)
 
-            assert one_host['state'] == RState.inactive
+            assert not one_host['roles']
 
     def test_put_config(self):
         #TODO: Figure out how to test put operations

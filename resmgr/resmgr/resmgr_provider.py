@@ -10,11 +10,6 @@ This module defines the interface of Resource Manager Provider
 
 from abc import ABCMeta, abstractmethod
 
-class RState(object):
-    inactive = "inactive"
-    active = "active"
-    activating = "activating"
-
 class ResMgrProvider(object):
     __metaclass__ = ABCMeta
 
