@@ -61,6 +61,8 @@ function setup_payload()
 
     cp ../wait.sh wait.sh
     cp ../proxy.sh proxy.sh
+    cp ../ntpd.sh ntpd.sh
+    cp ../ntpd.${distro}.sh ntpd.${distro}.sh
     cp ../support.sh support.sh
     cp ../jsontool.py  jsontool.py
     cp ../nettool.py nettool.py

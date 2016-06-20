@@ -7,6 +7,8 @@ source $(dirname $0)/globals.sh
 source $(dirname $0)/wait.sh
 source $(dirname $0)/proxy.sh
 source $(dirname $0)/support.sh
+source $(dirname $0)/ntpd.sh
+source $(dirname $0)/ntpd.${DISTRO}.sh
 source $(dirname $0)/check_os_distro.sh
 source $(dirname $0)/check_sudoers.sh
 source $(dirname $0)/check_ports.sh
@@ -27,6 +29,8 @@ function usage()
     echo "Options:"
     echo "--proxy=<host>:<port>  | Setup HTTP proxy with <host> and <port> as the proxy host and port respectively."
     echo "--no-proxy             | Do not ask proxy configuration."
+    echo "--ntpd                 | Install ntpd."
+    echo "--no-ntpd              | Do not install ntpd."
     echo "--extract              | Extract installation files to /tmp/pf9-install-XXXXX and exit."
     echo "--skip-os-check        | Do not ask operating system compatibility questions."
     echo "--help                 | Display program help."
@@ -58,6 +62,14 @@ while getopts ":-:" optchar; do
                     echo "Files extracted at: ${TMPDIR}"
                     echo
                     exit 0
+                    ;;
+                ntpd)
+                    ASK_NTPD="false"
+                    INSTALL_NTPD="true"
+                    ;;
+                no-ntpd)
+                    ASK_NTPD="false"
+                    INSTALL_NTPD="false"
                     ;;
                 skip-os-check)
                     echo "Skipping operating system compatibility questions"
@@ -194,6 +206,14 @@ function main()
         if [[ "${TTY_AVAILABLE}" == "true" ]]; then
             proxy_ask
         fi
+    fi
+
+    if [[ "${ASK_NTPD}" == "true" && "${TTY_AVAILABLE}" == "true" ]]; then
+        ntpd_ask
+    elif [[ "${INSTALL_NTPD}" == "true" ]]; then
+        install_ntpd
+    else
+        print_ntpd_warning
     fi
 
     pre_install_check
