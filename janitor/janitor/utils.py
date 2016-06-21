@@ -83,18 +83,28 @@ def get_resmgr_host_roles(resmgr_url, token, resmgr_host):
     return resp.json()["roles"]
 
 def get_ostackhost_role_data(resmgr_hosts, resmgr_url, token):
-    role = 'pf9-ostackhost-vmw'
+    roles_to_look_for = set(['pf9-ostackhost-vmw', 'pf9-ostackhost-neutron-vmw'])
     headers = {'X-Auth-Token': token, 'Content-Type': 'application/json'}
-    clusters = ""
+    clusters = []
     for resmgr_host in resmgr_hosts:
-        url = '/'.join([resmgr_url, 'v1', 'hosts', resmgr_host, 'roles', role])
+        url = '/'.join([resmgr_url, 'v1', 'hosts', resmgr_host])
         resp = requests.get(url, verify=False, headers=headers)
 
         if resp.status_code not in (requests.codes.ok, 204):
             LOG.error('Resource manager query failed for host: %s with status: %d',
                                                     resmgr_host, resp.status_code)
         else:
-            clusters = clusters + resp.json()['cluster_name']
+            authed_roles = resp.json()['roles']
+            ostackhost_present = roles_to_look_for.intersection(authed_roles)
+            if len(ostackhost_present) == 1:
+                url = '/'.join([resmgr_url, 'v1', 'hosts', resmgr_host,
+                               'roles', ostackhost_present.pop()])
+                resp = requests.get(url, verify=False, headers=headers)
+                clusters = clusters + resp.json()['cluster_name']
+            else:
+                LOG.error('Resource manager query for host: %s returned more '
+                          'than one ostackhost roles authorized. Taking none '
+                          'in consideration.', resmgr_host)
     return clusters
 
 def get_keystone_credentials(configfile):
