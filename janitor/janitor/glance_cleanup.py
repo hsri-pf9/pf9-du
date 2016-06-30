@@ -2,100 +2,117 @@
 # Copyright (c) Platform9 Systems. All rights reserved
 #
 
-__author__ = 'Platform9'
-
-import requests
+import json
 import logging
+import re
+import requests
 from janitor import utils
 
 LOG = logging.getLogger('janitor-daemon')
 
+STATUS_RE = re.compile(r'pf9status\.(\S*)')
+STATUS_OFFLINE = 'offline'
 
 class GlanceCleanup(object):
 
     def __init__(self, conf):
         self._resmgr_url = conf.get('resmgr', 'endpointURI')
-        self._glance_api_url = conf.get('glance', 'apiEndpoint')
-        self._glance_imagelibs_url = conf.get('glance', 'imglibsEndpoint')
+        self._glance_url = conf.get('glance', 'apiEndpoint')
+        self._auth = None
         glance_config = conf.get('nova', 'configfile')
         self._auth_user, self._auth_pass, self._auth_tenant = \
                 utils.get_keystone_credentials(glance_config)
-        self._token = utils.get_auth_token(self._auth_tenant, self._auth_user, self._auth_pass,
-                                           None)
-
-    def _get_imagelibs(self, token):
-        url = '%s/imagelibs' % self._glance_imagelibs_url
-        resp = requests.get(url, headers={'x-auth-token': token}, verify=False)
-        if resp.status_code != 200:
-            msg = 'failed to get glance imagelibrary list, code = %d' % \
-                    resp.status_code
-            LOG.error(msg)
-            raise RuntimeError(msg)
-        return resp.json()
 
     def _get_images(self, token):
-        url = '%s/images/detail?is_public=None' % self._glance_api_url
-        resp = requests.get(url, headers={'x-auth-token': token}, verify=False)
-        if resp.status_code != 200:
-            msg = 'failed to get glance images list, code = %d' % \
-                    resp.status_code
-            LOG.error(msg)
-            raise RuntimeError(msg)
-        return resp.json()['images']
+        url = '%s/v2/images?limit=100' % self._glance_url
+        images = []
+        while True:
+            resp = requests.get(url,
+                                headers={'x-auth-token': token},
+                                verify=False)
+            resp.raise_for_status()
+            body = resp.json()
+            chunk = body['images']
+            images += chunk
+            next_url = body.get('next', None)
+            if next_url:
+                url = self._glance_url + next_url
+            else:
+                LOG.info('Retrieved %d images from glance', len(images))
+                return images
 
-    def _delete_imagelib(self, token, imagelib_id):
-        url = '%s/imagelibs/%s' % (self._glance_imagelibs_url, imagelib_id)
-        resp = requests.delete(url, headers={'x-auth-token': token}, verify=False)
-        if resp.status_code != 200:
-            msg = 'failed to remove imagelibrary %s, code = %d' % \
-                    (imagelib_id, resp.status_code)
-            LOG.error(msg)
+    def _change_properties(self, token, imageid, patch_spec):
+        """
+        Add or update a set of image properties on an images.
+        :param token: keystone token
+        :param imageid: the imageid
+        :param patch_spec: list of dictionaries like in:
+        http://specs.openstack.org/openstack/glance-specs/specs/api/v2/http-patch-image-api-v2.html
+        """
+        if not patch_spec:
+            return
+        headers={'Content-Type': 'application/openstack-images-v2.1-json-patch',
+                 'X-Auth-Token': token}
+        url = '%s/v2/images/%s' % (self._glance_url, imageid)
+        resp = requests.patch(url,
+                              headers=headers,
+                              data=json.dumps(patch_spec))
+        resp.raise_for_status()
 
-    def _delete_image(self, token, image_id):
-        url = '%s/images/%s' % (self._glance_api_url, image_id)
-        resp = requests.delete(url, headers={'x-auth-token': token}, verify=False)
-        if resp.status_code != 200:
-            msg = 'failed to remove image %s, code = %d' % \
-                    (image_id, resp.status_code)
-            LOG.error(msg)
+    @staticmethod
+    def _host_has_glance(host):
+        """
+        True if host has a glance role.
+        """
+        return bool(set(['pf9-glance-role', 'pf9-glance-role-vmw']) &
+                    set(host.get('roles', [])))
+
+    @staticmethod
+    def _get_host_status_update(prop_name, curr_value, host):
+        """
+        Based on the status of the host, remove or update the pf9status
+        variable for the host's id.
+        """
+        updates = []
+        if not GlanceCleanup._host_has_glance(host):
+            LOG.info('host %s is not authorized for glance, removing status')
+            updates.append({'op': 'remove', 'name': '/%s' % prop_name})
+        elif curr_value != STATUS_OFFLINE:
+            host_state = host.get('state', None)
+            role_status = host.get('role_status', None)
+            if host_state != 'active' or role_status != 'ok':
+                LOG.warn('host %s has host state = %s and role_status = %s, '
+                         'marking image offline', host['id'], host_state,
+                         role_status)
+                updates.append({'op': 'add',
+                                'path': '/%s' % prop_name,
+                                'value': STATUS_OFFLINE})
+        return updates
 
     def cleanup(self):
         """
-        Remove images and imagelibrary entries from glance registry hosts that
-        no longer show up in resmgr.
+        update image properties based on the health of the host and role
         """
-        self._token = utils.get_auth_token(self._auth_tenant, self._auth_user,
-                self._auth_pass, self._token)
-
-        token = self._token['id']
+        self._auth = utils.get_auth_token(self._auth_tenant, self._auth_user,
+                                          self._auth_pass, self._auth)
+        token = self._auth['id']
         resp = utils.get_resmgr_hosts(self._resmgr_url, token)
-
-        if resp.status_code != 200:
-            LOG.error('failed to get list of hosts from resmgr, code = %d',
-                      resp.status_code)
-            return
-
-        resmgr_data = resp.json()
-        resmgr_ids = set(h['id'] for h in resmgr_data
-                         if set(h['roles']) & set(['pf9-glance-role', 'pf9-glance-role-vmw'))
-
+        resp.raise_for_status()
+        resp_list = resp.json()
+        hosts = {h['id']: h for h in resp_list}
         images = self._get_images(token)
+        updates = []
         for image in images:
-            if 'pf9_imagelib_id' in image['properties']:
-                if image['properties']['pf9_imagelib_id'] not in resmgr_ids:
-                    LOG.info('host %s has been removed, removing image %s',
-                            image['properties']['pf9_imagelib_id'], image['name'])
-                    self._delete_image(token, image['id'])
-            else:
-                LOG.info('Image %s (%s) does not belong to any image library,\
-                    please delete manually', image['name'], image['id'])
-
-        # note imagelibs api will return all, including deleted entries
-        imagelibs = self._get_imagelibs(token)
-        for imagelib in imagelibs:
-            if imagelib['host_id'] not in resmgr_ids and \
-               not imagelib['deleted']:
-                LOG.info('removing image library entry for host %s',
-                        imagelib['host_id'])
-                self._delete_imagelib(token, imagelib['host_id'])
-
+            for name, val in image.iteritems():
+                match = STATUS_RE.search(name)
+                if match:
+                    host_id = match.group(1)
+                    if host_id in hosts.keys():
+                        host = hosts[host_id]
+                        updates += self._get_host_status_update(name, val, host)
+                    else:
+                        LOG.info('host %s is not authorized for glance, '
+                                 'removing status', host_id)
+                        updates.append({'op': 'remove', 'path': '/%s' % name})
+            if updates:
+                self._change_properties(token, image['id'], updates)
