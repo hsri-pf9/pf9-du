@@ -83,7 +83,6 @@ Example:
 [
     {
         "id": "rsc_1",
-        "state": "<inactive|activating|active>",
         "info": {
             "hostname": "leb-centos-1.platform9.sys",
             "os_family": "Linux",
@@ -108,7 +107,6 @@ Example:
     },
     {
         "id": "rsc_2",
-        "state": "<inactive|activating|active>",
         "info": {
             "hostname": "leb-centos-1.platform9.sys",
             "os_family": "Linux",
@@ -166,7 +164,6 @@ Example:
            },
            ...
         }
-    "state": "<inactive|activating|active>",
     "roles": ["role4", "role3"],
     "role_status": "<ok|converging|retrying|failed>"
 }

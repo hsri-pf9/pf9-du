@@ -413,7 +413,8 @@ class BbonePoller(object):
 
         if level not in message:
             return
-        message[level].remove(msg)
+        if msg in message[level]:
+            message[level].remove(msg)
 
     def _process_new_hosts(self, host_ids):
         """
@@ -915,8 +916,13 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         host_roles = self.res_mgr_db.query_host(host_id, fetch_role_ids=True)
 
+        initially_inactive = not host_inst['roles']
         host_inst['roles'].append(role_name)
         _authorized_host_role_status[host_id] = None
+
+        if initially_inactive:
+            assert host_id in _unauthorized_hosts
+            notifier.publish_notification('change', 'host', host_id)
 
         try:
             # 1. Record the role addition state in the DB

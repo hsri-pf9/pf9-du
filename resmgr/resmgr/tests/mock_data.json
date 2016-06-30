@@ -8,7 +8,6 @@
                 "arch": "x86_64",
                 "os_info": "centos 6.4 Final"
             },
-            "state":"inactive",
             "roles":[]
         },
 
@@ -20,7 +19,6 @@
                 "arch": "i386",
                 "os_info": "centos 6.4 Final"
             },
-            "state":"inactive",
             "roles":[]
         },
 
@@ -32,7 +30,6 @@
                 "arch": "x86_64",
                 "os_info": "centos 6.4 Final"
             },
-            "state":"inactive",
             "roles":[]
         }
     },
