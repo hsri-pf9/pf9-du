@@ -512,7 +512,7 @@ class ResMgrDB(object):
                         description=details['description'],
                         desiredconfig=self._setup_config(details['config']),
                         active=True,
-                        customizable_settings=details['customizable_settings'],
+                        customizable_settings=self._setup_config(details['customizable_settings']),
                         rabbit_permissions=details['rabbit_permissions'])
 
         with self.dbsession() as session:
