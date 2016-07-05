@@ -517,6 +517,8 @@ class BbonePoller(object):
 
             status_time = datetime.datetime.strptime(host_info['timestamp'],
                                                      "%Y-%m-%d %H:%M:%S.%f")
+            status_time_on_du = datetime.datetime.strptime(host_info['timestamp_on_du'],
+                                                           "%Y-%m-%d %H:%M:%S.%f")
 
             hostname = host_info['info']['hostname']
             _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
@@ -533,8 +535,6 @@ class BbonePoller(object):
                 self._remove_host_message(host, TIMEDRIFT_MSG_LEVEL, TIMEDRIFT_MSG)
                 responding_on_du = True
             else:
-                status_time_on_du = datetime.datetime.strptime(host_info['timestamp_on_du'],
-                                                               "%Y-%m-%d %H:%M:%S.%f")
                 responding_on_du = self._responding_within_threshold(status_time_on_du,
                                                                      responding_threshold)
                 if responding_on_du:
