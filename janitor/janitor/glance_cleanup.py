@@ -12,6 +12,7 @@ LOG = logging.getLogger('janitor-daemon')
 
 STATUS_RE = re.compile(r'pf9status\.(\S*)')
 STATUS_OFFLINE = 'offline'
+STATUS_PENDING = 'pending'
 
 class GlanceCleanup(object):
 
@@ -57,7 +58,11 @@ class GlanceCleanup(object):
         resp = requests.patch(url,
                               headers=headers,
                               data=json.dumps(patch_spec))
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            LOG.warn('glance api raised %s for image %s, updates: %s', e,
+                     imageid, patch_spec)
 
     @staticmethod
     def _host_has_glance(host):
@@ -73,20 +78,34 @@ class GlanceCleanup(object):
         Based on the status of the host, remove or update the pf9status
         variable for the host's id.
         """
+        host_info = host.get('info', {})
+        host_responding = host_info.get('responding', False)
         updates = []
-        if not GlanceCleanup._host_has_glance(host):
-            LOG.info('host %s is not authorized for glance, removing status')
-            updates.append({'op': 'remove', 'name': '/%s' % prop_name})
+        if host_responding:
+            if GlanceCleanup._host_has_glance(host):
+                role_status = host.get('role_status', None)
+                if role_status == 'ok' and curr_value == STATUS_OFFLINE:
+                    LOG.info('host %s was previously offline, but seems to be '
+                             'ok now, marking pending', host['id'])
+                    updates.append({'op': 'add',
+                                    'path': '/%s' % prop_name,
+                                    'value': STATUS_PENDING})
+                elif role_status != 'ok' and curr_value != STATUS_OFFLINE:
+                    LOG.warn('host %s is responding but role_status = %s, '
+                             'marking image offline', host['id'],
+                             role_status)
+                    updates.append({'op': 'add',
+                                    'path': '/%s' % prop_name,
+                                    'value': STATUS_OFFLINE})
+            else:
+                LOG.info('host %s is not authorized for glance, removing status')
+                updates.append({'op': 'remove', 'name': '/%s' % prop_name})
         elif curr_value != STATUS_OFFLINE:
-            host_state = host.get('state', None)
-            role_status = host.get('role_status', None)
-            if host_state != 'active' or role_status != 'ok':
-                LOG.warn('host %s has host state = %s and role_status = %s, '
-                         'marking image offline', host['id'], host_state,
-                         role_status)
-                updates.append({'op': 'add',
-                                'path': '/%s' % prop_name,
-                                'value': STATUS_OFFLINE})
+            LOG.info('host %s is not responding, marking image offline',
+                     host['id'])
+            updates.append({'op': 'add',
+                            'path': '/%s' % prop_name,
+                            'value': STATUS_OFFLINE})
         return updates
 
     def cleanup(self):
@@ -111,8 +130,8 @@ class GlanceCleanup(object):
                         host = hosts[host_id]
                         updates += self._get_host_status_update(name, val, host)
                     else:
-                        LOG.info('host %s is not authorized for glance, '
-                                 'removing status', host_id)
+                        LOG.info('host %s is not in the host list removing '
+                                 'status', host_id)
                         updates.append({'op': 'remove', 'path': '/%s' % name})
             if updates:
                 self._change_properties(token, image['id'], updates)
