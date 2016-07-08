@@ -120,8 +120,8 @@ class GlanceCleanup(object):
         resp_list = resp.json()
         hosts = {h['id']: h for h in resp_list}
         images = self._get_images(token)
-        updates = []
         for image in images:
+            updates = []
             for name, val in image.iteritems():
                 match = STATUS_RE.search(name)
                 if match:
