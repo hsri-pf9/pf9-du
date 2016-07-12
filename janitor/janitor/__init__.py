@@ -6,14 +6,16 @@ from janitor.glance_cleanup import GlanceCleanup
 from janitor.network_cleanup import NetworkCleanup
 from janitor.alarms import AlarmsManager
 
-import subprocess
-from time import sleep
-from requests import exceptions
-import requests.packages.urllib3.exceptions as urllib_exceptions
+import os
 import logging
 import logging.handlers
+import subprocess
+import requests.packages.urllib3.exceptions as urllib_exceptions
 
-logfile = '/var/log/pf9/janitor-daemon.log'
+from datetime import datetime
+from requests import exceptions
+from time import sleep
+
 LOG = logging.getLogger('janitor-daemon')
 
 LOG_LEVELS = {
@@ -26,11 +28,13 @@ LOG_LEVELS = {
 
 
 def _parse_config(config_file):
-    config = ConfigParser()
+    config = ConfigParser(defaults={
+            'filename': '/var/log/pf9/janitor/janitor.log',
+            'maxKBytes': 2048,
+            'backupCount': 10
+        })
     config.read(config_file)
-
     return config
-
 
 def _setup_logging(config):
     level = config.get('log', 'level')
@@ -41,15 +45,22 @@ def _setup_logging(config):
     else:
         LOG.warning('Ignoring invalid level %s', level)
 
-    file_size_kb = config.get('log', 'size', 20)
-    backup_files = config.get('log', 'rotate', 1024)
+    logfile = config.get('log', 'filename')
+    maxBytes = 1024 * config.getint('log', 'maxKBytes')
+    backupCount = config.getint('log', 'backupCount')
 
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    handler = logging.handlers.RotatingFileHandler(logfile, maxBytes=file_size_kb * 1024,
-                                                   backupCount=backup_files)
+    logdir = os.path.dirname(logfile)
+    if not os.path.isdir(logdir):
+        os.makedirs(logdir)
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s '
+                                  '- %(message)s')
+    handler = logging.handlers.RotatingFileHandler(logfile, maxBytes=maxBytes,
+                                                   backupCount=backupCount)
     handler.setFormatter(formatter)
     LOG.addHandler(handler)
-
+    LOG.info('##############################')
+    LOG.info('Starting janitor at %s', datetime.now())
 
 def _run_command(command, stdout=subprocess.PIPE):
     proc = subprocess.Popen(command, shell=True,

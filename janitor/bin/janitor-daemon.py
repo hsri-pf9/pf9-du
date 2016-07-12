@@ -9,7 +9,7 @@ import time
 from janitor import serve
 
 pidfile = '/var/run/pf9/janitor.pid'
-outfile ='/var/log/pf9/janitor-out.log'
+outfile ='/var/log/pf9/janitor/janitor-out.log'
 configfile = '/etc/pf9/janitor.conf'
 
 class JanitorDaemon():
@@ -39,10 +39,11 @@ def makedir(dirname):
             sys.stderr.write("Could not create directory %s\n" % dirname)
             raise
 
+makedir(os.path.dirname(pidfile))
+makedir(os.path.dirname(outfile))
+
 janitor = JanitorDaemon()
 runner = DaemonRunner(janitor)
-
-makedir(os.path.dirname(pidfile))
 try:
     runner.do_action()
 except DaemonRunnerStopFailureError:
