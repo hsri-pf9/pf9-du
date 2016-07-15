@@ -127,7 +127,7 @@ class NovaCleanup(NovaBase):
             else:
                 clusters = utils.get_ostackhost_role_data(resmgr_ids,
                                                           self._resmgr_url,
-                                                          token).split(',')
+                                                          token)
                 for host in nova_data:
                     nova_map[host['OS-EXT-PF9-HYP-ATTR:host_id']] = host['id']
                     # Split the cluster name and verify as Hypervisor hostname is of format

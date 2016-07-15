@@ -100,7 +100,7 @@ def get_ostackhost_role_data(resmgr_hosts, resmgr_url, token):
                 url = '/'.join([resmgr_url, 'v1', 'hosts', resmgr_host,
                                'roles', ostackhost_present.pop()])
                 resp = requests.get(url, verify=False, headers=headers)
-                clusters = clusters + resp.json()['cluster_name']
+                clusters.extend(resp.json()['cluster_name'].split(','))
             else:
                 LOG.error('Resource manager query for host: %s returned more '
                           'than one ostackhost roles authorized. Taking none '
