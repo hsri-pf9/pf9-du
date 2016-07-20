@@ -99,7 +99,7 @@ class GlanceCleanup(object):
                                     'value': STATUS_OFFLINE})
             else:
                 LOG.info('host %s is not authorized for glance, removing status')
-                updates.append({'op': 'remove', 'name': '/%s' % prop_name})
+                updates.append({'op': 'remove', 'path': '/%s' % prop_name})
         elif curr_value != STATUS_OFFLINE:
             LOG.info('host %s is not responding, marking image offline',
                      host['id'])
