@@ -8,7 +8,7 @@ import re
 import requests
 from janitor import utils
 
-LOG = logging.getLogger('janitor-daemon')
+LOG = logging.getLogger(__name__)
 
 STATUS_RE = re.compile(r'pf9status\.(\S*)')
 STATUS_OFFLINE = 'offline'
@@ -98,7 +98,8 @@ class GlanceCleanup(object):
                                     'path': '/%s' % prop_name,
                                     'value': STATUS_OFFLINE})
             else:
-                LOG.info('host %s is not authorized for glance, removing status')
+                LOG.info('host %s is not authorized for glance, removing status',
+                         host['id'])
                 updates.append({'op': 'remove', 'path': '/%s' % prop_name})
         elif curr_value != STATUS_OFFLINE:
             LOG.info('host %s is not responding, marking image offline',
