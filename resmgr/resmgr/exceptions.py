@@ -61,5 +61,5 @@ class ServiceNotFound(ResMgrException):
 
 class ServiceConfigFailed(ResMgrException):
     def __init__(self, reason):
-        super(ServiceCofigFailed, self).__init__(
+        super(ServiceConfigFailed, self).__init__(
             'Failed to set service configuration: %s' % reason)
