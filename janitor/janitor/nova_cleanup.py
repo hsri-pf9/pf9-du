@@ -185,8 +185,9 @@ class NovaCleanup(NovaBase):
 
             # 6. Deleted affected servers
             try :
-                LOG.info('Deleting all instances on hypervisor {host_id} from nova'.format(host_id=pf9_id))
-                cleanup_servers(server_list[pf9_id])
+                LOG.info('Instance deletion has been disabled till PF9 release 2.3')
+                # LOG.info('Deleting all instances on hypervisor {host_id} from nova'.format(host_id=pf9_id))
+                # cleanup_servers(server_list[pf9_id])
             except RuntimeError as re:
                 LOG.error('Unexpected error %(err)s, aborting cleanup', dict(err=re))
                 return
