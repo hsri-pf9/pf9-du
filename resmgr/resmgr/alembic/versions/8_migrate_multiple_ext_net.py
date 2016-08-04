@@ -68,6 +68,8 @@ def upgrade():
     sql_query = "select service_name, settings from service_configs where service_name = 'neutron-server';"
     service = conn.execute(sql_query)
     neutron_service = service.fetchall()
+    if len(neutron_service) == 0:
+        return
     neutron_service = neutron_service[0]
     service_name = neutron_service[0]
     neutron_settings = json.loads(neutron_service[1])
