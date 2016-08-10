@@ -218,7 +218,10 @@ def merge_params(params, inifile):
                     if currsect and currsect in unset:
                         # starting new section, do leftover keys
                         for key in unset[currsect]:
-                            ofile.write('%s = %s\n' % (key, unset[currsect][key]))
+                            if unset[currsect][key] is None or unset[currsect][key] == "":
+                                ofile.write('%s = \n' % key)
+                            else:
+                                ofile.write('%s = %s\n' % (key, unset[currsect][key]))
                         ofile.write('\n')
                         del unset[currsect]
                     currsect = secmatch.group(1)
@@ -227,7 +230,10 @@ def merge_params(params, inifile):
                     keymatch = KEYPAT.match(line)
                     if keymatch and keymatch.group(1) in unset[currsect]:
                         key = keymatch.group(1)
-                        ofile.write('%s = %s\n' % (key, unset[currsect][key]))
+                        if unset[currsect][key] is None or unset[currsect][key] == "":
+                            ofile.write('%s = \n' % key)
+                        else:
+                            ofile.write('%s = %s\n' % (key, unset[currsect][key]))
                         del unset[currsect][key]
                     else:
                         ofile.write(line)
@@ -236,14 +242,20 @@ def merge_params(params, inifile):
             # end of file, leftover keys, sections
             if currsect in unset:
                 for key in unset[currsect]:
-                    ofile.write('%s = %s\n' % (key, unset[currsect][key]))
+                    if unset[currsect][key] is None or unset[currsect][key] == "":
+                        ofile.write('%s = \n' % key)
+                    else:
+                        ofile.write('%s = %s\n' % (key, unset[currsect][key]))
                 ofile.write('\n')
                 del unset[currsect]
             for section, vals in unset.iteritems():
                 if vals:
                     ofile.write('[%s]\n' % section)
                     for key, val in vals.iteritems():
-                        ofile.write('%s = %s\n' % (key, val))
+                        if val is None or val == "":
+                            ofile.write('%s = \n' % key)
+                        else:
+                            ofile.write('%s = %s\n' % (key, val))
 
     shutil.copy(ofile.name, inifile)
     os.unlink(ofile.name)
