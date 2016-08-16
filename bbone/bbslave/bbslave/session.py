@@ -334,8 +334,6 @@ def start(config, log, app_db, agent_app_db, app_cache,
             'opcode': 'status',
             'data': {
                 'host_id': _host_id,
-                'timestamp': datetime.datetime.utcnow().strftime("%Y-%m-%d "
-                                                                 "%H:%M:%S.%f"),
                 'status': status,
                 'info': get_sysinfo(),
                 'hypervisor_info': hypervisor_info(),
@@ -347,6 +345,9 @@ def start(config, log, app_db, agent_app_db, app_cache,
         if desired_config is not None:
             msg['data']['desired_apps'] = desired_config
         channel = state['channel']
+        timestamp = datetime.datetime.utcnow().strftime('%Y-%m-%d '
+                                                        '%H:%M:%S.%f')
+        msg['data']['timestamp'] = timestamp
         channel.basic_publish(exchange=constants.BBONE_EXCHANGE,
                               routing_key=constants.MASTER_TOPIC,
                               body=json.dumps(msg))

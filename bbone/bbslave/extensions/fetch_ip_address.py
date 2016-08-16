@@ -16,16 +16,19 @@ def get_addresses():
     """
     nw_ifs = netifaces.interfaces()
     nonlocal_ips = set()
-    regex = re.compile('^(0.0.0.0|127.0.0.1)$')
+    ignore_ip_re = re.compile('^(0.0.0.0|127.0.0.1)$')
+    ignore_if_re = re.compile('^(q.*-[0-9a-fA-F]{2}|tap.*)$')
 
     for iface in nw_ifs:
+        if ignore_if_re.match(iface):
+            continue
         addrs = netifaces.ifaddresses(iface)
         try:
             if netifaces.AF_INET in addrs:
                 ips = addrs[netifaces.AF_INET]
                 for ip in ips:
                     # Not interested in loopback IPs
-                    if not regex.match(ip['addr']):
+                    if not ignore_ip_re.match(ip['addr']):
                         nonlocal_ips.add(ip['addr'])
             else:
                 # move to next interface if this interface doesn't
