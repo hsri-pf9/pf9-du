@@ -8,23 +8,39 @@ import sys
 import subprocess
 import os
 
-# List of processes for which %CPU o/p is required
-process_list = ['ovs-vswitchd']
+def load_process_list():
+    """
+    Extension mechanism for users adding other processes to monitor
+    To monitor a new process, add a zero sized file with the filename
+    as same as the process name you would like to monitor under
+    /etc/pf9/cpustats_procnames/ directory
+    Return:
+         Python list of process names that needs to be monitored
+    """
+    process_list = []
+    try:
+        process_list = os.listdir('/etc/pf9/cpustats_procnames')
+    except OSError:
+        # Looks like we can't either see the directory or we don't
+        # have permissions
+        pass
+    return process_list
 
-def get_process_cpu_utilization():
+def get_process_cpu_utilization(process_list):
     """
     Get cpu utilization for processes using top
     If a particular process isn't present in the system or if there
     is an error in executing a command, this method return 0.0 as cpu
     utilization for that process.
+    Input:
+        process_list - List of process names for which cpu% usage is required
     Returns:
-        result - Python Dict with process & cpu % usage snapshot.
-                 {} empty dict if pgrep or top is not installed.
+        result - Python Dict with process & cpu % usage snapshot
+                 {} empty dict if pgrep or top is not installed
     """
     result = {}
     if os.path.isfile('/usr/bin/pgrep') and os.path.isfile('/usr/bin/top'):
         for process in process_list:
-            pid = None
             cpu_percent = "0.0"
             cmd1 = subprocess.Popen(["pgrep",process], stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
@@ -33,8 +49,6 @@ def get_process_cpu_utilization():
                 # We only grab the cpu percent of the first process if there
                 # are more than 1 process with the same name.
                 pid = out.split()[0]
-
-            if pid is not None:
                 cmd2 = subprocess.Popen(["top","-b","-n1","-p",pid],
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 out, err = cmd2.communicate()
@@ -74,6 +88,7 @@ def get_load_average():
     return res
 
 if __name__ == '__main__':
-    out = get_process_cpu_utilization()
+    process_list = load_process_list()
+    out = get_process_cpu_utilization(process_list)
     out['load_average'] = get_load_average()
     sys.stdout.write(json.dumps(out))
