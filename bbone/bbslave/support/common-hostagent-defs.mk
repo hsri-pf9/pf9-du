@@ -22,10 +22,10 @@ PYTHON_DIR := $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/python
 VENV_DIR := $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent
 HOSTAGENT_TARBALL := $(BUILD_DIR)/pf9-hostagent.tar.gz
 
-VENV_INSTALL_CMD=$(VENV_DIR)/bin/python setup.py install
-PF9APP_DIR :=$(SRC_ROOT)/bbone/pf9app
-BBLIBCOMMON_DIR :=$(SRC_ROOT)/bbone/lib
-CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
+VENV_INSTALL_CMD = $(VENV_DIR)/bin/python setup.py install
+PF9APP_DIR := $(SRC_ROOT)/bbone/pf9app
+BBLIBCOMMON_DIR := $(SRC_ROOT)/bbone/lib
+CONFIGUTILS_DIR := $(SRC_ROOT)/lib/configutils
 SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(PF9_VERSION)/"
 
 PYTHON_DOWNLOAD_URL := netsvc/yum-repo-frozen/hostagent-components/python.tgz

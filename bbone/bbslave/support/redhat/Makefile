@@ -19,6 +19,8 @@ include ../common-hostagent-defs.mk
 
 RPM_DIR := $(BUILD_DIR)/rpmbuild
 MOCK = /usr/bin/mock -r epel-7-x86_64
+UID ?= $(shell id -u)
+GID ?= $(shell id -g)
 
 $(HOSTAGENT_TARBALL): $(VENV_DIR)
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/rc.d/init.d
@@ -35,7 +37,29 @@ $(HOSTAGENT_TARBALL): $(VENV_DIR)
 	cd $(HOSTAGENT_TARBALL_SRCDIR) && \
 	tar -czf $(HOSTAGENT_TARBALL) *
 
-hostagent-tarball-rpm-redhat: $(HOSTAGENT_TARBALL)
+hostagent-tarball: $(HOSTAGENT_TARBALL)
+
+$(BUILD_DIR)/dockstage:
+	$(SRC_DIR)/build-dockstage.sh $(BUILD_DIR)/dockstage
+
+$(BUILD_DIR)/dockstage/run-build-in-container.sh: $(BUILD_DIR)/dockstage
+	cp $(SRC_DIR)/run-build-in-container.sh $@
+
+CENTOS65_IMG := builder-registry.platform9.sys:5000/centos65
+
+redhat-container: $(BUILD_DIR)/dockstage/run-build-in-container.sh
+	sudo docker pull builder-registry.platform9.sys:5000/centos65 && \
+	sudo docker run -i --rm -a stdout -a stderr \
+		-v $(BUILD_DIR)/dockstage:/dockstage \
+		-v $(SRC_ROOT):/buildroot/pf9-du \
+		-e PF9_VERSION=$(PF9_VERSION) \
+		-e GITHASH=$(GITHASH) \
+		-e BUILD_NUMBER=$(BUILD_NUMBER) \
+		-e PARENT_UID=$(UID) -e PARENT_GID=$(GID) \
+		$(CENTOS65_IMG) \
+		/dockstage/run-build-in-container.sh
+
+hostagent-tarball-rpm-redhat:
 	$(SED_CMD) ${SRC_DIR}/support/redhat/45-customize-hostagent-rpm > ${BUILD_DIR}/45-customize-hostagent-rpm
 	chmod +x ${BUILD_DIR}/45-customize-hostagent-rpm
 	$(SED_CMD) ${SRC_DIR}/support/redhat/47-customize-hostagent-ova > ${BUILD_DIR}/47-customize-hostagent-ova
@@ -47,7 +71,11 @@ hostagent-tarball-rpm-redhat: $(HOSTAGENT_TARBALL)
 	rm -f ${BUILD_DIR}/*.src.rpm
 	$(SRC_ROOT)/sign_packages.sh ${RPM_DIR}/pf9-hostagent-tarball*.rpm
 
-hostagent-tarball-rpm-redhat: TARGET_DISTRO = redhat
+hostagent-redhat: $(HOSTAGENT_TARBALL) hostagent-tarball-rpm-redhat
+hostagent-redhat: TARGET_DISTRO = redhat
+
+hostagent-redhat-centos65: redhat-container hostagent-tarball-rpm-redhat
+hostagent-redhat-centos65: TARGET_DISTRO = redhat
 
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${SRC_ROOT}/bbone/bbmaster ${PF9APP_DIR} ${CONFIGUTILS_DIR}
