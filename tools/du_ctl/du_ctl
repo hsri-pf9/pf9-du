@@ -16,10 +16,16 @@ import re
 import requests
 import sys
 import time
+from prettytable import PrettyTable
 
 logging.basicConfig(level=logging.DEBUG,
-                    stream=sys.stdout,
+                    stream=sys.stderr,
                     format='%(message)s')
+
+# mute info messages from few libraries
+for logger in 'requests', 'urllib3', 'iso8601':
+    logging.getLogger(logger).setLevel(logging.WARNING)
+
 log = logging.getLogger('du-ctl')
 
 _bbmaster_endpoint = 'http://localhost:8082/v1/hosts'
@@ -149,6 +155,12 @@ def _add_credential_arguments(parser):
                         dest='password',
                         help='User account password. Optional if OS_PASSWORD is set.')
 
+def _add_format_arguent(parser):
+    parser.add_argument("--format",
+                        action='store',
+                        dest='format',
+                        help='Format, valid values are json/table')
+
 def _build_host_parser(subparsers):
     """
     Build subparser for host related operations
@@ -198,6 +210,7 @@ def _build_parsers():
     """
     Build the command line parser hierarchy based on the control script actions
     """
+    _add_format_arguent(_parser)
     subparsers = _parser.add_subparsers(help='sub-commands',
                                         dest='subparser')
     _build_role_parser(subparsers)
@@ -285,7 +298,7 @@ def do_host_list(args):
     """
     headers = {'X-Auth-Token': _get_login_token(args)}
     resp = _do_get('%s/hosts' % _resmgr_endpoint, headers=headers)
-    log.info('%s', json.dumps(resp, indent=3))
+    _print_host_list(args, resp)
 
 def do_host_role_reset(args):
     """
@@ -297,8 +310,8 @@ def do_host_role_reset(args):
     resp = requests.delete('%s/hosts/%s' % (_resmgr_endpoint, args.host_id),
                            headers=headers)
     resp.raise_for_status()
-    log.info('All roles reset for host %s. It will take a few minutes for'
-             ' the role reset to be synchronized across all services.', args.host_id)
+    print 'All roles reset for host %s. It will take a few minutes for' \
+             ' the role reset to be synchronized across all services.' % args.host_id
 
 def _get_bundles(bundle_dir):
     """
@@ -341,12 +354,13 @@ def do_support_bundle(args):
         new_bundles = bundles_after - bundles_before
         if len(new_bundles):
             if len(new_bundles) != 1:
-                log.warn('Multiple bundles written!')
-            log.info('Wrote new bundle: %s' % new_bundles.pop())
+                print 'Multiple bundles written!'
+            print 'Wrote new bundle: %s' % new_bundles.pop()
             return
-        log.info("Waiting for support bundle...")
+        print "Waiting for support bundle..."
 
     log.error("Failed while waiting for support bundle")
+    print "Failed while waiting for support bundle"
     sys.exit(1)
 
 def do_support_command(args):
@@ -356,6 +370,8 @@ def do_support_command(args):
     resp = requests.post('%s/hosts/%s/support/command/' % (_resmgr_endpoint, args.host_id),
                          headers=headers, data=json.dumps(body))
     resp.raise_for_status()
+
+    print "Response code: %d " % resp.status_code
 
 def _do_get(url, headers={}):
     """
@@ -458,7 +474,7 @@ def do_agent_list(options):
         }
         output.append(temp)
 
-    log.info('%s', json.dumps(output, indent=3))
+    _print_agent_list(options, output)
 
 def _ensure_host_exists(options):
     resp = _do_get(''.join([_bbmaster_endpoint, '/ids']))
@@ -479,18 +495,17 @@ def do_agent_update(options):
         resp = _do_get(host_endpoint)
     except Exception:
         log.exception('Querying host details failed')
+        print 'Querying host details failed'
         sys.exit(1)
 
     # If host agent is already in expected version, do nothing
     if resp['host_agent']['version'] == options.agent_version:
-        log.info('Host agent on %s already at version %s',
-                 options.host_id, options.agent_version)
+        print 'Host agent on %s already at version %s' % options.host_id, options.agent_version
         return
 
     # If the host agent is currently updating, quit
     if resp['host_agent']['status'] == 'updating':
-        log.info('Host %s is currently updating the host agent. Try again later.',
-                 options.host_id)
+        print 'Host %s is currently updating the host agent. Try again later.' % options.host_id
         return
 
     # push update
@@ -520,11 +535,11 @@ def do_set_host_role(options):
         host_info = _do_get(host_info_endpoint)
         app_details = host_info['apps']
         app_status = host_info['status']
-        log.info('Checking if role %s for host %s is up to date',
+        print('Checking if role %s for host %s is up to date',
                   options.role,
                   options.host_id)
-        log.info('apps: %s', app_details)
-        log.info('app status: %s', app_status)
+        print('apps: %s', app_details)
+        print('app status: %s', app_status)
         return (all(app in app_details and
                     app_details[app]['version'] == app_version
                     for app, app_version in app_versions.iteritems())
@@ -532,7 +547,7 @@ def do_set_host_role(options):
 
     # Ensure host ID exists
     if options.host_id not in _do_get(''.join([_bbmaster_endpoint, '/ids'])):
-        log.error('Host ID %s not in list of hosts that backbone is aware of',
+        print('Host ID %s not in list of hosts that backbone is aware of',
                  options.host_id)
         sys.exit(1)
 
@@ -547,7 +562,7 @@ def do_set_host_role(options):
 
     # If the apps for the specified role are already at the expected version, do nothing
     if up_to_date():
-        log.info('%s on %s is already up to date',
+        print('%s on %s is already up to date',
                  options.role, options.host_id)
         return
 
@@ -566,16 +581,66 @@ def do_set_host_role(options):
                 log.info('Role %s for host %s is up to date',
                          options.role, options.host_id)
                 return
-            log.info('Waiting for host %s to update role %s',
+            print('Waiting for host %s to update role %s',
                      options.host_id, options.role)
     except Exception:
         log.exception('Request to update host %s with role %s failed',
                       options.host_id,
                       options.role)
-    log.error('Failed while updating host %s with role %s',
+    print('Failed while updating host %s with role %s',
               options.host_id,
               options.role)
     sys.exit(1)
+
+def _print_host_list(args, host_list):
+    if args.format == 'table':
+        _print_host_list_table(host_list)
+    else:
+        print json.dumps(host_list, indent=3)
+
+def _print_agent_list(args, agent_list):
+    if args.format == 'table':
+        _print_agent_list_table(agent_list)
+    else:
+        print json.dumps(agent_list, indent=3)
+
+def _print_agent_list_table(agent_list):
+    header = ["id", "status", "version"]
+    rows = []
+    for agent in agent_list:
+        row = [
+            agent['host id'],
+            agent['agent info']['status'],
+            agent['agent info']['version'],
+        ]
+        rows.append(row)
+    _print_list(header, rows)
+
+
+def _print_host_list_table(host_list):
+    header = ["id", "hostname", "ip_addresses", "responding", "role_status", "roles"]
+    rows = []
+    for host in host_list:
+        ip_address_arr = map(lambda x: x[0] + ":" +x[1], host['extensions']['interfaces']['data']['iface_ip'].items())
+        ip_addresses = reduce(lambda x,y: x+","+y, ip_address_arr)
+        roles = reduce(lambda x,y: x+","+y, host['roles'])
+        row = [
+            host['id'],
+            host['info']['hostname'],
+            ip_addresses,
+            host['info']['responding'],
+            host['role_status'],
+            roles
+        ]
+        rows.append(row)
+    _print_list(header, rows)
+
+def _print_list(header, rows):
+    table = PrettyTable()
+    table._set_field_names(header)
+    for row in rows:
+        table.add_row(row)
+    print table
 
 def main():
     _build_parsers()
