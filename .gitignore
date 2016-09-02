@@ -39,3 +39,5 @@ nosetests.xml
 
 coverage.zip
 venv
+
+tags

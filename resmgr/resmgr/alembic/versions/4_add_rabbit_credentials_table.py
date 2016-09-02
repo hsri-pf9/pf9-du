@@ -47,23 +47,23 @@ def upgrade():
         Column('rabbit_permissions', String(2048))
     )
     conn = op.get_bind()
-    stmt = 'alter table roles add index (rolename);'
-    conn.execute(stmt)
+
+    if conn.engine.dialect.name != 'sqlite':
+        stmt = 'alter table roles add index (rolename);'
+        conn.execute(stmt)
+
     op.create_table(
             'rabbit_credentials',
-            Column('host_id', String(50), ForeignKey('hosts.id'), primary_key=True),
-            Column('rolename', String(60), ForeignKey('roles.rolename'), primary_key=True),
+            Column('host_id', String(50),
+                   ForeignKey('hosts.id', ondelete='CASCADE'),
+                   primary_key=True),
+            Column('rolename', String(60),
+                   ForeignKey('roles.rolename', ondelete='CASCADE'),
+                   primary_key=True),
             Column('userid', String(60)),
             Column('password', String(50)),
             mysql_engine='InnoDB'
     )
-    stmt = ('alter table rabbit_credentials '
-            'add constraint `fk_host_id` foreign key(`host_id`) '
-            'references `hosts`(`id`) on delete cascade;')
-    stmt += ('alter table rabbit_credentials '
-             'add constraint `fk_rolename` foreign key(`rolename`) '
-             'references `roles`(`rolename`) on delete cascade;')
-    conn.execute(stmt)
     populate_rabbit_credentials_table(conn)
 
 def downgrade():

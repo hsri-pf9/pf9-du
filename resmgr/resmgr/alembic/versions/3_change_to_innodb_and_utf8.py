@@ -20,6 +20,11 @@ from alembic import op
 
 def upgrade():
     conn = op.get_bind()
+
+    # this isn't necessary for testdbs running sqlite
+    if conn.engine.dialect.name == 'sqlite':
+        return
+
     table_names = set(table.values()[0] for table in
                      conn.execute("show tables").fetchall())
     stmt = 'set foreign_key_checks=0;'

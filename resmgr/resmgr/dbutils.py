@@ -62,14 +62,6 @@ class JsonBlob(types.TypeDecorator):
 
         return json.loads(value)
 
-
-# Association table between hosts and roles
-role_host_assoc_table = Table('host_role_map', Base.metadata,
-                                  Column('res_id', String(50),
-                                         ForeignKey('hosts.id')),
-                                  Column('rolename', String(120),
-                                         ForeignKey('roles.id')))
-
 class RabbitCredential(Base):
     __tablename__ = 'rabbit_credentials'
 
@@ -92,6 +84,7 @@ class Role(Base):
     active = Column(Boolean()) # indicates if this is the active version of the role
     customizable_settings = Column(JsonBlob())
     rabbit_permissions = Column(JsonBlob())
+    hosts = relationship('HostRoleAssociation', back_populates='role')
     UniqueConstraint('rolename', 'version', name='constraint1')
 
     def __repr__(self):
@@ -115,10 +108,9 @@ class Host(Base):
     lastresponsetime = Column(DateTime(), default=None) # timestamp when last status was recorded
     responding = Column(Boolean)
     role_settings = Column(JsonBlob())
-    roles = relationship("Role", secondary=role_host_assoc_table,
-                         backref='hosts', collection_class=set)
     rabbit_credentials = relationship('RabbitCredential',
                                       cascade='all, delete, delete-orphan')
+    roles = relationship('HostRoleAssociation', back_populates='host')
 
     def __repr__(self):
         return "<Host(id='%s', hostname='%s', hostosfamily='%s', hostarch='%s', " \
@@ -126,6 +118,22 @@ class Host(Base):
                (self.id, self.hostname, self.hostosfamily, self.hostarch,
                 self.hostosinfo, self.lastresponsetime, self.responding,
                 self.role_settings)
+
+class HostRoleAssociation(Base):
+    """
+    Relationship between a role and host.
+    """
+    __tablename__ = 'host_role_map'
+    host_id = Column('res_id', String(50),
+                     ForeignKey('hosts.id'), primary_key=True)
+    # note that the column name is rolename, though it's actually the
+    # role's id <name>_<version>. Use role_id in mapping to avoid confusion.
+    role_id = Column('rolename', String(120),
+                     ForeignKey('roles.id'), primary_key=True)
+    current_state = Column('current_state', String(120))
+    host = relationship('Host', back_populates='roles')
+    role = relationship('Role', back_populates='hosts')
+    __table_args__ = (UniqueConstraint('rolename', 'res_id'),)
 
 class Service(Base):
     """ ORM class for service_configs table"""
@@ -187,10 +195,6 @@ class ResMgrDB(object):
 
         param_vals = {
             'du_fqdn': du_fqdn,
-            'imglib_auth_user': self.config.get("pf9-imagelibrary", 'auth_user'),
-            'imglib_auth_pass': self.config.get("pf9-imagelibrary", 'auth_pass'),
-            'imglib_auth_tenant_name': self.config.get("pf9-imagelibrary",
-                'auth_tenant_name'),
             'cinder_auth_user': self.config.get("pf9-cindervolume", 'auth_user'),
             'cinder_auth_pass': self.config.get("pf9-cindervolume", 'auth_pass'),
             'cinder_db_pass': self.config.get("pf9-cindervolume", 'db_pass'),
@@ -575,11 +579,11 @@ class ResMgrDB(object):
         """
         roles = []
         if fetch_role_ids:
-           for role in host_details.roles:
-               roles.append(role.id)
+           for assoc in host_details.roles:
+               roles.append(assoc.role.id)
         else:
-            for role in host_details.roles:
-                roles.append(role.rolename)
+            for assoc in host_details.roles:
+                roles.append(assoc.role.rolename)
 
         host_attrs = {
             'id': host_details.id,
@@ -626,7 +630,7 @@ class ResMgrDB(object):
             try:
                 result = session.query(Host).filter_by(id=host_id).first()
                 if result:
-                    out = list(result.roles)
+                    out = [assoc.role for assoc in result.roles]
             except NoResultFound:
                 log.exception('No host found %s', host_id)
 
@@ -694,8 +698,10 @@ class ResMgrDB(object):
                 results = session.query(Host).all()
             for host in results:
                 assigned_apps = {}
-                for role in host.roles:
-                    assigned_apps.update(role.desiredconfig)
+                role_states = {}
+                for role_assoc in host.roles:
+                    assigned_apps.update(role_assoc.role.desiredconfig)
+                    role_states[role_assoc.role_id] = role_assoc.current_state
 
                 out[host.id] = {
                     'hostname': host.hostname,
@@ -705,7 +711,8 @@ class ResMgrDB(object):
                     'lastresponsetime': host.lastresponsetime,
                     'responding': host.responding,
                     'apps_config': assigned_apps,
-                    'role_settings': host.role_settings
+                    'role_settings': host.role_settings,
+                    'role_states': role_states
                     }
 
         return out
@@ -723,11 +730,26 @@ class ResMgrDB(object):
                 host = session.query(Host).filter_by(id=host_id).first()
                 role = session.query(Role).filter_by(rolename=role_name,
                                                      active=True).first()
-                # Remove any previous association between that host and
-                # the role name being associated here
-                host.roles = set([r for r in host.roles if r.rolename != role_name])
-                # Add the new role to that host
-                host.roles.add(role)
+
+                # in an upgrade, the active role will not match the currently
+                # associated role. Just update the role.
+                old_role_id = None
+                for assoc in host.roles:
+                    if assoc.role.rolename == role_name:
+                        old_role_id = assoc.role.id
+                        break
+                if old_role_id:
+                    session.query(HostRoleAssociation
+                                 ).filter_by(host_id=host_id,
+                                             role_id=old_role_id
+                                 ).update({'role_id': role.id})
+                    session.commit()
+                else:
+                    # role not found in current associations, make a new one:
+                    assoc = HostRoleAssociation(current_state='un-applied')
+                    assoc.host = host
+                    assoc.role = role
+                    host.roles.append(assoc)
             except:
                 log.exception('DB error while associating host %s with role %s',
                               host_id, role_name)
@@ -768,38 +790,85 @@ class ResMgrDB(object):
         """
         Remove a role from a given host
         :param str host_id: ID of the host
-        :param str role_name: ID of the role
+        :param str role_name: name of the role (not the id)
         """
-        log.info('Removing role %s from host %s', role_name, host_id)
-        with self.dbsession() as session:
-            try:
-                host = session.query(Host).filter_by(id=host_id).first()
-                for role in host.roles:
-                    if role.rolename == role_name:
-                        host.roles.remove(role)
-                        break
-            except:
-                log.exception('DB error while removing role %s from host %s',
-                              role_name, host_id)
-                raise
+        # the delete query doesn't dirty the session, so we can't use
+        # dbsession()
+        log.info('Removing role with name %s from host %s', role_name, host_id)
+        session = self.session_maker()
+        role_ids = session.query(Role.id).filter_by(rolename=role_name).subquery()
+        removed = session.query(HostRoleAssociation
+                               ).filter_by(host_id=host_id
+                               ).filter(HostRoleAssociation.role_id.in_(role_ids)
+                               ).delete(synchronize_session='fetch')
+        session.commit()
+        session.close()
+        if removed == 0:
+            log.warn('No %s role association with host %s', role_name, host_id)
+            return False
+        elif removed > 1:
+            log.error('Something is very wrong, %d  %s role associations '
+                      'with host %s', removed, role_name, host_id)
+            return False
+        else:
+            log.info('Removed %s role state from host %s', role_name, host_id)
+            return True
 
     def update_roles_for_host(self, host_id, roles):
         """
-        Updates the roles associated with a particular host.
+        Remove a role from a given host
         :param str host_id: ID of the host
-        :param list roles: list of role IDs to associated with the host.
+        :param str roles: empty list
         """
-        log.info('Updating roles %s for host %s', roles, host_id)
-        with self.dbsession() as session:
-            try:
-                host = session.query(Host).filter_by(id=host_id).first()
-                roles_set = set(roles)
-                host.roles = roles_set
-            except:
-                log.exception('DB error while updating roles %s for host %s',
-                              roles, host_id)
-                raise
+        # FIXME: This is only used to clear all the roles on full host removal,
+        # and it doesn't really make sense otherwise. Make sure that's the only
+        # way it's used. Should be renamed:
+        assert roles == []
 
+        # the delete query doesn't dirty the session, so we can't use
+        # dbsession()
+        log.info('Removing all roles for host %s', host_id)
+        session = self.session_maker()
+        removed = session.query(HostRoleAssociation
+                               ).filter_by(host_id=host_id
+                               ).delete()
+        session.commit()
+        session.close()
+        log.info('Removed %d roles from from %s', removed, host_id)
+
+    def advance_role_state(self, host_id, role_id, current_state, new_state):
+        """
+        Update the state of a host role association. The update fails if
+        the assumed current_state is incorrect.
+        :param host_id: ID of the host
+        :param rolename: ID of the role
+        :param current_state: current role state
+        :param new_state: updated state value
+        :returns: True if we successfully update 1 row
+        """
+        # the update query doesn't dirty the session, so we can't use
+        # dbsession()
+        session = self.session_maker()
+        updated = session.query(HostRoleAssociation).filter_by(
+                                host_id=host_id,
+                                role_id=role_id,
+                                current_state=current_state
+                                ).update({'current_state': new_state})
+        session.commit()
+        session.close()
+        if updated == 0:
+            log.warn('No %s role association with host %s in state %s',
+                     role_id, host_id, current_state)
+            return False
+        elif updated > 1:
+            log.error('Something is very wrong, %d  %s role associations '
+                      'with host %s in state %s',
+                      updated, role_id, host_id, current_state)
+            return False
+        else:
+            log.info('Advanced %s role state for host %s from %s to %s',
+                     role_id, host_id, current_state, new_state)
+            return True
 
     def substitute_rabbit_credentials(self, dictionary, host_id):
         """
