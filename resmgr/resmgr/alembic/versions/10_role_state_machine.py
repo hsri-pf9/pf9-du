@@ -14,22 +14,24 @@ down_revision = '9'
 import logging
 
 from alembic import op
-from sqlalchemy import Column, String, Integer
+from resmgr.role_states import APPLIED, NOT_APPLIED
+from sqlalchemy import Column, String
 
 LOG = logging.getLogger(__name__)
 
 def upgrade():
     """
     Add current state value to host_role_map. Not that existing values
-    get the value 'applied', while new ones get 'un-applied' if the
+    get the value 'applied', while new ones get 'not-applied' if the
     insert doesn't include a value. It must be populated.
     """
     LOG.info('adding current state column to host_role_map')
     op.add_column('host_role_map',
                   Column('current_state', String(120),
-                         nullable=False, server_default='un-applied')
+                         nullable=False, server_default=str(NOT_APPLIED))
     )
-    op.get_bind().execute("UPDATE host_role_map set current_state='applied'")
+    op.get_bind().execute("UPDATE host_role_map set current_state=:state",
+                          {'state': str(APPLIED)})
 
 def downgrade():
     LOG.info('dropping current state column from host_role_map')

@@ -1,30 +1,29 @@
 # Copyright 2015 Platform9 Systems Inc.
 # All Rights Reserved.
 
+# pylint: disable=too-few-public-methods,too-many-public-methods
+# pylint: disable=bad-indentation
+
 __author__ = 'Platform9'
 
-import ConfigParser
 import copy
 import datetime
-import dict_tokens
-import dict_subst
 import glob
 import json
 import logging
-import random
 import os
-import string
 import threading
-import time
 
 from contextlib import contextmanager
-from exceptions import HostNotFound, HostConfigFailed, RoleNotFound
-from sqlalchemy import create_engine, Column, String, Text, ForeignKey, Table
+from sqlalchemy import create_engine, Column, String, Text, ForeignKey
 from sqlalchemy import Boolean, DateTime, UniqueConstraint, types
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship, backref
+from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
+
+from resmgr import role_states, dict_tokens, dict_subst
+from resmgr.exceptions import HostNotFound, HostConfigFailed, RoleNotFound
 
 
 log = logging.getLogger('resmgr')
@@ -498,10 +497,10 @@ class ResMgrDB(object):
                 host = session.query(Host).filter_by(id=host_id).first()
                 host.hostname = hostname
             except:
-                log.exception('Failed to update host %s with hostname %s'
-                              % (host_id, hostname))
+                log.exception('Failed to update host %s with hostname %s',
+                              host_id, hostname)
                 raise
-        log.info('hostname for %s has changed to %s' % (host_id, hostname))
+        log.info('hostname for %s has changed to %s', host_id, hostname)
 
     def save_role_in_db(self, name, version, details):
         """
@@ -746,7 +745,8 @@ class ResMgrDB(object):
                     session.commit()
                 else:
                     # role not found in current associations, make a new one:
-                    assoc = HostRoleAssociation(current_state='un-applied')
+                    assoc = HostRoleAssociation(
+                            current_state=str(role_states.NOT_APPLIED))
                     assoc.host = host
                     assoc.role = role
                     host.roles.append(assoc)
@@ -774,8 +774,8 @@ class ResMgrDB(object):
                                              for rabbit_credential in host.rabbit_credentials)
                 if role_name in roles_with_credentials:
                     # The host already has rabbit credentials for the specified role
-                    log.warn('Host %s already has rabbit credentials for role %s'
-                             % (host_id, role_name))
+                    log.warn('Host %s already has rabbit credentials for role %s',
+                             host_id, role_name)
                     return
                 credential = RabbitCredential(rolename=role_name,
                                               userid=rabbit_user,
@@ -848,12 +848,16 @@ class ResMgrDB(object):
         """
         # the update query doesn't dirty the session, so we can't use
         # dbsession()
+        if not role_states.legal_transition(str(current_state),
+                                            str(new_state)):
+            raise role_states.InvalidState(current_state, new_state)
+
         session = self.session_maker()
         updated = session.query(HostRoleAssociation).filter_by(
                                 host_id=host_id,
                                 role_id=role_id,
-                                current_state=current_state
-                                ).update({'current_state': new_state})
+                                current_state=str(current_state)
+                                ).update({'current_state': str(new_state)})
         session.commit()
         session.close()
         if updated == 0:
@@ -896,7 +900,7 @@ class ResMgrDB(object):
             # The role that provides the app
             role = app_to_role()
             if role not in token_role_map:
-                log.error('Did not find rabbit credentials for role %s' % role)
+                log.error('Did not find rabbit credentials for role %s', role)
                 continue
             dictionary[app] = dict_subst.substitute(dictionary[app], token_role_map[role])
 

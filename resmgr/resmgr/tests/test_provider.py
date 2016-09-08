@@ -1,0 +1,410 @@
+# Copyright (c) 2016 Platform9 Systems Inc. All Rights Reserved.
+
+# pylint: disable=protected-access, too-many-instance-attributes
+
+import copy
+import json
+import logging
+import os
+import requests
+import sys
+import threading
+
+from rabbit import RabbitMgmtClient
+from resmgr import resmgr_provider_pf9
+from resmgr.resmgr_provider_pf9 import ResMgrPf9Provider, BbonePoller
+from resmgr.resmgr_provider_pf9 import log as provider_logger
+from resmgr.tests.dbtestcase import DbTestCase
+from resmgr.tests.dbtestcase import TEST_HOST, TEST_ROLE
+
+logging.basicConfig(level=logging.DEBUG)
+LOG = logging.getLogger(__name__)
+
+THISDIR = os.path.abspath(os.path.dirname(__file__))
+
+BBONE_IDS = set([TEST_HOST['id']])
+BBONE_HOST = {
+    'extensions': {
+        'interfaces': {
+            'data': {
+                'iface_ip': {u'eth0': '10.4.253.124'},
+                'ovs_bridges': []
+            },
+            'status': u'ok'
+        },
+        'ip_address': {
+            'data': [u'10.4.253.124'],
+            'status': u'ok'
+        },
+        'volumes_present': {
+            'data': [
+                {'free': '0', 'name': 'ubuntu12-vg', 'size': '16.76g'}
+            ],
+            'status': u'ok'
+        }
+    },
+    'host_agent': {'status': 'running', 'version': u'2.2.0-1463.5ae865b'},
+    'host_id': '24bbbc8d-fe3c-4675-a5ab-6940af506cc7',
+    'hypervisor_info': {'hypervisor_type': 'kvm'},
+    'info': {
+        'arch': 'x86_64',
+        'hostname': 'ubuntu12.platform9.sys',
+        'os_family': 'Linux',
+        'os_info': 'Ubuntu 12.04 precise'
+    },
+    'status': 'ok',
+    'timestamp': '2016-09-08 23:16:40.398866',
+    'timestamp_on_du': '2016-09-08 23:16:40.786359'
+}
+
+BBONE_APPS = {
+    "test-role": {
+        "version": "1.0",
+        "service_states": {"test-service": "true"},
+        "config": {
+            "test_conf": {
+                "DEFAULT": {
+                    "conf1": "conf1_value"
+                },
+                "customizable_section": {
+                    "customizable_key": "default value for customizable_key"
+                }
+            }
+        }
+    }
+}
+
+BBONE_PUSH = copy.deepcopy(BBONE_APPS)
+BBONE_PUSH['test-role']['url'] = \
+    "%(download_protocol)s://%(host_relative_amqp_fqdn)s:" \
+    "%(download_port)s/private/test-role-1.0.rpm"
+
+class match_dict_to_jsonified(object):
+    """
+    __eq__ is true when the other object is a json string representing
+    the wrapped dictionary. Used to test actual json string bodies sent to
+    requests against an expected dictionary.
+    see http://www.voidspace.org.uk/python/mock/examples.html#more-complex-argument-matching
+    """
+    def __init__(self, dictionary):
+        self._dict = dictionary
+        self._other = None
+    def __eq__(self, jsonified):
+        other = json.loads(jsonified)
+        return self._dict == other
+    def __repr__(self):
+        return str(self._dict)
+
+class TestProvider(DbTestCase):
+
+    def setUp(self):
+        super(TestProvider, self).setUp()
+        self._load_provider_config = \
+                self._patchobj(ResMgrPf9Provider, '_load_config')
+        self._load_provider_config.return_value = self._cfg
+
+        # FIXME: verify notifier calls
+        self._patchfun('notifier.init')
+        self._patchfun('notifier.publish_notification')
+
+        # FIXME: verify rabbit setup calls
+        self._patchobj(RabbitMgmtClient, 'create_user')
+        self._patchobj(RabbitMgmtClient, 'delete_user')
+        self._patchobj(RabbitMgmtClient, 'set_permissions')
+
+        # FIXME: check service config
+        self._patchobj(ResMgrPf9Provider, 'run_service_config')
+
+        # don't start the BbonePoller in a thread. The tests will call
+        # process_hosts directly when appropriate.
+        self._patchobj(threading.Thread, 'start')
+
+        # reset the provider global state
+        self._reset_provider_global_state()
+
+        # now we can create the provider.
+        self._provider = ResMgrPf9Provider('not a real config file')
+
+        # shorthand member objects
+        self._inventory = self._provider.host_inventory_mgr
+        self._bbone = self._provider.bbone_poller
+        self._db = self._provider.res_mgr_db
+
+        # now add an unauthorized host to the in-memory dictionaries
+        self._get_backbone_host_ids = \
+            self._patchobj(BbonePoller, '_get_backbone_host_ids')
+        self._get_backbone_host_ids.return_value = BBONE_IDS
+        self._get_backbone_host = \
+            self._patchobj(BbonePoller, '_get_backbone_host')
+        self._get_backbone_host.return_value = self._unauthed_host()
+        self._responding_within_threshold = \
+            self._patchobj(BbonePoller, '_responding_within_threshold')
+        self._responding_within_threshold.return_value = True
+        self._bbone.process_hosts()
+
+        # RolesMgr uses requests.put to send new config to a host through
+        # bbmaster. Intercept that and respond with 200
+        self._requests_put = self._patchfun('requests.put')
+        self._requests_put.return_value = self._plain_http_response(200)
+
+    def tearDown(self):
+        super(TestProvider, self).tearDown()
+
+    @staticmethod
+    def _reset_provider_global_state():
+        resmgr_provider_pf9._unauthorized_hosts = {}
+        resmgr_provider_pf9._unauthorized_host_status_time = {}
+        resmgr_provider_pf9._unauthorized_host_status_time_on_du = {}
+        resmgr_provider_pf9._authorized_host_role_status = {}
+        resmgr_provider_pf9._hosts_hypervisor_info = {}
+        resmgr_provider_pf9._hosts_extension_data = {}
+        resmgr_provider_pf9._hosts_message_data = {}
+        resmgr_provider_pf9._host_lock = threading.Lock()
+        resmgr_provider_pf9._role_delete_lock = threading.RLock()
+
+    def test_add_role_default_config(self):
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._provider.add_role(host_id, rolename, {})
+
+        # verify that the auth events ran. Note that all the event
+        # handlers in test_auth_events.py are Mock() objects.
+        on_auth = sys.modules['test_auth_events'].on_auth
+        on_auth.assert_called_once_with(logger=provider_logger,
+                                        param1='param1_value',
+                                        param2='param2_value')
+
+        # check the config that got pushed to bbmaster
+        self._requests_put.assert_called_once_with(
+            'http://fake/v1/hosts/1234/apps',
+            match_dict_to_jsonified(BBONE_PUSH))
+
+        hosts = self._provider.get_all_hosts()
+        self.assertEquals(1, len(hosts))
+        host = hosts.get(host_id)
+        self.assertTrue(host)
+        self.assertTrue('test-role' in host['roles'])
+
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertFalse(authed_host.get('role_status'))
+
+        # send a converging event from bbone poller
+        self._get_backbone_host.return_value = self._converging_host()
+        self._bbone.process_hosts()
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertEqual('converging', authed_host.get('role_status'))
+
+        # our pretend host has converged
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertEqual('ok', authed_host.get('role_status'))
+
+    def test_delete_role(self):
+        # add and converge the role
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._provider.add_role(host_id, rolename, {})
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertEqual('ok', authed_host.get('role_status'))
+
+        # delete it
+        self._provider.delete_role(host_id, rolename)
+
+        # verify that the deauth events ran.
+        on_deauth = sys.modules['test_auth_events'].on_deauth
+        on_deauth.assert_called_once_with(logger=provider_logger,
+                                          param1='param1_value',
+                                          param2='param2_value')
+        # no other roles - host gets deleted from db, it's gone for now
+        self.assertFalse(self._inventory.get_authorized_host(host_id))
+
+        # cleanup's still in process on the host. Since the above deletes
+        # the host in the database, this is a 'new' host which is assumed
+        # to have no roles, and the app state isn't checked. The following
+        # adds the host to the _unauthorized_hosts global dict.
+        self._get_backbone_host.return_value = self._converging_host()
+        self._bbone.process_hosts()
+        hosts = self._inventory.get_all_hosts()
+        self.assertEquals(1, len(hosts))
+        host = hosts.get(host_id)
+        self.assertTrue(host)
+        self.assertFalse(host.get('roles'))
+
+    def test_delete_one_role_keep_another(self):
+        # add and converge both roles
+        host_id = TEST_HOST['id']
+        self._provider.add_role(host_id, 'test-role', {})
+        self._provider.add_role(host_id, 'test-role-2', {})
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertEqual('ok', authed_host.get('role_status'))
+        self.assertEqual(['test-role', 'test-role-2'],
+                         sorted(authed_host['roles']))
+        # delete the first one
+        self._provider.delete_role(host_id, 'test-role')
+
+        # verify that the deauth events ran.
+        on_deauth = sys.modules['test_auth_events'].on_deauth
+        on_deauth.assert_called_once_with(logger=provider_logger,
+                                          param1='param1_value',
+                                          param2='param2_value')
+        # The host is still authorized
+        host = self._inventory.get_authorized_host(host_id)
+        self.assertTrue(host)
+        self.assertEquals(['test-role-2'], host['roles'])
+
+        # still in the database with test-role-2 still bound
+        hosts_in_db = self._db.query_hosts()
+        self.assertTrue(hosts_in_db)
+        self.assertEquals(['test-role-2'], hosts_in_db[0]['roles'])
+
+        # cleanup's still in process on the host.
+        self._get_backbone_host.return_value = self._converging_host()
+        self._bbone.process_hosts()
+        hosts = self._inventory.get_all_hosts()
+        self.assertEquals(1, len(hosts))
+        host = hosts.get(host_id)
+        self.assertTrue(host)
+        self.assertEquals('converging', host['role_status'])
+        self.assertEquals(['test-role-2'], host.get('roles'))
+
+        # our pretend host has converged
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertEqual('ok', authed_host.get('role_status'))
+        self.assertEqual(['test-role-2'], authed_host.get('roles'))
+
+    def test_upgrade_role(self):
+        # add and converge the role
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._provider.add_role(host_id, rolename, {})
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertEqual('ok', authed_host.get('role_status'))
+
+        # new version of test-role:
+        new_role = {
+            'test-role': {
+                '2.0': copy.deepcopy(TEST_ROLE['test-role']['1.0'])
+            }
+        }
+        new_role['test-role']['2.0']['role_version'] = '2.0'
+        new_role['test-role']['2.0']['config']['test-role']['version'] = '2.0'
+        self._load_roles_from_files.return_value = new_role
+        self._db.setup_roles()
+
+        # re-PUT the role
+        self._provider.add_role(host_id, rolename, {})
+
+        # check the config that got pushed to bbmaster
+        push_2_0 = copy.deepcopy(BBONE_PUSH)
+        push_2_0['test-role']['version'] = '2.0'
+        self._requests_put.assert_called_with(
+                'http://fake/v1/hosts/1234/apps',
+                match_dict_to_jsonified(push_2_0))
+
+        # converging new role
+        converging_2_0 = self._converging_host()
+        converging_2_0['desired_apps']['test-role']['version'] = '2.0'
+        self._get_backbone_host.return_value = converging_2_0
+        self._bbone.process_hosts()
+        host = self._inventory.get_authorized_host(host_id)
+        self.assertTrue(host)
+        self.assertEquals('converging', host['role_status'])
+        self.assertEquals(['test-role'], host.get('roles'))
+
+        # successfully converged new role
+        converged_2_0 = self._converged_host()
+        converged_2_0['apps']['test-role']['version'] = '2.0'
+        self._get_backbone_host.return_value = converged_2_0
+        self._bbone.process_hosts()
+
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertEqual('ok', authed_host.get('role_status'))
+        self.assertEqual(['test-role'], authed_host.get('roles'))
+
+        roles = self._db.query_roles_for_host(host_id)
+        self.assertEquals(1, len(roles))
+        self.assertEquals('test-role_2.0', roles[0].id)
+        self.assertEquals('2.0', roles[0].version)
+
+    def test_edit_role(self):
+        # add and converge the role with default params
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._provider.add_role(host_id, rolename, {})
+        self._requests_put.assert_called_with(
+                'http://fake/v1/hosts/1234/apps',
+                match_dict_to_jsonified(BBONE_PUSH))
+
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertEqual('ok', authed_host.get('role_status'))
+
+        # re-PUT the role with new configurable param
+        new_role_params ={'customizable_key': 'new value for customizable_key'}
+        self._provider.add_role(host_id, rolename, new_role_params)
+
+        # check the config that got pushed to bbmaster
+        push = copy.deepcopy(BBONE_PUSH)
+        push['test-role']['config']['test_conf']['customizable_section'
+            ].update(new_role_params)
+        self._requests_put.assert_called_with(
+                'http://fake/v1/hosts/1234/apps',
+                match_dict_to_jsonified(push))
+
+        # converging new role
+        converging = self._converging_host()
+        converging['desired_apps']['test-role']['config']['test_conf'
+            ]['customizable_section'].update(new_role_params)
+        self._get_backbone_host.return_value = converging
+        self._bbone.process_hosts()
+        host = self._inventory.get_authorized_host(host_id)
+        self.assertTrue(host)
+        self.assertEquals('converging', host['role_status'])
+        self.assertEquals(['test-role'], host.get('roles'))
+
+        # successfully converged new role
+        converged = self._converged_host()
+        converged['apps']['test-role']['config']['test_conf'
+            ]['customizable_section'].update(new_role_params)
+        self._get_backbone_host.return_value = converged
+        self._bbone.process_hosts()
+
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertEqual('ok', authed_host.get('role_status'))
+        self.assertEqual(['test-role'], authed_host.get('roles'))
+
+    @staticmethod
+    def _plain_http_response(code):
+        resp = requests.Response()
+        resp.status_code = code
+        return resp
+
+    @staticmethod
+    def _unauthed_host():
+        return copy.deepcopy(BBONE_HOST)
+
+    @staticmethod
+    def _converging_host():
+        host = copy.deepcopy(BBONE_HOST)
+        apps = copy.deepcopy(BBONE_APPS)
+        host.update({'desired_apps': apps})
+        host['status'] = 'converging'
+        return host
+
+    @staticmethod
+    def _converged_host():
+        host = copy.deepcopy(BBONE_HOST)
+        apps = copy.deepcopy(BBONE_APPS)
+        host.update({'apps': apps})
+        host['status'] = 'ok'
+        return host

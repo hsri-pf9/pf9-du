@@ -416,6 +416,14 @@ class BbonePoller(object):
         if msg in message[level]:
             message[level].remove(msg)
 
+    def _get_backbone_host(self, host):
+        return call_remote_service('%s/v1/hosts/%s' %
+                                   (self.bbone_endpoint, host))
+
+    def _get_backbone_host_ids(self):
+        return set(call_remote_service('%s/v1/hosts/ids' %
+                                       self.bbone_endpoint))
+
     def _process_new_hosts(self, host_ids):
         """
         Process hosts that are reported by backbone but are not present in resource
@@ -426,8 +434,7 @@ class BbonePoller(object):
         # start in the unauthorized bucket
         for host in host_ids:
             try:
-                host_info = call_remote_service('%s/v1/hosts/%s' %
-                                                (self.bbone_endpoint, host))
+                host_info = self._get_backbone_host(host)
             except BBMasterNotFound:
                 log.exception('Querying backbone for %s failed', host)
                 continue
@@ -508,8 +515,7 @@ class BbonePoller(object):
         """
         for host in host_ids:
             try:
-                host_info = call_remote_service('%s/v1/hosts/%s' %
-                                                (self.bbone_endpoint, host))
+                host_info = self._get_backbone_host(host)
             except BBMasterNotFound:
                 log.exception('Querying backbone for %s failed', host)
                 # TODO: Should we return instead of continuing here?
@@ -628,8 +634,7 @@ class BbonePoller(object):
         Routine to query bbone for host info and process it
         """
         try:
-            bbone_ids = set(call_remote_service('%s/v1/hosts/ids' %
-                                                self.bbone_endpoint))
+            bbone_ids = self._get_backbone_host_ids()
         except BBMasterNotFound:
             log.exception('Querying backbone for hosts failed')
         else:
@@ -676,13 +681,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         Constructor
         :param str config_file: Path to configuration file for resource manager
         """
-        # Load the config file as well as the global config file.
-        config = ConfigParser.ConfigParser()
-        config.read(config_file)
-        global_cfg_file = config.get('resmgr', 'global_config_file')
-        config.read(global_cfg_file)
-        role_metadata_dir = config.get('resmgr', 'role_metadata_location')
-        _load_role_confd_files(role_metadata_dir, config)
+        config = self._load_config(config_file)
 
         self.res_mgr_db = ResMgrDB(config)
         self.host_inventory_mgr = HostInventoryMgr(config, self.res_mgr_db)
@@ -706,6 +705,18 @@ class ResMgrPf9Provider(ResMgrProvider):
         t.daemon = True
         t.start()
 
+    @staticmethod
+    def _load_config(config_file):
+        """
+        Load the config file as well as the global config file.
+        """
+        config = ConfigParser.ConfigParser()
+        config.read(config_file)
+        global_cfg_file = config.get('resmgr', 'global_config_file')
+        config.read(global_cfg_file)
+        role_metadata_dir = config.get('resmgr', 'role_metadata_location')
+        _load_role_confd_files(role_metadata_dir, config)
+        return config
 
     def run_service_config(self):
         svcs = self.res_mgr_db.get_service_configs()
