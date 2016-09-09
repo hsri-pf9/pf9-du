@@ -27,7 +27,7 @@ def upgrade():
 
       driver_role_mapping = {
           "cinder.volume.drivers.lvm.LVMISCSIDriver": "pf9-cindervolume-lvm",
-          "cinder.volume.drivers.netapp.common.NetAppDriver": "pf9-cinderovlume-netapp",
+          "cinder.volume.drivers.netapp.common.NetAppDriver": "pf9-cindervolume-netapp",
           "cinder.volume.drivers.qnap.QnapISCSIDriver":  "pf9-cindervolume-qnap",
           "cinder.volume.drivers.solidfire.SolidFireDriver": "pf9-cindervolume-solidfire"
       }
