@@ -15,6 +15,8 @@ setup(
     install_requires=[
         'pika',
         'netifaces',
+        'py-cpuinfo',
+        'psutil',
         'pf9app',
         'bbcommon',
         'configutils'
