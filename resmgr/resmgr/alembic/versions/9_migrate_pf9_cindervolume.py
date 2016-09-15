@@ -42,12 +42,16 @@ def upgrade():
           # auth with the pf9-cindervolume-base role by default
           role_settings["pf9-cindervolume-base"] = {}
           if current_driver in driver_role_mapping:
-              role_settings[current_driver] = current_settings
+              role_settings[driver_role_mapping[current_driver]] = current_settings
           else:
               role_settings['pf9-cindervolume-other'] = current_settings
-          stmt = 'update hosts set role_settings=\'{0}\' where id="{1}"'.format(
-            json.dumps(role_settings), host_id)
+          stmt = 'update hosts set role_settings=%s where id=%s'
           log.info("New role settings:\n{0}".format(json.dumps(role_settings)))
+          conn.execute(stmt, json.dumps(role_settings), host_id)
+
+          # deactivate pf9-cindervolume
+          log.info("Deactivating pf9-cindervolume role")
+          stmt = 'update roles set active=0 where rolename="pf9-cindervolume"'
           conn.execute(stmt)
       elif 'pf9-cindervolume-base' in role_settings:
           log.info("Host {0} ({1}) is already up-to-date".format(host_id, hostname))
