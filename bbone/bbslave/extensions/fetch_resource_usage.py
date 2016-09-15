@@ -7,13 +7,9 @@ import psutil
 
 
 def get_disk_usage():
-    total = 0
-    used = 0
-
-    for part in psutil.disk_partitions(all=False):
-        usage = psutil.disk_usage(part.mountpoint)
-        total += usage.total
-        used += usage.used
+    usage = psutil.disk_usage('/')
+    used = usage.used
+    total = usage.total
     percentage = float(used) / float(total) * 100
     return {
         'percent': round(percentage, 1),
