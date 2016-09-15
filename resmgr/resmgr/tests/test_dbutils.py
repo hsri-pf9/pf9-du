@@ -78,7 +78,7 @@ class TestDb(DbTestCase):
         self.assertEquals(role_states.NOT_APPLIED,
                           deets[host_id]['role_states']['test-role_1.0'])
         self.assertTrue('test-role' in deets[host_id]['apps_config'])
-        result = self._db.advance_role_state(host_id, 'test-role_1.0',
+        result = self._db.advance_role_state(host_id, 'test-role',
                                              role_states.NOT_APPLIED,
                                              role_states.START_APPLY)
         self.assertTrue(result)
@@ -175,7 +175,7 @@ class TestDb(DbTestCase):
                                     'test-role',
                                     {'customizable_key': 'customizable_value'})
         self._db.associate_role_to_host(host_id, 'test-role')
-        result = self._db.advance_role_state(host_id, 'test-role_1.0',
+        result = self._db.advance_role_state(host_id, 'test-role',
                                              role_states.APPLIED,
                                              role_states.START_EDIT)
         self.assertFalse(result)
@@ -184,7 +184,7 @@ class TestDb(DbTestCase):
         self.assertEquals(role_states.NOT_APPLIED,
                           deets[host_id]['role_states']['test-role_1.0'])
 
-        result = self._db.advance_role_state(host_id, 'test-role_1.0',
+        result = self._db.advance_role_state(host_id, 'test-role',
                                              role_states.NOT_APPLIED,
                                              role_states.START_APPLY)
         self.assertTrue(result)
@@ -192,3 +192,45 @@ class TestDb(DbTestCase):
         self.assertEquals(role_states.START_APPLY,
                           deets[host_id]['role_states']['test-role_1.0'])
 
+    def test_move_new_state(self):
+        host_id = TEST_HOST['id']
+        self._db.insert_update_host(TEST_HOST['id'],
+                                    TEST_HOST['details'],
+                                    'test-role',
+                                    {'customizable_key': 'customizable_value'})
+        self._db.associate_role_to_host(host_id, 'test-role')
+        result = self._db.advance_role_state(host_id, 'test-role',
+                                             role_states.NOT_APPLIED,
+                                             role_states.START_APPLY)
+        self.assertTrue(result)
+
+        with self._db.move_new_state(host_id, 'test-role',
+                                     role_states.START_APPLY,
+                                     role_states.PRE_AUTH,
+                                     role_states.NOT_APPLIED):
+            LOG.info('Successfully executed the body!')
+        deets = self._db.query_host_and_app_details()
+        self.assertEquals(role_states.PRE_AUTH,
+                          deets[host_id]['role_states']['test-role_1.0'])
+
+    def test_move_new_state_fail(self):
+        host_id = TEST_HOST['id']
+        self._db.insert_update_host(TEST_HOST['id'],
+                                    TEST_HOST['details'],
+                                    'test-role',
+                                    {'customizable_key': 'customizable_value'})
+        self._db.associate_role_to_host(host_id, 'test-role')
+        result = self._db.advance_role_state(host_id, 'test-role',
+                                             role_states.NOT_APPLIED,
+                                             role_states.START_APPLY)
+        self.assertTrue(result)
+
+        with self.assertRaises(RuntimeError):
+            with self._db.move_new_state(host_id, 'test-role',
+                                         role_states.START_APPLY,
+                                         role_states.PRE_AUTH,
+                                         role_states.NOT_APPLIED):
+                raise RuntimeError('Failed to execute the body')
+        deets = self._db.query_host_and_app_details()
+        self.assertEquals(role_states.NOT_APPLIED,
+                          deets[host_id]['role_states']['test-role_1.0'])

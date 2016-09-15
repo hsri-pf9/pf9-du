@@ -26,7 +26,7 @@ from resmgr import role_states, dict_tokens, dict_subst
 from resmgr.exceptions import HostNotFound, HostConfigFailed, RoleNotFound
 
 
-log = logging.getLogger('resmgr')
+log = logging.getLogger(__name__)
 
 """
 This file deals with all the DB handling for Resource Manager. It leverages
@@ -836,43 +836,56 @@ class ResMgrDB(object):
         session.close()
         log.info('Removed %d roles from from %s', removed, host_id)
 
-    def advance_role_state(self, host_id, role_id, current_state, new_state):
+    def advance_role_state(self, host_id, role_name, current_state, new_state):
         """
         Update the state of a host role association. The update fails if
         the assumed current_state is incorrect.
         :param host_id: ID of the host
-        :param rolename: ID of the role
+        :param rolename: name of the role
         :param current_state: current role state
         :param new_state: updated state value
         :returns: True if we successfully update 1 row
         """
-        # the update query doesn't dirty the session, so we can't use
-        # dbsession()
-        if not role_states.legal_transition(str(current_state),
-                                            str(new_state)):
+        if not role_states.legal_transition(current_state, new_state):
             raise role_states.InvalidState(current_state, new_state)
 
+        # the update query doesn't dirty the session, so we can't use
+        # dbsession()
         session = self.session_maker()
-        updated = session.query(HostRoleAssociation).filter_by(
-                                host_id=host_id,
-                                role_id=role_id,
-                                current_state=str(current_state)
-                                ).update({'current_state': str(new_state)})
+        role_ids = session.query(Role.id).filter_by(rolename=role_name).subquery()
+        updated = session.query(HostRoleAssociation
+                    ).filter_by(host_id=host_id
+                    ).filter(HostRoleAssociation.role_id.in_(role_ids)
+                    ).filter_by(current_state=str(current_state)
+                    ).update({'current_state': str(new_state)},
+                             synchronize_session='fetch')
         session.commit()
         session.close()
         if updated == 0:
-            log.warn('No %s role association with host %s in state %s',
-                     role_id, host_id, current_state)
+            log.debug('No %s role association with host %s in state %s',
+                      role_name, host_id, current_state)
             return False
         elif updated > 1:
             log.error('Something is very wrong, %d  %s role associations '
                       'with host %s in state %s',
-                      updated, role_id, host_id, current_state)
+                      updated, role_name, host_id, current_state)
             return False
         else:
             log.info('Advanced %s role state for host %s from %s to %s',
-                     role_id, host_id, current_state, new_state)
+                     role_name, host_id, current_state, new_state)
             return True
+
+    def get_current_role_association(self, host_id, role_name):
+        session = self.session_maker()
+        role_ids = session.query(Role.id).filter_by(rolename=role_name).subquery()
+        entity = session.query(HostRoleAssociation
+                              ).filter_by(host_id=host_id
+                              ).filter(HostRoleAssociation.role_id.in_(role_ids)
+                              ).one_or_none()
+        session.expunge(entity)
+        session.commit()
+        session.close()
+        return entity
 
     def substitute_rabbit_credentials(self, dictionary, host_id):
         """
@@ -961,3 +974,49 @@ class ResMgrDB(object):
             out.append(r.to_dict())
 
         return out
+
+    def move_new_state(self, host_id, role_name, start_state,
+                       success_state, failure_state):
+        """
+        Create a context manager that moves to a new state when the body
+        completes.
+        :param host_id: the host id
+        :param role_name: the name of the role to transition
+        :param start_state: assumed current state
+        :param success_state: move here on body success
+        :param failure_state: move here on body failure
+        """
+        class _move_new_state(object):
+            def __init__(self, db):
+                self.db = db
+
+            def __enter__(self):
+                log.debug('Attempting to transition from %s->%s',
+                          start_state, success_state)
+
+            def __exit__(self, exc_type, exc, traceback):
+                if exc:
+                    # body failed, move to failure state
+                    log.error('Exception %s:%s, traceback = %s', exc_type,
+                              exc, traceback)
+                    log.error('Failed to run actions to move to %s, '
+                              'moving to %s', success_state, failure_state)
+
+                    if not self.db.advance_role_state(host_id, role_name,
+                                                      start_state,
+                                                      failure_state):
+                        # FIXME: handle this situation better.
+                        log.error('Failed to transtion from \'%s\' to error '
+                                  'state \'%s\'', start_state, failure_state)
+
+                else:
+                    # body succeeded, move to new state
+                    if not self.db.advance_role_state(host_id, role_name,
+                                                      start_state,
+                                                      success_state):
+                        # FIXME: handle this situation better.
+                        log.error('Failed to transtion from \'%s\' to success '
+                                  'state \'%s\'', start_state, success_state)
+                    else:
+                        log.info('Successfully moved to %s state', success_state)
+        return _move_new_state(self)

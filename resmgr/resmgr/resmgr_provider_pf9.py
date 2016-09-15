@@ -3,6 +3,12 @@
 
 __author__ = 'Platform9'
 
+# pylint: disable=no-self-use, bare-except, too-many-function-args
+# pylint: disable=redefined-builtin, too-many-branches, wildcard-import
+# pylint: disable=too-many-locals, too-many-instance-attributes
+# pylint: disable=too-many-statements, unused-wildcard-import
+# pylint: disable=no-member
+
 """
 This module provides real implementation of Resource Manager provider interface
 """
@@ -11,6 +17,7 @@ import ConfigParser
 import datetime
 import imp
 import logging
+import notifier
 import json
 import os
 import threading
@@ -19,20 +26,15 @@ import rabbit
 import random
 import requests
 import string
-import dict_subst
-import dict_tokens
 import subprocess
 
 from bbcommon.utils import is_satisfied_by
-from dbutils import ResMgrDB, role_app_map
-from exceptions import (BBMasterNotFound, HostNotFound, RoleNotFound,
-                        HostConfigFailed, SupportRequestFailed,
-                        SupportCommandRequestFailed, RabbitCredentialsConfigureError,
-                        DuConfigError, ServiceNotFound, ServiceConfigFailed)
-import notifier
-from resmgr_provider import ResMgrProvider
+from resmgr import dict_subst, dict_tokens, role_states
+from resmgr.dbutils import ResMgrDB, role_app_map
+from resmgr.exceptions import *
+from resmgr.resmgr_provider import ResMgrProvider
 
-log = logging.getLogger('resmgr')
+log = logging.getLogger(__name__)
 
 TIMEDRIFT_MSG_LEVEL = 'warn'
 TIMEDRIFT_MSG = 'Host clock may be out of sync'
@@ -114,7 +116,7 @@ def _load_role_confd_files(role_metadata_location, config):
     confd = os.path.join(role_metadata_location, 'conf.d')
     if not os.path.isdir(confd):
         log.warning('Role configuration directory %s does not exist. Not '
-                    'loading role confd files.' % confd)
+                    'loading role confd files.', confd)
         return
 
     conf_files = [os.path.join(confd, f)
@@ -123,8 +125,8 @@ def _load_role_confd_files(role_metadata_location, config):
     for conf_file in conf_files:
         try:
             config.read(conf_file)
-            log.info('Read role config %s' % conf_file)
-        except ConfigParser.Error as e:
+            log.info('Read role config %s', conf_file)
+        except ConfigParser.Error:
             log.exception('Failed to parse config file %s.', conf_file)
 
 
@@ -262,6 +264,84 @@ class RolesMgr(object):
         except requests.exceptions.RequestException as exc:
             log.error('Configuring host %s failed: %s', host_id, exc)
             raise BBMasterNotFound(exc)
+
+    def on_auth(self, role_name, app_config):
+        self._run_event('on_auth', role_name, app_config)
+
+    def on_deauth(self, role_name, app_config):
+        self._run_event('on_deauth', role_name, app_config)
+
+    def on_auth_converged(self, role_name, app_config):
+        self._run_event('on_auth_converged', role_name, app_config)
+
+    def on_deauth_converged(self, role_name, app_config):
+        self._run_event('on_deauth_converged', role_name, app_config)
+
+    def _run_event(self, event_method, role_name, app_config):
+        """
+        A useful app_config dict looks like:
+        'rolename': {
+          'du_config': {
+            'auth_events': {
+              'type': 'python',
+              'module_path': '/path/to/events.py'
+              'params' {
+                'kwarg1': 'val1',
+                'kwarg2': 'val2'
+              }
+            }
+          }
+          ...
+        }
+        """
+        # Dive into the app_config dictionary to find the auth_events
+        # spec. Do nothing if it (or any of the intermediate keys)
+        # is missing.
+        role_apps = role_app_map[role_name]
+        for app_name, app_details in app_config.iteritems():
+            if app_name not in role_apps or \
+               'du_config' not in app_details or \
+               'auth_events' not in app_details['du_config']:
+                log.debug('No auth events for %s and role %s',
+                          app_name, role_name)
+                continue
+
+            event_spec = app_details['du_config']['auth_events']
+
+            events_type = event_spec.get('type', None)
+            if events_type == 'python':
+                self._run_python_event(event_method, event_spec)
+            else:
+                log.warn('Unknown auth_events type \'%s\'.', events_type)
+
+    def _run_python_event(self, event_method, event_spec):
+        """
+        Run a method from the python module whose path is in event_spec. Will
+        only raise DuConfigError.
+        """
+        module_path = event_spec.get('module_path', None)
+        if not module_path:
+            log.warn('No auth events module_path specified in app_config.')
+        else:
+            params = event_spec.get('params', {})
+            try:
+                module_name = os.path.splitext(
+                        os.path.basename(module_path))[0]
+                module = imp.load_source(module_name, module_path)
+                if hasattr(module, event_method):
+                    method = getattr(module, event_method)
+                    # Pass resmgr logger object to auth_event handler method
+                    method(logger=log, **params)
+                    log.info('Auth event \'%s\' method from %s ran successfully',
+                             event_method, module_path)
+                else:
+                    log.info('No handler for %s in %s', event_method,
+                             module_path)
+            except Exception as e:
+                reason = 'Auth event \'%s\' method failed to run from %s: %s' \
+                         % (event_method, module_path, e)
+                log.exception(reason)
+                raise DuConfigError(reason)
 
 
 class HostInventoryMgr(object):
@@ -468,7 +548,7 @@ class BbonePoller(object):
             # assignment to _unauthorized_* dicts is atomic. There is no need
             # for a lock here.
             # See http://effbot.org/pyfaq/what-kinds-of-global-value-mutation-are-thread-safe.htm
-            log.info('adding new host %s to unauthorized hosts' % unauth_host)
+            log.info('adding new host %s to unauthorized hosts', unauth_host)
             _unauthorized_hosts[host] = unauth_host
             _unauthorized_host_status_time[host] = status_time
             _unauthorized_host_status_time_on_du[host] = status_time_on_du
@@ -566,7 +646,9 @@ class BbonePoller(object):
                 # Active hosts but we need to change the configuration
                 try:
                     if host_status not in ('ok', 'retrying', 'converging'):
-                        # Failed or missing status, nothing to do right now
+                        # put the roles that were converging into the failed state and
+                        # continue to other hosts
+                        self._fail_role_converge(host)
                         continue
 
                     cfg_key = 'apps' if host_status == 'ok' else 'desired_apps'
@@ -584,6 +666,8 @@ class BbonePoller(object):
                     roles = self.rolemgr.db_handler.query_roles_for_host(host)
                     _update_custom_role_settings(expected_cfg, role_settings, roles)
                     self.db_handle.substitute_rabbit_credentials(expected_cfg, host)
+                    if host_status == 'ok':
+                        self._finish_role_converge(host, expected_cfg)
                     if not is_satisfied_by(expected_cfg, host_info[cfg_key]):
                         log.debug('Pushing new configuration for %s, config: %s. '
                                   'Expected config %s', host, host_info['apps'],
@@ -605,6 +689,74 @@ class BbonePoller(object):
                 if _unauthorized_hosts[host]['info']['hostname'] != hostname:
                     _unauthorized_hosts[host]['info']['hostname'] = hostname
                     self.notifier.publish_notification('change', 'host', host)
+
+    def _finish_role_converge(self, host_id, app_config):
+        db = self.db_handle
+        for role in db.query_roles_for_host(host_id):
+            try:
+                if db.advance_role_state(host_id, role.rolename,
+                                         role_states.AUTH_CONVERGING,
+                                         role_states.AUTH_CONVERGED):
+                    with db.move_new_state(host_id, role.rolename,
+                                           role_states.AUTH_CONVERGED,
+                                           role_states.APPLIED,
+                                           role_states.AUTH_ERROR):
+                        log.info('Running on_auth_converged_event')
+                        self.rolemgr.on_auth_converged(role.rolename,
+                                substitute_host_id(app_config, host_id))
+                elif db.advance_role_state(host_id, role.rolename,
+                                           role_states.DEAUTH_CONVERGING,
+                                           role_states.DEAUTH_CONVERGED):
+                    with db.move_new_state(host_id, role.rolename,
+                                           role_states.DEAUTH_CONVERGED,
+                                           role_states.NOT_APPLIED,
+                                           role_states.DEAUTH_ERROR):
+                        log.info('Running on_deauth_converged_event')
+                        self.rolemgr.on_deauth_converged(role.rolename,
+                                substitute_host_id(app_config, host_id))
+                    # now we can drop the association
+                    db.remove_role_from_host(host_id, role.rolename)
+                else:
+                    # FIXME: handle this better.
+                    log.error('Failed to move to a final role state after role '
+                              'convergence.')
+            except DuConfigError as e:
+                log.error('Failed to run post converge event for role %s on '
+                          'host %s: %s', role.rolename, host_id, e)
+        # remove the host so it doesn't show up as authorized
+        if not db.query_roles_for_host(host_id):
+            db.delete_host(host_id)
+
+    def _fail_role_converge(self, host_id):
+        """
+        After a host convergence failure (host itself gave up on convergence),
+        move to the AUTH_CONVERGE_FAILED or DEAUTH_CONVERGE_FAILED state. This
+        will allow the user to do a new PUT or DELETE on the role.
+        """
+        db = self.db_handle
+        for role in db.query_roles_for_host(host_id):
+            if db.advance_role_state(host_id, role.rolename,
+                                     role_states.AUTH_CONVERGING,
+                                     role_states.AUTH_ERROR):
+                log.info('Moved role %s on host %s to the %s state',
+                         role.rolename, host_id, role_states.AUTH_ERROR)
+            elif db.advance_role_state(host_id, role.rolename,
+                                       role_states.DEAUTH_CONVERGING,
+                                       role_states.DEAUTH_ERROR):
+                log.info('Moved role %s on host %s to the %s state',
+                         role.rolename, host_id, role_states.DEAUTH_ERROR)
+            else:
+                # FIXME: do something to recover from this.
+                log.error('Failed to move to an error state after converge '
+                          'completion.')
+
+    def _recover_unexpected_role_states(self, host_ids):
+        """
+        handle the possibility that resmgr crashed and left a role somewhere
+        in a transient state. If so, move it to a point that it can be handled
+        by add/delete, or in _process_existing_hosts.
+        """
+        pass
 
     def _cleanup_unauthorized_hosts(self):
         """
@@ -852,7 +1004,8 @@ class ResMgrPf9Provider(ResMgrProvider):
                                               needs_rabbit_subst=False)
             for role_name in host_inst['roles']:
                 log.debug('Calling deauth event handler for %s role', role_name)
-                self._on_deauth(role_name, deauthed_app_config)
+                self.roles_mgr.on_deauth(role_name,
+                        substitute_host_id(deauthed_app_config, host_id))
 
     def delete_rabbit_credentials(self, credentials):
         for credential in credentials:
@@ -901,6 +1054,49 @@ class ResMgrPf9Provider(ResMgrProvider):
             raise RabbitCredentialsConfigureError(msg)
         return rabbit_user, rabbit_password
 
+    def _move_to_create_edit_state(self, host_id, role_name):
+        curr_state = None
+        if self.res_mgr_db.advance_role_state(host_id, role_name,
+                role_states.NOT_APPLIED, role_states.START_APPLY):
+            log.debug('role %s on host %s moved from %s to %s', role_name,
+                      host_id, role_states.NOT_APPLIED, role_states.START_APPLY)
+            log.info('Applying role %s to %s', role_name, host_id)
+            curr_state = role_states.START_APPLY
+        elif self.res_mgr_db.advance_role_state(host_id, role_name,
+                role_states.APPLIED, role_states.START_EDIT):
+            log.debug('role %s on host %s moved from %s to %s', role_name,
+                      host_id, role_states.APPLIED, role_states.START_EDIT)
+            log.info('Editing role %s on %s', role_name, host_id)
+            curr_state = role_states.START_EDIT
+        elif self.res_mgr_db.advance_role_state(host_id, role_name,
+                role_states.AUTH_ERROR, role_states.START_APPLY):
+            log.debug('role %s on host %s moved from %s to %s', role_name,
+                      host_id, role_states.AUTH_ERROR, role_states.START_APPLY)
+            log.info('Editing role %s on %s', role_name, host_id)
+            curr_state = role_states.START_APPLY
+        else:
+            raise ResMgrException('Cannot add role %s to host %s in the '
+                                  'current state.' % (role_name, host_id))
+        return curr_state
+
+    def _move_to_deauth_state(self, host_id, role_name):
+        curr_state = None
+        if self.res_mgr_db.advance_role_state(host_id, role_name,
+                role_states.APPLIED, role_states.START_DEAUTH):
+            log.info('role %s on host %s moved from %s to %s', role_name,
+                     host_id, role_states.APPLIED, role_states.START_DEAUTH)
+            log.info('Removing role %s from %s', role_name, host_id)
+            curr_state = role_states.START_DEAUTH
+        elif self.res_mgr_db.advance_role_state(host_id, role_name,
+                role_states.DEAUTH_ERROR, role_states.START_DEAUTH):
+            log.info('role %s on host %s moved from %s to %s', role_name,
+                     host_id, role_states.DEAUTH_ERROR, role_states.START_DEAUTH)
+            curr_state = role_states.START_DEAUTH
+        else:
+            raise ResMgrException('Cannot remove role %s from host %s in the '
+                                  'current state.' % (role_name, host_id))
+        return curr_state
+
     def add_role(self, host_id, role_name, host_settings):
         """
         Add a role to a particular host
@@ -915,6 +1111,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         """
         log.info('Assigning role %s to %s with host settings %s',
                  role_name, host_id, host_settings)
+
         active_role_in_db = self.res_mgr_db.query_role(role_name)
         if not active_role_in_db:
             log.error('Role %s is not found in list of active roles', role_name)
@@ -924,8 +1121,6 @@ class ResMgrPf9Provider(ResMgrProvider):
         if not host_inst:
             log.error('Host %s is not a recognized host', host_id)
             raise HostNotFound(host_id)
-
-        host_roles = self.res_mgr_db.query_host(host_id, fetch_role_ids=True)
 
         initially_inactive = not host_inst['roles']
         host_inst['roles'].append(role_name)
@@ -947,6 +1142,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             rabbit_user, rabbit_password = self.create_rabbit_credentials(host_id, role_name)
             self.res_mgr_db.insert_update_host(host_id, host_inst['info'], role_name, host_settings)
             self.res_mgr_db.associate_role_to_host(host_id, role_name)
+            curr_role_state = self._move_to_create_edit_state(host_id, role_name)
             self.res_mgr_db.associate_rabbit_credentials_to_host(host_id,
                                                                  role_name,
                                                                  rabbit_user,
@@ -964,16 +1160,25 @@ class ResMgrPf9Provider(ResMgrProvider):
             role_settings = host_details[host_id]['role_settings']
             roles = self.res_mgr_db.query_roles_for_host(host_id)
             _update_custom_role_settings(app_info, role_settings, roles)
-            self._on_auth(role_name, app_info)
+            with self.res_mgr_db.move_new_state(host_id, role_name,
+                                                curr_role_state,
+                                                role_states.PRE_AUTH,
+                                                role_states.NOT_APPLIED):
+                self.roles_mgr.on_auth(role_name,
+                                       substitute_host_id(app_info, host_id))
             log.info('Sending request to backbone to add role %s to %s with config %s',
                      role_name, host_id, app_info)
+            self.res_mgr_db.advance_role_state(host_id, role_name,
+                                               role_states.PRE_AUTH,
+                                               role_states.AUTH_CONVERGING)
             self.roles_mgr.push_configuration(host_id, app_info)
-        except:
+        except Exception as e:
+            log.error('Host add failed with %s', e)
             try:
                 self._rabbit_mgmt_cl.delete_user(rabbit_user)
             except:
                 log.warn('Failed to clean up rabbit user %s after failure while '
-                         'adding role %s to host %s' % (rabbit_user, role_name, host_id))
+                         'adding role %s to host %s', rabbit_user, role_name, host_id)
             raise
 
         notifier.publish_notification('change', 'host', host_id)
@@ -1017,11 +1222,7 @@ class ResMgrPf9Provider(ResMgrProvider):
                 log.warn('Role %s is not assigned to %s', role_name, host_id)
                 return
 
-            host_inst['roles'].remove(role_name)
-            if not host_inst['roles']:
-                # If this is the last role, then follow the delete_host code path
-                self.delete_host(host_id)
-                return
+            curr_role_state = self._move_to_deauth_state(host_id, role_name)
 
             # Following code path is for hosts that have at least one role remaining
             # after the role removal.
@@ -1033,6 +1234,13 @@ class ResMgrPf9Provider(ResMgrProvider):
             # Push configuration to bbone is idempotent, so we will end up with
             # a converged state eventually.
             log.debug('Clearing role %s for host %s in DB', role_name, host_id)
+            with self.res_mgr_db.move_new_state(host_id, role_name,
+                                                curr_role_state,
+                                                role_states.PRE_DEAUTH,
+                                                role_states.APPLIED):
+                self.roles_mgr.on_deauth(role_name,
+                        substitute_host_id(deauthed_app_config, host_id))
+
             credentials_to_delete = self.res_mgr_db.query_rabbit_credentials(
                                     host_id=host_id,
                                     rolename=role_name)
@@ -1041,16 +1249,17 @@ class ResMgrPf9Provider(ResMgrProvider):
                        % (host_id, role_name))
                 log.error(msg)
                 raise RabbitCredentialsConfigureError(msg)
-            self.res_mgr_db.remove_role_from_host(host_id, role_name)
             self.delete_rabbit_credentials(credentials_to_delete)
             notifier.publish_notification('change', 'host', host_id)
 
             log.debug('Sending request to backbone to remove role %s from %s',
                       role_name, host_id)
             host_details = self.res_mgr_db.query_host_and_app_details(host_id)
+            self.res_mgr_db.advance_role_state(host_id, role_name,
+                                               role_states.PRE_DEAUTH,
+                                               role_states.DEAUTH_CONVERGING)
             self.roles_mgr.push_configuration(host_id,
                                  host_details[host_id]['apps_config'])
-            self._on_deauth(role_name, deauthed_app_config)
 
     def _invoke_service_cfg_script(self, service_name):
         svc_info = self.get_service_settings(service_name)
@@ -1079,74 +1288,6 @@ class ResMgrPf9Provider(ResMgrProvider):
 
     def get_custom_settings(self, host_id, role_name):
         return self.res_mgr_db.get_custom_settings(host_id, role_name)
-
-    def _on_auth(self, role_name, app_config):
-        self._run_event('on_auth', role_name, app_config)
-
-    def _on_deauth(self, role_name, app_config):
-        self._run_event('on_deauth', role_name, app_config)
-
-    def _run_event(self, event_method, role_name, app_config):
-        """
-        A useful app_config dict looks like:
-        'rolename': {
-          'du_config': {
-            'auth_events': {
-              'type': 'python',
-              'module_path': '/path/to/events.py'
-              'params' {
-                'kwarg1': 'val1',
-                'kwarg2': 'val2'
-              }
-            }
-          }
-          ...
-        }
-        """
-        # Dive into the app_config dictionary to find the auth_events
-        # spec. Do nothing if it (or any of the intermediate keys)
-        # is missing.
-        role_apps = role_app_map[role_name]
-        for app_name, app_details in app_config.iteritems():
-            if app_name not in role_apps or \
-               'du_config' not in app_details or \
-               'auth_events' not in app_details['du_config']:
-                log.debug('No auth events for %s and role %s',
-                          app_name, role_name)
-                continue
-
-            event_spec = app_details['du_config']['auth_events']
-
-            events_type = event_spec.get('type', None)
-            if events_type == 'python':
-                self._run_python_event(event_method, event_spec)
-            else:
-                log.warn('Unknown auth_events type \'%s\'.', events_type)
-
-    def _run_python_event(self, event_method, event_spec):
-        """
-        Run a method from the python module whose path is in event_spec. Will
-        only raise DuConfigError.
-        """
-        module_path = event_spec.get('module_path', None)
-        if not module_path:
-            log.warn('No auth events module_path specified in app_config.')
-        else:
-            params = event_spec.get('params', {})
-            try:
-                module_name = os.path.splitext(
-                        os.path.basename(module_path))[0]
-                module = imp.load_source(module_name, module_path)
-                # Pass resmgr logger object to auth_event handler method
-                method = getattr(module, event_method)
-                method(logger=log, **params)
-                log.info('Auth event \'%s\' method from %s ran successfully',
-                         event_method, module_path)
-            except:
-                reason = 'Auth event \'%s\' method failed to run from %s' \
-                         % (event_method, module_path)
-                log.exception(reason)
-                raise DuConfigError(reason)
 
 def get_provider(config_file):
     return ResMgrPf9Provider(config_file)

@@ -51,7 +51,7 @@ START_APPLY = _RoleState('start-apply', ['not-applied', 'pre-auth'])
 PRE_AUTH = _RoleState('pre-auth', ['auth-converging'])
 AUTH_CONVERGING = _RoleState('auth-converging', ['auth-converged', 'auth-error'])
 AUTH_CONVERGED = _RoleState('auth-converged', ['applied', 'auth-error'])
-AUTH_ERROR = _RoleState('auth-error', ['pre-auth'])
+AUTH_ERROR = _RoleState('auth-error', ['start-apply'])
 APPLIED = _RoleState('applied', ['start-edit', 'start-deauth'])
 START_EDIT = _RoleState('start-edit', ['pre-auth', 'applied'])
 START_DEAUTH = _RoleState('start-deauth', ['pre-deauth', 'applied'])
@@ -60,7 +60,7 @@ DEAUTH_CONVERGING = _RoleState('deauth-converging',
                                ['deauth-converged', 'deauth-error'])
 DEAUTH_CONVERGED = _RoleState('deauth-converged',
                               ['deauth-error', 'not-applied'])
-DEAUTH_ERROR = _RoleState('deauth-error', ['pre-deauth'])
+DEAUTH_ERROR = _RoleState('deauth-error', ['start-deauth'])
 
 class InvalidState(Exception):
     def __init__(self, old_state, new_state):

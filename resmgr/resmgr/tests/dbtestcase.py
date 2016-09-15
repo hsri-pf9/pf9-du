@@ -93,7 +93,8 @@ TEST_ROLE = {
                                                         'test_auth_events.py'),
                             "params": {
                                 "param1": "%(test-role.param1)s",
-                                "param2": "%(test-role.param2)s"
+                                "param2": "%(test-role.param2)s",
+                                "host_id": "%(host_id)s"
                             }
                         }
                      },

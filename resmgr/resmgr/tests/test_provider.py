@@ -3,6 +3,7 @@
 # pylint: disable=protected-access, too-many-instance-attributes
 
 import copy
+import imp
 import json
 import logging
 import os
@@ -12,12 +13,13 @@ import threading
 
 from rabbit import RabbitMgmtClient
 from resmgr import resmgr_provider_pf9
+from resmgr import role_states
+from resmgr.exceptions import DuConfigError, ResMgrException
 from resmgr.resmgr_provider_pf9 import ResMgrPf9Provider, BbonePoller
 from resmgr.resmgr_provider_pf9 import log as provider_logger
 from resmgr.tests.dbtestcase import DbTestCase
 from resmgr.tests.dbtestcase import TEST_HOST, TEST_ROLE
 
-logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
 
 THISDIR = os.path.abspath(os.path.dirname(__file__))
@@ -147,6 +149,9 @@ class TestProvider(DbTestCase):
         self._requests_put = self._patchfun('requests.put')
         self._requests_put.return_value = self._plain_http_response(200)
 
+        # used to control failures in the test_auth_events late-loaded module
+        os.environ.pop('PF9_RESMGR_FAIL_EVENT', None)
+
     def tearDown(self):
         super(TestProvider, self).tearDown()
 
@@ -162,17 +167,59 @@ class TestProvider(DbTestCase):
         resmgr_provider_pf9._host_lock = threading.Lock()
         resmgr_provider_pf9._role_delete_lock = threading.RLock()
 
+    def _assert_role_state(self, host_id, rolename, state):
+        role_assoc = self._db.get_current_role_association(host_id,
+                                                           rolename)
+        self.assertEquals(state, role_assoc.current_state)
+
+    def _assert_event_handler_called(self, event_name):
+        events = sys.modules['test_auth_events']
+        method = getattr(events, event_name)
+        method.assert_called_once_with(logger=provider_logger,
+                                       param1='param1_value',
+                                       param2='param2_value',
+                                       host_id = TEST_HOST['id'])
+    def _assert_event_handler_not_called(self, event_name):
+        events = sys.modules['test_auth_events']
+        method = getattr(events, event_name)
+        self.assertFalse(method.called)
+
+    def _assert_fails_puts_deletes(self, host_id, rolename):
+        init = self._db.get_current_role_association(host_id,
+                                                     rolename)
+        init_state = role_states.from_name(init.current_state)
+        with self.assertRaises(ResMgrException):
+            self._provider.add_role(host_id, rolename, {})
+        with self.assertRaises(ResMgrException):
+            self._provider.delete_role(host_id, rolename)
+
+        # make sure the state didn't change
+        self._assert_role_state(host_id, rolename, init_state)
+
+    @staticmethod
+    def _fail_auth_event(event_name):
+        """
+        Auth events are loaded later. This tells the test_auth_events
+        module to raise an exception on the named event.
+        """
+        os.environ['PF9_RESMGR_FAIL_EVENT'] = event_name
+
+    @staticmethod
+    def _unfail_auth_event(event_name):
+        """
+        Remove the environment variable so all events succeed
+        """
+        os.environ.pop('PF9_RESMGR_FAIL_EVENT', None)
+
     def test_add_role_default_config(self):
         host_id = TEST_HOST['id']
         rolename = TEST_ROLE['test-role']['1.0']['role_name']
         self._provider.add_role(host_id, rolename, {})
 
-        # verify that the auth events ran. Note that all the event
-        # handlers in test_auth_events.py are Mock() objects.
-        on_auth = sys.modules['test_auth_events'].on_auth
-        on_auth.assert_called_once_with(logger=provider_logger,
-                                        param1='param1_value',
-                                        param2='param2_value')
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.AUTH_CONVERGING)
+        self._assert_event_handler_called('on_auth')
+        self._assert_fails_puts_deletes(host_id, 'test-role')
 
         # check the config that got pushed to bbmaster
         self._requests_put.assert_called_once_with(
@@ -193,12 +240,19 @@ class TestProvider(DbTestCase):
         self._bbone.process_hosts()
         authed_host = self._inventory.get_authorized_host(host_id)
         self.assertEqual('converging', authed_host.get('role_status'))
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.AUTH_CONVERGING)
+        self._assert_event_handler_not_called('on_auth_converged')
+        self._assert_fails_puts_deletes(host_id, 'test-role')
 
         # our pretend host has converged
         self._get_backbone_host.return_value = self._converged_host()
         self._bbone.process_hosts()
         authed_host = self._inventory.get_authorized_host(host_id)
         self.assertEqual('ok', authed_host.get('role_status'))
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.APPLIED)
+        self._assert_event_handler_called('on_auth_converged')
 
     def test_delete_role(self):
         # add and converge the role
@@ -213,25 +267,29 @@ class TestProvider(DbTestCase):
         # delete it
         self._provider.delete_role(host_id, rolename)
 
-        # verify that the deauth events ran.
-        on_deauth = sys.modules['test_auth_events'].on_deauth
-        on_deauth.assert_called_once_with(logger=provider_logger,
-                                          param1='param1_value',
-                                          param2='param2_value')
-        # no other roles - host gets deleted from db, it's gone for now
-        self.assertFalse(self._inventory.get_authorized_host(host_id))
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.DEAUTH_CONVERGING)
+        self._assert_event_handler_called('on_deauth')
+        self._assert_fails_puts_deletes(host_id, 'test-role')
 
-        # cleanup's still in process on the host. Since the above deletes
-        # the host in the database, this is a 'new' host which is assumed
-        # to have no roles, and the app state isn't checked. The following
-        # adds the host to the _unauthorized_hosts global dict.
+        # still converging
         self._get_backbone_host.return_value = self._converging_host()
         self._bbone.process_hosts()
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.DEAUTH_CONVERGING)
+        self._assert_event_handler_not_called('on_deauth_converged')
+        self._assert_fails_puts_deletes(host_id, 'test-role')
+
+        # converged
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+
+        # verify that the deauth post-converge event ran.
+        self._assert_event_handler_called('on_deauth_converged')
+
+        # host is gone
         hosts = self._inventory.get_all_hosts()
-        self.assertEquals(1, len(hosts))
-        host = hosts.get(host_id)
-        self.assertTrue(host)
-        self.assertFalse(host.get('roles'))
+        self.assertFalse(hosts)
 
     def test_delete_one_role_keep_another(self):
         # add and converge both roles
@@ -244,23 +302,30 @@ class TestProvider(DbTestCase):
         self.assertEqual('ok', authed_host.get('role_status'))
         self.assertEqual(['test-role', 'test-role-2'],
                          sorted(authed_host['roles']))
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.APPLIED)
+        self._assert_role_state(host_id, 'test-role-2',
+                                role_states.APPLIED)
+
         # delete the first one
         self._provider.delete_role(host_id, 'test-role')
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.DEAUTH_CONVERGING)
+        self._assert_fails_puts_deletes(host_id, 'test-role')
 
         # verify that the deauth events ran.
-        on_deauth = sys.modules['test_auth_events'].on_deauth
-        on_deauth.assert_called_once_with(logger=provider_logger,
-                                          param1='param1_value',
-                                          param2='param2_value')
-        # The host is still authorized
+        self._assert_event_handler_called('on_deauth')
+
+        # The host is still authorized, and the role's still there
         host = self._inventory.get_authorized_host(host_id)
         self.assertTrue(host)
-        self.assertEquals(['test-role-2'], host['roles'])
+        self.assertEquals(['test-role', 'test-role-2'], host['roles'])
 
         # still in the database with test-role-2 still bound
         hosts_in_db = self._db.query_hosts()
         self.assertTrue(hosts_in_db)
-        self.assertEquals(['test-role-2'], hosts_in_db[0]['roles'])
+        self.assertEquals(['test-role', 'test-role-2'],
+                          hosts_in_db[0]['roles'])
 
         # cleanup's still in process on the host.
         self._get_backbone_host.return_value = self._converging_host()
@@ -270,7 +335,12 @@ class TestProvider(DbTestCase):
         host = hosts.get(host_id)
         self.assertTrue(host)
         self.assertEquals('converging', host['role_status'])
-        self.assertEquals(['test-role-2'], host.get('roles'))
+        self.assertEquals(['test-role', 'test-role-2'],
+                          host.get('roles'))
+        self._assert_event_handler_not_called('on_deauth_converged')
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.DEAUTH_CONVERGING)
+        self._assert_fails_puts_deletes(host_id, 'test-role')
 
         # our pretend host has converged
         self._get_backbone_host.return_value = self._converged_host()
@@ -278,6 +348,7 @@ class TestProvider(DbTestCase):
         authed_host = self._inventory.get_authorized_host(host_id)
         self.assertEqual('ok', authed_host.get('role_status'))
         self.assertEqual(['test-role-2'], authed_host.get('roles'))
+        self._assert_event_handler_called('on_deauth_converged')
 
     def test_upgrade_role(self):
         # add and converge the role
@@ -288,6 +359,7 @@ class TestProvider(DbTestCase):
         self._bbone.process_hosts()
         authed_host = self._inventory.get_authorized_host(host_id)
         self.assertEqual('ok', authed_host.get('role_status'))
+        self._assert_role_state(host_id, 'test-role', role_states.APPLIED)
 
         # new version of test-role:
         new_role = {
@@ -302,6 +374,9 @@ class TestProvider(DbTestCase):
 
         # re-PUT the role
         self._provider.add_role(host_id, rolename, {})
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.AUTH_CONVERGING)
+        self._assert_fails_puts_deletes(host_id, 'test-role')
 
         # check the config that got pushed to bbmaster
         push_2_0 = copy.deepcopy(BBONE_PUSH)
@@ -319,6 +394,9 @@ class TestProvider(DbTestCase):
         self.assertTrue(host)
         self.assertEquals('converging', host['role_status'])
         self.assertEquals(['test-role'], host.get('roles'))
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.AUTH_CONVERGING)
+        self._assert_fails_puts_deletes(host_id, 'test-role')
 
         # successfully converged new role
         converged_2_0 = self._converged_host()
@@ -334,6 +412,7 @@ class TestProvider(DbTestCase):
         self.assertEquals(1, len(roles))
         self.assertEquals('test-role_2.0', roles[0].id)
         self.assertEquals('2.0', roles[0].version)
+        self._assert_role_state(host_id, 'test-role', role_states.APPLIED)
 
     def test_edit_role(self):
         # add and converge the role with default params
@@ -348,10 +427,14 @@ class TestProvider(DbTestCase):
         self._bbone.process_hosts()
         authed_host = self._inventory.get_authorized_host(host_id)
         self.assertEqual('ok', authed_host.get('role_status'))
+        self._assert_role_state(host_id, 'test-role', role_states.APPLIED)
 
         # re-PUT the role with new configurable param
         new_role_params ={'customizable_key': 'new value for customizable_key'}
         self._provider.add_role(host_id, rolename, new_role_params)
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.AUTH_CONVERGING)
+        self._assert_fails_puts_deletes(host_id, 'test-role')
 
         # check the config that got pushed to bbmaster
         push = copy.deepcopy(BBONE_PUSH)
@@ -371,6 +454,9 @@ class TestProvider(DbTestCase):
         self.assertTrue(host)
         self.assertEquals('converging', host['role_status'])
         self.assertEquals(['test-role'], host.get('roles'))
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.AUTH_CONVERGING)
+        self._assert_fails_puts_deletes(host_id, 'test-role')
 
         # successfully converged new role
         converged = self._converged_host()
@@ -382,6 +468,87 @@ class TestProvider(DbTestCase):
         authed_host = self._inventory.get_authorized_host(host_id)
         self.assertEqual('ok', authed_host.get('role_status'))
         self.assertEqual(['test-role'], authed_host.get('roles'))
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.APPLIED)
+
+    def test_failed_on_auth_event(self):
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._fail_auth_event('on_auth')
+        with self.assertRaises(DuConfigError):
+            self._provider.add_role(host_id, rolename, {})
+
+    def test_failed_on_deauth_event(self):
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+
+        # add and converge the role with default params
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._provider.add_role(host_id, rolename, {})
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+
+        # try to deauth, but the event fails
+        self._fail_auth_event('on_deauth')
+        with self.assertRaises(DuConfigError):
+            self._provider.delete_role(host_id, rolename)
+
+    def test_failed_on_auth_converged_event(self):
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._fail_auth_event('on_auth_converged')
+
+        # add and converge the role. The end state should be AUTH_EROR
+        self._provider.add_role(host_id, rolename, {})
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+        self._assert_role_state(host_id, rolename, role_states.AUTH_ERROR)
+
+        # now try to recover
+        self._unfail_auth_event('on_auth_converged')
+        self._provider.add_role(host_id, rolename, {})
+        self._assert_role_state(host_id, rolename, role_states.AUTH_CONVERGING)
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+        self._assert_role_state(host_id, rolename, role_states.APPLIED)
+
+    def test_failed_on_deauth_converged_event(self):
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+
+        # add and converge the role with default params
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._provider.add_role(host_id, rolename, {})
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+
+        # start deauth, on_deauth_converged event will put us in DEAUTH_ERROR
+        self._fail_auth_event('on_deauth_converged')
+        self._provider.delete_role(host_id, rolename)
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+        self._assert_role_state(host_id, rolename, role_states.DEAUTH_ERROR)
+
+        # add should fail:
+        with self.assertRaises(ResMgrException):
+            self._provider.add_role(host_id, rolename, {})
+
+        # now try to recover with a delete
+        self._unfail_auth_event('on_deauth_converged')
+        self._provider.delete_role(host_id, rolename)
+        self._assert_role_state(host_id, rolename,
+                                role_states.DEAUTH_CONVERGING)
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+
+        # verify that the deauth post-converge event ran.
+        self._assert_event_handler_called('on_deauth_converged')
+
+        # host is gone
+        hosts = self._inventory.get_all_hosts()
+        self.assertFalse(hosts)
 
     @staticmethod
     def _plain_http_response(code):
