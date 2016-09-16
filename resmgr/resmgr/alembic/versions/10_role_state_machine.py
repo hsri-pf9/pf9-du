@@ -2,8 +2,8 @@
 
 """
 Adds support for role states.
-Revision ID: 9
-Revises: 8
+Revision ID: 10
+Revises: 9
 Create Date: 2016-8-4 0:0:0.0
 """
 
@@ -16,6 +16,7 @@ import logging
 from alembic import op
 from resmgr.role_states import APPLIED, NOT_APPLIED
 from sqlalchemy import Column, String
+from sqlalchemy.sql import text
 
 LOG = logging.getLogger(__name__)
 
@@ -30,8 +31,8 @@ def upgrade():
                   Column('current_state', String(120),
                          nullable=False, server_default=str(NOT_APPLIED))
     )
-    op.get_bind().execute("UPDATE host_role_map set current_state=:state",
-                          {'state': str(APPLIED)})
+    op.get_bind().execute(text("UPDATE host_role_map set current_state=:state"),
+                          state=str(APPLIED))
 
 def downgrade():
     LOG.info('dropping current state column from host_role_map')
