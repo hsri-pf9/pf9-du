@@ -15,7 +15,7 @@ setup(
     install_requires=[
         "python-daemon==1.6.1",
         "alembic",
-        "pecan",
+        "pecan==1.1.2",
         "sqlalchemy",
         'requests'
     ],
