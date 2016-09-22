@@ -179,6 +179,7 @@ class TestProvider(DbTestCase):
                                        param1='param1_value',
                                        param2='param2_value',
                                        host_id = TEST_HOST['id'])
+
     def _assert_event_handler_not_called(self, event_name):
         events = sys.modules['test_auth_events']
         method = getattr(events, event_name)
@@ -544,6 +545,37 @@ class TestProvider(DbTestCase):
         self._bbone.process_hosts()
 
         # verify that the deauth post-converge event ran.
+        self._assert_event_handler_called('on_deauth_converged')
+
+        # host is gone
+        hosts = self._inventory.get_all_hosts()
+        self.assertFalse(hosts)
+
+    def test_delete_host(self):
+        # add and converge a role
+        host_id = TEST_HOST['id']
+        self._provider.add_role(host_id, 'test-role', {})
+        self._assert_event_handler_called('on_auth')
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+        self._assert_event_handler_called('on_auth_converged')
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertEqual('ok', authed_host.get('role_status'))
+        self.assertEqual(['test-role'], authed_host['roles'])
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.APPLIED)
+
+        # delete the host and converge it
+        self._provider.delete_host(host_id)
+
+        # host should be there until converged
+        self.assertTrue(self._inventory.get_all_hosts(),
+                        'deleted host should exist until converge')
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.DEAUTH_CONVERGING)
+        self._assert_event_handler_called('on_deauth')
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
         self._assert_event_handler_called('on_deauth_converged')
 
         # host is gone

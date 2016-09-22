@@ -814,28 +814,6 @@ class ResMgrDB(object):
             log.info('Removed %s role state from host %s', role_name, host_id)
             return True
 
-    def update_roles_for_host(self, host_id, roles):
-        """
-        Remove a role from a given host
-        :param str host_id: ID of the host
-        :param str roles: empty list
-        """
-        # FIXME: This is only used to clear all the roles on full host removal,
-        # and it doesn't really make sense otherwise. Make sure that's the only
-        # way it's used. Should be renamed:
-        assert roles == []
-
-        # the delete query doesn't dirty the session, so we can't use
-        # dbsession()
-        log.info('Removing all roles for host %s', host_id)
-        session = self.session_maker()
-        removed = session.query(HostRoleAssociation
-                               ).filter_by(host_id=host_id
-                               ).delete()
-        session.commit()
-        session.close()
-        log.info('Removed %d roles from from %s', removed, host_id)
-
     def advance_role_state(self, host_id, role_name, current_state, new_state):
         """
         Update the state of a host role association. The update fails if

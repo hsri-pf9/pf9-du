@@ -981,31 +981,8 @@ class ResMgrPf9Provider(ResMgrProvider):
             raise HostNotFound(host_id)
 
         # Clear out all the roles
-        if host_inst['roles']:
-            # recalculate role app parameters for use in deauth event handler
-            host_details = self.res_mgr_db.query_host_and_app_details(host_id)
-            deauthed_app_config = host_details[host_id]['apps_config']
-            role_settings = host_details[host_id]['role_settings']
-            roles = self.roles_mgr.db_handler.query_roles_for_host(host_id)
-            _update_custom_role_settings(deauthed_app_config, role_settings, roles)
-
-            log.debug('Removing roles and state entries in the database for %s', host_id)
-            _authorized_host_role_status[host_id] = None
-            self.res_mgr_db.update_roles_for_host(host_id, roles=[])
-            credentials_to_delete = self.res_mgr_db.query_rabbit_credentials(host_id=host_id)
-            # The rabbit_credentials entry associated with this host will also
-            # be removed due to cascading deletes.
-            self.res_mgr_db.delete_host(host_id)
-            notifier.publish_notification('delete', 'host', host_id)
-            self.delete_rabbit_credentials(credentials_to_delete)
-            log.debug('Sending request to backbone to remove all roles from %s',
-                      host_id)
-            self.roles_mgr.push_configuration(host_id, app_info={},
-                                              needs_rabbit_subst=False)
-            for role_name in host_inst['roles']:
-                log.debug('Calling deauth event handler for %s role', role_name)
-                self.roles_mgr.on_deauth(role_name,
-                        substitute_host_id(deauthed_app_config, host_id))
+        for role in self.res_mgr_db.query_roles_for_host(host_id):
+            self.delete_role(host_id, role.rolename)
 
     def delete_rabbit_credentials(self, credentials):
         for credential in credentials:

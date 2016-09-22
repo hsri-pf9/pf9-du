@@ -149,25 +149,6 @@ class TestDb(DbTestCase):
         self.assertEquals({}, deets[host_id]['apps_config'])
         self.assertEquals({}, deets[host_id]['role_states'])
 
-    def test_remove_all_roles(self):
-        self._db.insert_update_host(TEST_HOST['id'],
-                                    TEST_HOST['details'],
-                                    'test-role',
-                                    {'customizable_key': 'customizable_value'})
-        host_id = TEST_HOST['id']
-        self._db.associate_role_to_host(host_id, 'test-role')
-        deets = self._db.query_host_and_app_details()
-        self.assertEquals(1, len(deets))
-        self.assertEquals(role_states.NOT_APPLIED,
-                          deets[host_id]['role_states']['test-role_1.0'])
-        self.assertTrue('test-role' in deets['1234']['apps_config'])
-
-        self._db.update_roles_for_host(host_id, [])
-        deets = self._db.query_host_and_app_details()
-        self.assertEquals(1, len(deets))
-        self.assertEquals({}, deets[host_id]['apps_config'])
-        self.assertEquals({}, deets[host_id]['role_states'])
-
     def test_update_role_state(self):
         host_id = TEST_HOST['id']
         self._db.insert_update_host(TEST_HOST['id'],
