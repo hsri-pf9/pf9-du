@@ -46,6 +46,20 @@ def legal_transition(old_state, new_state):
     else:
         return str(new_state) in from_name(old_state).valid_next
 
+def role_is_authed(state_name):
+    """
+    True when a role is in a state where it's considered
+    assigned to the host.
+    """
+    role_state = from_name(state_name)
+    return role_state in [APPLIED,
+                          START_APPLY,
+                          START_EDIT,
+                          PRE_AUTH,
+                          AUTH_CONVERGING,
+                          AUTH_CONVERGED,
+                          AUTH_ERROR]
+
 NOT_APPLIED = _RoleState('not-applied', ['start-apply'])
 START_APPLY = _RoleState('start-apply', ['not-applied', 'pre-auth'])
 PRE_AUTH = _RoleState('pre-auth', ['auth-converging'])

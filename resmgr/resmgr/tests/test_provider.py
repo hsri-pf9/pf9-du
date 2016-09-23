@@ -268,6 +268,10 @@ class TestProvider(DbTestCase):
         # delete it
         self._provider.delete_role(host_id, rolename)
 
+        # check that empty config was pushed to bbmaster.
+        self._requests_put.assert_called_with(
+            'http://fake/v1/hosts/1234/apps', '{}')
+
         self._assert_role_state(host_id, 'test-role',
                                 role_states.DEAUTH_CONVERGING)
         self._assert_event_handler_called('on_deauth')

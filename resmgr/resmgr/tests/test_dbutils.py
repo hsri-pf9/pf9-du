@@ -41,7 +41,7 @@ class TestDb(DbTestCase):
                                     {'customizable_key': 'customizable_value'})
         host_id = TEST_HOST['id']
         self._db.associate_role_to_host(host_id, 'test-role')
-        deets = self._db.query_host_and_app_details()
+        deets = self._db.query_host_and_app_details(include_deauthed_roles=True)
         self.assertEquals(1, len(deets))
         self.assertEquals(role_states.NOT_APPLIED,
                           deets[host_id]['role_states']['test-role_1.0'])
@@ -73,7 +73,7 @@ class TestDb(DbTestCase):
 
         self._db.associate_role_to_host(host_id, 'test-role')
         self._db.associate_role_to_host(host_id, 'test-role-2')
-        deets = self._db.query_host_and_app_details()
+        deets = self._db.query_host_and_app_details(include_deauthed_roles=True)
         self.assertEquals(1, len(deets))
         self.assertEquals(role_states.NOT_APPLIED,
                           deets[host_id]['role_states']['test-role_1.0'])
@@ -137,7 +137,7 @@ class TestDb(DbTestCase):
         host_id = TEST_HOST['id']
         self._db.associate_role_to_host(host_id, 'test-role')
 
-        deets = self._db.query_host_and_app_details()
+        deets = self._db.query_host_and_app_details(include_deauthed_roles=True)
         self.assertEquals(1, len(deets))
         self.assertEquals(role_states.NOT_APPLIED,
                           deets[host_id]['role_states']['test-role_1.0'])

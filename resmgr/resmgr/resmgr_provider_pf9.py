@@ -129,7 +129,6 @@ def _load_role_confd_files(role_metadata_location, config):
         except ConfigParser.Error:
             log.exception('Failed to parse config file %s.', conf_file)
 
-
 def _run_script(cmd):
     try:
         subprocess.check_call(cmd)
@@ -667,10 +666,10 @@ class BbonePoller(object):
                     _update_custom_role_settings(expected_cfg, role_settings, roles)
                     self.db_handle.substitute_rabbit_credentials(expected_cfg, host)
                     if host_status == 'ok':
-                        self._finish_role_converge(host, expected_cfg)
+                        self._finish_role_converge(host)
                     if not is_satisfied_by(expected_cfg, host_info[cfg_key]):
                         log.debug('Pushing new configuration for %s, config: %s. '
-                                  'Expected config %s', host, host_info['apps'],
+                                  'Expected config %s', host, host_info[cfg_key],
                                   expected_cfg)
                         self.rolemgr.push_configuration(host, expected_cfg,
                                                         needs_hostid_subst=False,
@@ -690,8 +689,23 @@ class BbonePoller(object):
                     _unauthorized_hosts[host]['info']['hostname'] = hostname
                     self.notifier.publish_notification('change', 'host', host)
 
-    def _finish_role_converge(self, host_id, app_config):
+    def _finish_role_converge(self, host_id):
         db = self.db_handle
+
+        # FIXME: This calculation is a mess. The apps config for this has to be
+        # different from the push in _process_existing_hosts, since we need the
+        # the config for the on_deauth_converged call. This config is not in the
+        # push. All the configuration calculation should be centralized,
+        # and based on DB primitives, instead of dictionaries like the result of
+        # query_host_and_app_details.
+        authorized_hosts = self.db_handle.query_host_and_app_details(
+                                        host_id=host_id,
+                                        include_deauthed_roles=True)
+        role_settings = authorized_hosts[host_id]['role_settings']
+        roles = self.rolemgr.db_handler.query_roles_for_host(host_id)
+        apps_cfg = substitute_host_id(authorized_hosts[host_id]['apps_config'],
+                                      host_id)
+        _update_custom_role_settings(apps_cfg, role_settings, roles)
         for role in db.query_roles_for_host(host_id):
             try:
                 if db.advance_role_state(host_id, role.rolename,
@@ -703,7 +717,7 @@ class BbonePoller(object):
                                            role_states.AUTH_ERROR):
                         log.info('Running on_auth_converged_event')
                         self.rolemgr.on_auth_converged(role.rolename,
-                                substitute_host_id(app_config, host_id))
+                                substitute_host_id(apps_cfg, host_id))
                 elif db.advance_role_state(host_id, role.rolename,
                                            role_states.DEAUTH_CONVERGING,
                                            role_states.DEAUTH_CONVERGED):
@@ -713,17 +727,13 @@ class BbonePoller(object):
                                            role_states.DEAUTH_ERROR):
                         log.info('Running on_deauth_converged_event')
                         self.rolemgr.on_deauth_converged(role.rolename,
-                                substitute_host_id(app_config, host_id))
+                                substitute_host_id(apps_cfg, host_id))
                     # now we can drop the association
                     db.remove_role_from_host(host_id, role.rolename)
-                else:
-                    # FIXME: handle this better.
-                    log.error('Failed to move to a final role state after role '
-                              'convergence.')
             except DuConfigError as e:
                 log.error('Failed to run post converge event for role %s on '
                           'host %s: %s', role.rolename, host_id, e)
-        # remove the host so it doesn't show up as authorized
+        # remove the host so it doesn't show up as 'authorized'
         if not db.query_roles_for_host(host_id):
             db.delete_host(host_id)
 
@@ -745,10 +755,6 @@ class BbonePoller(object):
                                        role_states.DEAUTH_ERROR):
                 log.info('Moved role %s on host %s to the %s state',
                          role.rolename, host_id, role_states.DEAUTH_ERROR)
-            else:
-                # FIXME: do something to recover from this.
-                log.error('Failed to move to an error state after converge '
-                          'completion.')
 
     def _recover_unexpected_role_states(self, host_ids):
         """

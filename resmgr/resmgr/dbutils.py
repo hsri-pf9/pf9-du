@@ -675,7 +675,8 @@ class ResMgrDB(object):
         with self.dbsession() as session:
             return session.query(RabbitCredential).filter_by(**filter_kwargs).all()
 
-    def query_host_and_app_details(self, host_id=None):
+    def query_host_and_app_details(self, host_id=None,
+                                   include_deauthed_roles=False):
         """
         Query host details and returns a JSON serializable dictionary and not
         the ORM object. Use this to reference the host data beyond the database
@@ -697,10 +698,13 @@ class ResMgrDB(object):
                 results = session.query(Host).all()
             for host in results:
                 assigned_apps = {}
-                role_states = {}
+                current_role_states = {}
                 for role_assoc in host.roles:
-                    assigned_apps.update(role_assoc.role.desiredconfig)
-                    role_states[role_assoc.role_id] = role_assoc.current_state
+                    if include_deauthed_roles or \
+                       role_states.role_is_authed(role_assoc.current_state):
+                        assigned_apps.update(role_assoc.role.desiredconfig)
+                    current_role_states[role_assoc.role_id] = \
+                                        role_assoc.current_state
 
                 out[host.id] = {
                     'hostname': host.hostname,
@@ -711,11 +715,10 @@ class ResMgrDB(object):
                     'responding': host.responding,
                     'apps_config': assigned_apps,
                     'role_settings': host.role_settings,
-                    'role_states': role_states
+                    'role_states': current_role_states
                     }
 
         return out
-
 
     def associate_role_to_host(self, host_id, role_name):
         """
