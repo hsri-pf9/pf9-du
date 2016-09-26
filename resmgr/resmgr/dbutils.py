@@ -725,6 +725,7 @@ class ResMgrDB(object):
         Associate a role to the host.
         :param str host_id: ID of the host
         :param str role_name: ID of the role
+        :return: True if the role association is new, false otherwise
         """
         log.info('Adding role %s to host %s', role_name, host_id)
         with self.dbsession() as session:
@@ -746,6 +747,7 @@ class ResMgrDB(object):
                                              role_id=old_role_id
                                  ).update({'role_id': role.id})
                     session.commit()
+                    return False
                 else:
                     # role not found in current associations, make a new one:
                     assoc = HostRoleAssociation(
@@ -753,10 +755,12 @@ class ResMgrDB(object):
                     assoc.host = host
                     assoc.role = role
                     host.roles.append(assoc)
+                    return True
             except:
                 log.exception('DB error while associating host %s with role %s',
                               host_id, role_name)
                 raise
+                return False
 
     def associate_rabbit_credentials_to_host(self,
                                              host_id,
@@ -856,14 +860,37 @@ class ResMgrDB(object):
                      role_name, host_id, current_state, new_state)
             return True
 
+    def get_all_role_associations(self, host_id):
+        """
+        Get all the role association objects along with roles for a host.
+        The associations and roles are expunged (detached) from the session
+        and returned.
+        """
+        session = self.session_maker()
+        entities = session.query(HostRoleAssociation
+                                ).filter_by(host_id=host_id
+                                ).all()
+        for entity in entities:
+            session.expunge(entity.role)
+            session.expunge(entity)
+        session.commit()
+        session.close()
+        return entities
+
     def get_current_role_association(self, host_id, role_name):
+        """
+        Get the role association objects along with role given a host_id and
+        rolename. The association and role are expunged (detached) from the
+        session and returned.
+        """
         session = self.session_maker()
         role_ids = session.query(Role.id).filter_by(rolename=role_name).subquery()
         entity = session.query(HostRoleAssociation
                               ).filter_by(host_id=host_id
                               ).filter(HostRoleAssociation.role_id.in_(role_ids)
                               ).one_or_none()
-        session.expunge(entity)
+        if entity:
+            session.expunge(entity)
         session.commit()
         session.close()
         return entity
@@ -980,16 +1007,20 @@ class ResMgrDB(object):
                     # body failed, move to failure state
                     log.error('Exception %s:%s, traceback = %s', exc_type,
                               exc, traceback)
-                    log.error('Failed to run actions to move to %s, '
-                              'moving to %s', success_state, failure_state)
+                    if start_state == failure_state:
+                        log.error('action failed for move from %s to %s, '
+                                  'remaining in %s', start_state,
+                                  success_state, start_state)
+                    else:
+                        log.error('Failed to run actions to move to %s, '
+                                  'moving to %s', success_state, failure_state)
 
-                    if not self.db.advance_role_state(host_id, role_name,
-                                                      start_state,
-                                                      failure_state):
-                        # FIXME: handle this situation better.
-                        log.error('Failed to transtion from \'%s\' to error '
-                                  'state \'%s\'', start_state, failure_state)
-
+                        if not self.db.advance_role_state(host_id, role_name,
+                                                          start_state,
+                                                          failure_state):
+                            # FIXME: handle this situation better.
+                            log.error('Failed to transtion from \'%s\' to error '
+                                      'state \'%s\'', start_state, failure_state)
                 else:
                     # body succeeded, move to new state
                     if not self.db.advance_role_state(host_id, role_name,

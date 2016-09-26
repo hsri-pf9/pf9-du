@@ -22,6 +22,14 @@ class _RoleState(object):
         return self.name
 
     def __eq__(self, other):
+        """
+        Compare a _RoleState object to another, or to its name,
+        both of which will return true when there's a name match.
+        Note that python will reverse the order when necessary,
+        so this could be used both with 'applied' == APPLIED,
+        and APPLIED == 'applied'. Obviously APPLIED == APPLIED as
+        well.
+        """
         if not (isinstance(other, str) or \
                 isinstance(other, unicode) or \
                 isinstance(other, _RoleState)):

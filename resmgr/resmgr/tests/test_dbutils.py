@@ -215,3 +215,16 @@ class TestDb(DbTestCase):
         deets = self._db.query_host_and_app_details()
         self.assertEquals(role_states.NOT_APPLIED,
                           deets[host_id]['role_states']['test-role_1.0'])
+
+    def test_get_all_role_associations(self):
+        host_id = TEST_HOST['id']
+        self._db.insert_update_host(TEST_HOST['id'],
+                                    TEST_HOST['details'],
+                                    'test-role',
+                                    {'customizable_key': 'customizable_value'})
+        self._db.associate_role_to_host(host_id, 'test-role')
+        self._db.associate_role_to_host(host_id, 'test-role-2')
+        assocs = self._db.get_all_role_associations(host_id)
+        self.assertTrue(assocs)
+        self.assertEquals(['test-role', 'test-role-2'],
+                          sorted([a.role.rolename for a in assocs]))

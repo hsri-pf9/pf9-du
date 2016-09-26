@@ -264,6 +264,116 @@ class RolesMgr(object):
             log.error('Configuring host %s failed: %s', host_id, exc)
             raise BBMasterNotFound(exc)
 
+    def get_current_app_config(self, host_id, include_deauthed_roles=False):
+        """
+        Calculate the current app config, either to be pushed to a host,
+        or to be used with an auth event.
+        :param host_id:
+        :param include_deauthed_roles: If true, includes config for roles
+            that are in the process of being removed. Useful when running
+            deauth events that need config for apps that are being removed.
+        :returns: dict something this (test-role is an 'app' name) {
+        "test-role": {
+            "version": "1.0",
+            "service_states": {"test-service": "true"},
+            "config": {
+                "test_conf": {
+                    "DEFAULT": {
+                        "conf1": "conf1_value"
+                    },
+                    "customizable_section": {
+                        "customizable_key": "default value for customizable_key"
+                    }
+                }
+            }
+        }}
+        """
+        db = self.db_handler
+        host_details = db.query_host_and_app_details(host_id,
+                include_deauthed_roles=include_deauthed_roles)
+        app_info = host_details[host_id]['apps_config']
+        role_settings = host_details[host_id]['role_settings']
+        roles = db.query_roles_for_host(host_id)
+        _update_custom_role_settings(app_info, role_settings, roles)
+        return substitute_host_id(app_info, host_id)
+
+    def move_to_preauth_state(self, host_id, rolename, current_state):
+        """
+        Run the on_auth role event handler.
+        on success move to the PRE_AUTH state
+        on failure move back to NOT_APPLIED.
+        """
+        app_info = self.get_current_app_config(host_id)
+        if current_state == role_states.START_APPLY:
+            with self.db_handler.move_new_state(host_id, rolename,
+                                                role_states.START_APPLY,
+                                                role_states.PRE_AUTH,
+                                                role_states.NOT_APPLIED):
+                self.on_auth(rolename, app_info)
+        elif current_state == role_states.START_EDIT:
+            with self.db_handler.move_new_state(host_id, rolename,
+                                                role_states.START_EDIT,
+                                                role_states.PRE_AUTH,
+                                                role_states.APPLIED):
+                self.on_auth(rolename, app_info)
+        else:
+            log.error('Unexpected state %s when trying to move to preauth',
+                      current_state)
+
+    def move_to_auth_converging_state(self, host_id, rolename):
+        with self.db_handler.move_new_state(host_id, rolename,
+                                            role_states.PRE_AUTH,
+                                            role_states.AUTH_CONVERGING,
+                                            role_states.PRE_AUTH):
+            app_info = self.get_current_app_config(host_id)
+            log.info('Sending request to backbone to add role %s to %s with '
+                     'config %s', rolename, host_id, app_info)
+            self.push_configuration(host_id, app_info)
+
+    def move_to_pre_deauth_state(self, host_id, rolename, current_state):
+        with self.db_handler.move_new_state(host_id, rolename,
+                                            current_state,
+                                            role_states.PRE_DEAUTH,
+                                            role_states.APPLIED):
+            app_info = self.get_current_app_config(host_id,
+                                                   include_deauthed_roles=True)
+            self.on_deauth(rolename, app_info)
+
+    def move_to_deauth_converging_state(self, host_id, rolename):
+        with self.db_handler.move_new_state(host_id, rolename,
+                                            role_states.PRE_DEAUTH,
+                                            role_states.DEAUTH_CONVERGING,
+                                            role_states.PRE_DEAUTH):
+            log.debug('Sending request to backbone to remove role %s from %s',
+                      rolename, host_id)
+            app_info = self.get_current_app_config(host_id)
+            self.push_configuration(host_id, app_info)
+
+    def move_to_applied_state(self, host_id, rolename):
+        with self.db_handler.move_new_state(host_id, rolename,
+                                            role_states.AUTH_CONVERGED,
+                                            role_states.APPLIED,
+                                            role_states.AUTH_ERROR):
+            log.info('Running on_auth_converged_event')
+            app_info = self.get_current_app_config(host_id,
+                                include_deauthed_roles=True)
+            self.on_auth_converged(rolename, app_info)
+
+    def move_to_not_applied_state(self, host_id, rolename):
+        with self.db_handler.move_new_state(host_id, rolename,
+                                            role_states.DEAUTH_CONVERGED,
+                                            role_states.NOT_APPLIED,
+                                            role_states.DEAUTH_ERROR):
+            log.info('Running on_deauth_converged_event')
+            app_info = self.get_current_app_config(host_id,
+                                include_deauthed_roles=True)
+            self.on_deauth_converged(rolename, app_info)
+
+            # now we can drop the association and remove from the host
+            self.db_handler.remove_role_from_host(host_id, rolename)
+            if not self.db_handler.query_roles_for_host(host_id):
+                self.db_handler.delete_host(host_id)
+
     def on_auth(self, role_name, app_config):
         self._run_event('on_auth', role_name, app_config)
 
@@ -593,6 +703,7 @@ class BbonePoller(object):
         :param dict authorized_hosts: details of the authorized hosts
         """
         for host in host_ids:
+            self._recover_unexpected_role_states(host)
             try:
                 host_info = self._get_backbone_host(host)
             except BBMasterNotFound:
@@ -663,11 +774,13 @@ class BbonePoller(object):
                         host)
                     role_settings = authorized_hosts[host]['role_settings']
                     roles = self.rolemgr.db_handler.query_roles_for_host(host)
-                    _update_custom_role_settings(expected_cfg, role_settings, roles)
-                    self.db_handle.substitute_rabbit_credentials(expected_cfg, host)
-                    if host_status == 'ok':
+                    if roles:
+                        _update_custom_role_settings(expected_cfg, role_settings, roles)
+                        self.db_handle.substitute_rabbit_credentials(expected_cfg, host)
+                    if host_status == 'ok' and \
+                       is_satisfied_by(expected_cfg, host_info['apps']):
                         self._finish_role_converge(host)
-                    if not is_satisfied_by(expected_cfg, host_info[cfg_key]):
+                    elif not is_satisfied_by(expected_cfg, host_info[cfg_key]):
                         log.debug('Pushing new configuration for %s, config: %s. '
                                   'Expected config %s', host, host_info[cfg_key],
                                   expected_cfg)
@@ -691,51 +804,22 @@ class BbonePoller(object):
 
     def _finish_role_converge(self, host_id):
         db = self.db_handle
-
-        # FIXME: This calculation is a mess. The apps config for this has to be
-        # different from the push in _process_existing_hosts, since we need the
-        # the config for the on_deauth_converged call. This config is not in the
-        # push. All the configuration calculation should be centralized,
-        # and based on DB primitives, instead of dictionaries like the result of
-        # query_host_and_app_details.
-        authorized_hosts = self.db_handle.query_host_and_app_details(
-                                        host_id=host_id,
-                                        include_deauthed_roles=True)
-        role_settings = authorized_hosts[host_id]['role_settings']
-        roles = self.rolemgr.db_handler.query_roles_for_host(host_id)
-        apps_cfg = substitute_host_id(authorized_hosts[host_id]['apps_config'],
-                                      host_id)
-        _update_custom_role_settings(apps_cfg, role_settings, roles)
-        for role in db.query_roles_for_host(host_id):
+        roles = db.query_roles_for_host(host_id)
+        if not roles:
+            return
+        for role in roles:
             try:
                 if db.advance_role_state(host_id, role.rolename,
                                          role_states.AUTH_CONVERGING,
                                          role_states.AUTH_CONVERGED):
-                    with db.move_new_state(host_id, role.rolename,
-                                           role_states.AUTH_CONVERGED,
-                                           role_states.APPLIED,
-                                           role_states.AUTH_ERROR):
-                        log.info('Running on_auth_converged_event')
-                        self.rolemgr.on_auth_converged(role.rolename,
-                                substitute_host_id(apps_cfg, host_id))
+                    self.rolemgr.move_to_applied_state(host_id, role.rolename)
                 elif db.advance_role_state(host_id, role.rolename,
                                            role_states.DEAUTH_CONVERGING,
                                            role_states.DEAUTH_CONVERGED):
-                    with db.move_new_state(host_id, role.rolename,
-                                           role_states.DEAUTH_CONVERGED,
-                                           role_states.NOT_APPLIED,
-                                           role_states.DEAUTH_ERROR):
-                        log.info('Running on_deauth_converged_event')
-                        self.rolemgr.on_deauth_converged(role.rolename,
-                                substitute_host_id(apps_cfg, host_id))
-                    # now we can drop the association
-                    db.remove_role_from_host(host_id, role.rolename)
+                    self.rolemgr.move_to_not_applied_state(host_id, role.rolename)
             except DuConfigError as e:
                 log.error('Failed to run post converge event for role %s on '
                           'host %s: %s', role.rolename, host_id, e)
-        # remove the host so it doesn't show up as 'authorized'
-        if not db.query_roles_for_host(host_id):
-            db.delete_host(host_id)
 
     def _fail_role_converge(self, host_id):
         """
@@ -756,13 +840,47 @@ class BbonePoller(object):
                 log.info('Moved role %s on host %s to the %s state',
                          role.rolename, host_id, role_states.DEAUTH_ERROR)
 
-    def _recover_unexpected_role_states(self, host_ids):
+    def _recover_unexpected_role_states(self, host_id):
         """
         handle the possibility that resmgr crashed and left a role somewhere
         in a transient state. If so, move it to a point that it can be handled
         by add/delete, or in _process_existing_hosts.
+        FIXME: With a bit more refactoring, this could handle the whole state
+               machine.
         """
-        pass
+        db = self.db_handle
+        roles = db.query_roles_for_host(host_id)
+        rolenames = [r.rolename for r in roles] if roles else []
+        for rolename in rolenames:
+            more_transitions = True
+            while more_transitions:
+                assoc = db.get_current_role_association(host_id, rolename)
+                if not assoc:
+                    break
+                current_state = assoc.current_state
+                if current_state in [role_states.START_APPLY,
+                                     role_states.START_EDIT]:
+                    self.rolemgr.move_to_preauth_state(host_id, rolename,
+                                                       current_state)
+                elif current_state == role_states.PRE_AUTH:
+                    self.rolemgr.move_to_auth_converging_state(host_id,
+                                                               rolename)
+                elif current_state == role_states.AUTH_CONVERGED:
+                    self.rolemgr.move_to_applied_state(host_id, rolename)
+                    more_transitions = False
+                elif current_state == role_states.START_DEAUTH:
+                    self.rolemgr.move_to_pre_deauth_state(host_id,
+                                                          rolename,
+                                                          current_state)
+                elif current_state == role_states.PRE_DEAUTH:
+                    self.rolemgr.move_to_deauth_converging_state(host_id,
+                                                                 rolename)
+                elif current_state == role_states.DEAUTH_CONVERGED:
+                    self.rolemgr.move_to_not_applied_state(host_id,
+                                                           rolename)
+                    more_transitions = False
+                else:
+                    more_transitions = False
 
     def _cleanup_unauthorized_hosts(self):
         """
@@ -1037,7 +1155,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             raise RabbitCredentialsConfigureError(msg)
         return rabbit_user, rabbit_password
 
-    def _move_to_create_edit_state(self, host_id, role_name):
+    def _move_to_apply_edit_state(self, host_id, role_name):
         curr_state = None
         if self.res_mgr_db.advance_role_state(host_id, role_name,
                 role_states.NOT_APPLIED, role_states.START_APPLY):
@@ -1113,56 +1231,48 @@ class ResMgrPf9Provider(ResMgrProvider):
             assert host_id in _unauthorized_hosts
             notifier.publish_notification('change', 'host', host_id)
 
+        # 1. Record the role addition state in the DB
+        # 2. Publish change notification
+        # 3. Run on_auth event from configuration
+        # 4. Push the new configuration to the host
+        # Push configuration to bbone is idempotent, so we will end up with
+        # a converged state eventually.
+
+        log.debug('Updating host %s state after %s role association',
+                  host_id, role_name)
         try:
-            # 1. Record the role addition state in the DB
-            # 2. Publish change notification
-            # 3. Run on_auth event from configuration
-            # 4. Push the new configuration to the host
-            # Push configuration to bbone is idempotent, so we will end up with
-            # a converged state eventually.
-            log.debug('Updating host %s state after %s role association',
-                      host_id, role_name)
-            rabbit_user, rabbit_password = self.create_rabbit_credentials(host_id, role_name)
-            self.res_mgr_db.insert_update_host(host_id, host_inst['info'], role_name, host_settings)
-            self.res_mgr_db.associate_role_to_host(host_id, role_name)
-            curr_role_state = self._move_to_create_edit_state(host_id, role_name)
+            rabbit_user, rabbit_password = \
+                    self.create_rabbit_credentials(host_id, role_name)
+            self.res_mgr_db.insert_update_host(host_id, host_inst['info'],
+                                               role_name, host_settings)
+            role_is_new = self.res_mgr_db.associate_role_to_host(host_id,
+                                                                 role_name)
             self.res_mgr_db.associate_rabbit_credentials_to_host(host_id,
-                                                                 role_name,
-                                                                 rabbit_user,
-                                                                 rabbit_password)
+                    role_name, rabbit_user, rabbit_password)
 
             with _host_lock:
-                # Once added to the DB, remove it from the unauthorized host dict
+                # Once added to the DB, remove it from the unauthorized
+                # host dict. Note that we don't need to undo this in the
+                # exception handler; it's re-added by process_hosts
                 _unauthorized_hosts.pop(host_id, None)
                 _unauthorized_host_status_time.pop(host_id, None)
                 _unauthorized_host_status_time_on_du.pop(host_id, None)
-
-            # Rely on the role config values set in the DB to send to bbmaster
-            host_details = self.res_mgr_db.query_host_and_app_details(host_id)
-            app_info = host_details[host_id]['apps_config']
-            role_settings = host_details[host_id]['role_settings']
-            roles = self.res_mgr_db.query_roles_for_host(host_id)
-            _update_custom_role_settings(app_info, role_settings, roles)
-            with self.res_mgr_db.move_new_state(host_id, role_name,
-                                                curr_role_state,
-                                                role_states.PRE_AUTH,
-                                                role_states.NOT_APPLIED):
-                self.roles_mgr.on_auth(role_name,
-                                       substitute_host_id(app_info, host_id))
-            log.info('Sending request to backbone to add role %s to %s with config %s',
-                     role_name, host_id, app_info)
-            self.res_mgr_db.advance_role_state(host_id, role_name,
-                                               role_states.PRE_AUTH,
-                                               role_states.AUTH_CONVERGING)
-            self.roles_mgr.push_configuration(host_id, app_info)
+            curr_role_state = self._move_to_apply_edit_state(host_id, role_name)
         except Exception as e:
-            log.error('Host add failed with %s', e)
-            try:
-                self._rabbit_mgmt_cl.delete_user(rabbit_user)
-            except:
-                log.warn('Failed to clean up rabbit user %s after failure while '
-                         'adding role %s to host %s', rabbit_user, role_name, host_id)
+            log.error('Host %s role \'%s\' add failed: %s', host_id,
+                      role_name, e)
+            self._rabbit_mgmt_cl.delete_user(rabbit_user)
+            if role_is_new:
+                self.res_mgr_db.remove_role_from_host(host_id, role_name)
+                if not self.res_mgr_db.query_roles_for_host(host_id):
+                    self.res_mgr_db.delete_host(host_id)
             raise
+
+        # run the on_auth event
+        self.roles_mgr.move_to_preauth_state(host_id, role_name,
+                                             curr_role_state)
+        # push the config to bbmaster.
+        self.roles_mgr.move_to_auth_converging_state(host_id, role_name)
 
         notifier.publish_notification('change', 'host', host_id)
 
@@ -1187,14 +1297,6 @@ class ResMgrPf9Provider(ResMgrProvider):
             log.error('Role %s is not found in list of active roles', role_name)
             raise RoleNotFound(role_name)
 
-        # recalculate role app parameters for use in deauth event handler
-        host_details = self.res_mgr_db.query_host_and_app_details(host_id)
-        deauthed_app_config = host_details[host_id]['apps_config']
-        role_settings = host_details[host_id]['role_settings']
-        _update_custom_role_settings(deauthed_app_config,
-                                     role_settings,
-                                     [active_role_in_db])
-
         with _role_delete_lock:
             host_inst = self.host_inventory_mgr.get_host(host_id)
             if not host_inst:
@@ -1205,44 +1307,28 @@ class ResMgrPf9Provider(ResMgrProvider):
                 log.warn('Role %s is not assigned to %s', role_name, host_id)
                 return
 
-            curr_role_state = self._move_to_deauth_state(host_id, role_name)
-
-            # Following code path is for hosts that have at least one role remaining
-            # after the role removal.
-
-            # 1. Record the role removal state in the DB
-            # 2. Publish change notification
-            # 3. Push the new configuration to the host
-            # 4. Run on_deauth event from configuration
-            # Push configuration to bbone is idempotent, so we will end up with
-            # a converged state eventually.
-            log.debug('Clearing role %s for host %s in DB', role_name, host_id)
-            with self.res_mgr_db.move_new_state(host_id, role_name,
-                                                curr_role_state,
-                                                role_states.PRE_DEAUTH,
-                                                role_states.APPLIED):
-                self.roles_mgr.on_deauth(role_name,
-                        substitute_host_id(deauthed_app_config, host_id))
-
             credentials_to_delete = self.res_mgr_db.query_rabbit_credentials(
                                     host_id=host_id,
                                     rolename=role_name)
             if len(credentials_to_delete) != 1:
-                msg = ('Invalid number of rabbit credentials for host %s and role %s'
-                       % (host_id, role_name))
+                msg = ('Invalid number of rabbit credentials for host %s '
+                       'and role %s' % (host_id, role_name))
                 log.error(msg)
                 raise RabbitCredentialsConfigureError(msg)
             self.delete_rabbit_credentials(credentials_to_delete)
-            notifier.publish_notification('change', 'host', host_id)
 
-            log.debug('Sending request to backbone to remove role %s from %s',
-                      role_name, host_id)
-            host_details = self.res_mgr_db.query_host_and_app_details(host_id)
-            self.res_mgr_db.advance_role_state(host_id, role_name,
-                                               role_states.PRE_DEAUTH,
-                                               role_states.DEAUTH_CONVERGING)
-            self.roles_mgr.push_configuration(host_id,
-                                 host_details[host_id]['apps_config'])
+            curr_role_state = self._move_to_deauth_state(host_id, role_name)
+
+            log.debug('Clearing role %s for host %s in DB', role_name, host_id)
+
+            # run the on_deauth event
+            self.roles_mgr.move_to_pre_deauth_state(host_id, role_name,
+                                                    curr_role_state)
+
+            # push the new config
+            self.roles_mgr.move_to_deauth_converging_state(host_id, role_name)
+
+        notifier.publish_notification('change', 'host', host_id)
 
     def _invoke_service_cfg_script(self, service_name):
         svc_info = self.get_service_settings(service_name)
