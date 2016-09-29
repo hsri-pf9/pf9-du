@@ -317,8 +317,8 @@ class RolesMgr(object):
                                                 role_states.APPLIED):
                 self.on_auth(rolename, app_info)
         else:
-            log.error('Unexpected state %s when trying to move to preauth',
-                      current_state)
+            raise DuConfigError('Unexpected state %s when trying to move to '
+                                'preauth' % current_state)
 
     def move_to_auth_converging_state(self, host_id, rolename):
         with self.db_handler.move_new_state(host_id, rolename,
@@ -336,7 +336,7 @@ class RolesMgr(object):
                                             role_states.PRE_DEAUTH,
                                             role_states.APPLIED):
             app_info = self.get_current_app_config(host_id,
-                                                   include_deauthed_roles=True)
+                                include_deauthed_roles=True)
             self.on_deauth(rolename, app_info)
 
     def move_to_deauth_converging_state(self, host_id, rolename):
@@ -1176,8 +1176,8 @@ class ResMgrPf9Provider(ResMgrProvider):
             log.info('Editing role %s on %s', role_name, host_id)
             curr_state = role_states.START_APPLY
         else:
-            raise ResMgrException('Cannot add role %s to host %s in the '
-                                  'current state.' % (role_name, host_id))
+            raise RoleUpdateConflict('Cannot add role %s to host %s in the '
+                                     'current state.' % (role_name, host_id))
         return curr_state
 
     def _move_to_deauth_state(self, host_id, role_name):
@@ -1194,8 +1194,8 @@ class ResMgrPf9Provider(ResMgrProvider):
                      host_id, role_states.DEAUTH_ERROR, role_states.START_DEAUTH)
             curr_state = role_states.START_DEAUTH
         else:
-            raise ResMgrException('Cannot remove role %s from host %s in the '
-                                  'current state.' % (role_name, host_id))
+            raise RoleUpdateConflict('Cannot remove role %s from host %s in the '
+                                     'current state.' % (role_name, host_id))
         return curr_state
 
     def add_role(self, host_id, role_name, host_settings):

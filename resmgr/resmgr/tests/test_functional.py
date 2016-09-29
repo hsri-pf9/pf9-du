@@ -1,5 +1,14 @@
-from resmgr.tests import FunctionalTest
+# Copyright 2016 Platform9 Systems Inc. All Rights Reserved
 
+import logging
+import mock
+
+from resmgr.exceptions import RoleUpdateConflict, DuConfigError
+from resmgr.tests import FunctionalTest
+from resmgr.resmgr_provider_mem import ResMgrMemProvider
+
+logging.basicConfig(level=logging.DEBUG)
+LOG = logging.getLogger(__name__)
 
 class TestResMgr(FunctionalTest):
 
@@ -71,3 +80,53 @@ class TestResMgr(FunctionalTest):
     def test_put_config(self):
         #TODO: Figure out how to test put operations
         pass
+
+    def test_put_role_bad_state(self):
+        with mock.patch.object(ResMgrMemProvider, 'add_role') as add_role:
+            add_role.side_effect = RoleUpdateConflict('conflict!')
+            resp = self.app.put('/v1/hosts/rsc_1/roles/test-role',
+                                expect_errors=True)
+            LOG.info('test_put_role_bad_state response body: %s', resp.text)
+            self.assertTrue(resp.json.has_key('message'))
+            self.assertEquals(409, resp.status_code)
+
+    def test_put_role_on_auth_failure(self):
+        with mock.patch.object(ResMgrMemProvider, 'add_role') as add_role:
+            add_role.side_effect = DuConfigError('error!')
+            resp = self.app.put('/v1/hosts/rsc_1/roles/test-role',
+                                expect_errors=True)
+            LOG.info('test_put_role_on_auth_failure response body: %s',
+                     resp.text)
+            self.assertEquals(400, resp.status_code)
+
+    def test_delete_role_bad_state(self):
+        with mock.patch.object(ResMgrMemProvider, 'delete_role') as delete_role:
+            delete_role.side_effect = RoleUpdateConflict('conflict!')
+            resp = self.app.delete('/v1/hosts/rsc_1/roles/test-role',
+                                   expect_errors=True)
+            LOG.info('test_delete_role_bad_state response body: %s', resp.text)
+            self.assertEquals(409, resp.status_code)
+
+    def test_delete_role_on_deauth_failure(self):
+        with mock.patch.object(ResMgrMemProvider, 'delete_role') as delete_role:
+            delete_role.side_effect = DuConfigError('error!')
+            resp = self.app.delete('/v1/hosts/rsc_1/roles/test-role',
+                                   expect_errors=True)
+            LOG.info('test_delete_role_on_deauth_failure response body: %s',
+                     resp.text)
+            self.assertEquals(400, resp.status_code)
+
+    def test_delete_host_bad_state(self):
+        with mock.patch.object(ResMgrMemProvider, 'delete_host') as delete_role:
+            delete_role.side_effect = RoleUpdateConflict('conflict!')
+            resp = self.app.delete('/v1/hosts/rsc_1', expect_errors=True)
+            LOG.info('test_delete_host_bad_state response body: %s', resp.text)
+            self.assertEquals(409, resp.status_code)
+
+    def test_delete_host_on_deauth_failure(self):
+        with mock.patch.object(ResMgrMemProvider, 'delete_host') as delete_role:
+            delete_role.side_effect = DuConfigError('error!')
+            resp = self.app.delete('/v1/hosts/rsc_1', expect_errors=True)
+            LOG.info('test_delete_host_on_deauth_failure response body: %s',
+                     resp.text)
+            self.assertEquals(400, resp.status_code)

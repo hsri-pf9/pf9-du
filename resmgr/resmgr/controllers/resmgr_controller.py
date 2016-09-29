@@ -1,8 +1,7 @@
-# Copyright (c) 2014 Platform9 Systems Inc.
-# All Rights reserved
+# Copyright (c) 2014 Platform9 Systems Inc. All Rights reserved
 
-
-__author__ = 'Platform9'
+# pylint: disable=no-self-use,unused-wildcard-import,wildcard-import
+# pylint: disable=too-few-public-methods,broad-except
 
 """
 This module contains the REST fronting implementation of Resource Manager.
@@ -16,19 +15,25 @@ import logging
 import pecan
 from pecan import abort, expose
 from pecan.rest import RestController
-from resmgr.exceptions import (RoleNotFound, HostNotFound, HostConfigFailed,
-                               BBMasterNotFound, SupportRequestFailed,
-                               SupportCommandRequestFailed, RabbitCredentialsConfigureError,
-                               DuConfigError)
-from enforce_policy import enforce
+from resmgr.controllers.enforce_policy import enforce
+from resmgr.exceptions import *
 
-
-log = logging.getLogger('resmgr')
+log = logging.getLogger(__name__)
 _resmgr_conf_file = pecan.conf.resmgr['config_file']
 _provider_name = pecan.conf.resmgr['provider']
 _pkg = __import__('resmgr.%s' % _provider_name, globals(), locals())
 _module = getattr(_pkg, _provider_name)
 _provider = _module.get_provider(_resmgr_conf_file)
+
+def _json_error_response(response, code, exc):
+    """
+    json response from an exception object
+    """
+    response.status = code
+    response.content_type = 'application/json'
+    response.charset = 'utf-8'
+    response.json = {'message': '%s: %s' % (exc.__class__.__name__, exc.msg)}
+    return response
 
 class RoleAppVersionsController(RestController):
     """Controller for role app version related requests"""
@@ -93,7 +98,7 @@ class RolesController(RestController):
 class HostRolesController(RestController):
     """Controller for hosts' roles related requests"""
 
-    @enforce(required = ['admin'])
+    @enforce(required=['admin'])
     @expose('json')
     def put(self, host_id, role_name):
         """
@@ -123,12 +128,17 @@ class HostRolesController(RestController):
             log.exception('Role %s or Host %s not found', role_name, host_id)
             abort(404)
         except (HostConfigFailed, BBMasterNotFound,
-                RabbitCredentialsConfigureError, DuConfigError):
+                RabbitCredentialsConfigureError):
             log.exception('Role assignment failed')
             abort(500)
+        except RoleUpdateConflict as e:
+            log.exception('Role assignment failed')
+            return _json_error_response(pecan.response, 409, e)
+        except DuConfigError as e:
+            log.exception('Role assignment failed')
+            return _json_error_response(pecan.response, 400, e)
 
-
-    @enforce(required = ['admin'])
+    @enforce(required=['admin'])
     @expose('json')
     def delete(self, host_id, role_name):
         """
@@ -145,6 +155,12 @@ class HostRolesController(RestController):
         except (HostConfigFailed, BBMasterNotFound):
             log.exception('Role removal failed')
             abort(500)
+        except RoleUpdateConflict as e:
+            log.exception('Role removal failed')
+            return _json_error_response(pecan.response, 409, e)
+        except DuConfigError as e:
+            log.exception('Role removal failed')
+            return _json_error_response(pecan.response, 400, e)
 
     @expose('json')
     def get(self, host_id, role_name):
@@ -165,7 +181,7 @@ class HostRolesController(RestController):
 
 class HostSupportBundleController(RestController):
 
-    @enforce(required= ['admin'])
+    @enforce(required=['admin'])
     @expose('json')
     def post(self, host_id):
         """
@@ -189,7 +205,7 @@ class HostSupportBundleController(RestController):
 
 class HostSupportCommandController(RestController):
 
-    @enforce(required= ['admin'])
+    @enforce(required=['admin'])
     @expose('json')
     def post(self, host_id):
         """
@@ -258,7 +274,7 @@ class HostsController(RestController):
 
         return out
 
-    @enforce(required= ['admin'])
+    @enforce(required=['admin'])
     @expose('json')
     def delete(self, host_id):
         """
@@ -274,10 +290,15 @@ class HostsController(RestController):
         except (HostConfigFailed, BBMasterNotFound):
             log.exception('Host delete operation failed')
             abort(500)
-
+        except RoleUpdateConflict as e:
+            log.exception('Host %s removal failed', host_id)
+            return _json_error_response(pecan.response, 409, e)
+        except DuConfigError as e:
+            log.exception('Host %s removal failed', host_id)
+            return _json_error_response(pecan.response, 400, e)
 
 class ServicesController(RestController):
-    @enforce(required = ['admin'])
+    @enforce(required=['admin'])
     @expose('json')
     def get_one(self, service_name):
         log.debug('Getting details for service %s', service_name)
@@ -288,7 +309,7 @@ class ServicesController(RestController):
             abort(404)
         return out['settings']
 
-    @enforce(required = ['admin'])
+    @enforce(required=['admin'])
     @expose('json')
     def put(self, service_name):
         msg_body = pecan.request.body

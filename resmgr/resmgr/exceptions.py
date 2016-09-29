@@ -58,8 +58,12 @@ class ServiceNotFound(ResMgrException):
     def __init__(self, val):
         super(ServiceNotFound, self).__init__('Service %s not found' % val)
 
-
 class ServiceConfigFailed(ResMgrException):
     def __init__(self, reason):
         super(ServiceConfigFailed, self).__init__(
             'Failed to set service configuration: %s' % reason)
+
+class RoleUpdateConflict(ResMgrException):
+    def __init__(self, reason):
+        super(RoleUpdateConflict, self).__init__(
+            'Role cannot be updated in the current state: %s' % reason)

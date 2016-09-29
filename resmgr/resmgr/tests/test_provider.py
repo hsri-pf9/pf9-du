@@ -15,12 +15,13 @@ import threading
 from rabbit import RabbitMgmtClient
 from resmgr import resmgr_provider_pf9
 from resmgr import role_states
-from resmgr.exceptions import DuConfigError, ResMgrException
+from resmgr.exceptions import DuConfigError, RoleUpdateConflict
 from resmgr.resmgr_provider_pf9 import ResMgrPf9Provider, BbonePoller
 from resmgr.resmgr_provider_pf9 import log as provider_logger
 from resmgr.tests.dbtestcase import DbTestCase
 from resmgr.tests.dbtestcase import TEST_HOST, TEST_ROLE
 
+logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
 
 THISDIR = os.path.abspath(os.path.dirname(__file__))
@@ -191,9 +192,9 @@ class TestProvider(DbTestCase):
         init = self._db.get_current_role_association(host_id,
                                                      rolename)
         init_state = role_states.from_name(init.current_state)
-        with self.assertRaises(ResMgrException):
+        with self.assertRaises(RoleUpdateConflict):
             self._provider.add_role(host_id, rolename, {})
-        with self.assertRaises(ResMgrException):
+        with self.assertRaises(RoleUpdateConflict):
             self._provider.delete_role(host_id, rolename)
 
         # make sure the state didn't change
@@ -537,7 +538,7 @@ class TestProvider(DbTestCase):
         self._assert_role_state(host_id, rolename, role_states.DEAUTH_ERROR)
 
         # add should fail:
-        with self.assertRaises(ResMgrException):
+        with self.assertRaises(RoleUpdateConflict):
             self._provider.add_role(host_id, rolename, {})
 
         # now try to recover with a delete
@@ -789,7 +790,7 @@ class TestProvider(DbTestCase):
         # make sure we're locked out
         new_role_params ={'customizable_key':
                           'new value for customizable_key'}
-        with self.assertRaises(ResMgrException):
+        with self.assertRaises(RoleUpdateConflict):
             self._provider.add_role(host_id, rolename,
                                     new_role_params)
 
@@ -827,7 +828,7 @@ class TestProvider(DbTestCase):
         # make sure we're locked out
         new_role_params ={'customizable_key':
                           'new value for customizable_key'}
-        with self.assertRaises(ResMgrException):
+        with self.assertRaises(RoleUpdateConflict):
             self._provider.add_role(host_id, rolename,
                                     new_role_params)
 
