@@ -36,7 +36,7 @@ def get_sysinfo():
     :rtype: dict
     """
     return {
-        'hostname': socket.gethostname(),
+        'hostname': socket.getfqdn(),
         'os_info': _get_os_info(),
         'arch': platform.machine(),
         'os_family': platform.system()
