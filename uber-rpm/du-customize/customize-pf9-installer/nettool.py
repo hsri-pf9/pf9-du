@@ -34,7 +34,7 @@ def connect_to_host_via_proxy(proxy_host, proxy_port, du_fqdn, port):
         sock.send("CONNECT {0}:{1} HTTP/1.0\r\n\r\n".format(du_fqdn,
                                                             port))
         res = sock.recv(1024)
-        if "200 Connection established" in res:
+        if "200 connection established" in res.lower():
             print("Connection to {0} via {1} succeeded!".format(du_fqdn,
                                                                 proxy_host))
             sock.close()
