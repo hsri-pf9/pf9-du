@@ -194,7 +194,12 @@ class Pf9App(App):
 
         for name, service_state in services.iteritems():
             run_state = False if stop_all else service_state
-            self._set_run_state(name, run_state)
+            try:
+                self._set_run_state(name, run_state)
+            except ServiceCtrlError:
+                # IAAS-6021
+                self.log.warn('Failed to set service %s to state %s' %
+                              (name, run_state))
 
     def get_service_states(self):
         """
