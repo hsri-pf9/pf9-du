@@ -616,20 +616,33 @@ def _print_agent_list_table(agent_list):
         rows.append(row)
     _print_list(header, rows)
 
+def _get_nested_property(top, *args):
+    for arg in args:
+        if arg in top:
+            top = top[arg]
+        else:
+            return None
+    return top
+
 
 def _print_host_list_table(host_list):
     header = ["id", "hostname", "ip_addresses", "responding", "role_status", "roles"]
     rows = []
     for host in host_list:
-        ip_address_arr = map(lambda x: x[0] + ":" +x[1], host['extensions']['interfaces']['data']['iface_ip'].items())
-        ip_addresses = reduce(lambda x,y: x+","+y, ip_address_arr)
-        roles = reduce(lambda x,y: x+","+y, host['roles'])
+        iface_ip = _get_nested_property(host, 'extensions', 'interfaces', 'data', 'iface_ip')
+        ip_addresses = ""
+        if iface_ip:
+            ip_address_arr = map(lambda x: x[0] + ":" +x[1], iface_ip.items())
+            ip_addresses = reduce(lambda x,y: x+","+y, ip_address_arr)
+        roles = ""
+        if roles in host:
+            roles = reduce(lambda x,y: x+","+y, host['roles'])
         row = [
             host['id'],
-            host['info']['hostname'],
+            _get_nested_property(host, 'info', 'hostname'),
             ip_addresses,
-            host['info']['responding'],
-            host['role_status'],
+            _get_nested_property(host, 'info', 'responding'),
+            _get_nested_property(host, 'role_status'),
             roles
         ]
         rows.append(row)
