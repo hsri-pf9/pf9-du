@@ -188,10 +188,22 @@ class TestProvider(DbTestCase):
         method = getattr(events, event_name)
         self.assertFalse(method.called)
 
+    def _assert_same_rabbit_creds(self, host_id, expected):
+        def _to_dict(cred):
+            return {k: getattr(cred, k)
+                    for k in ['rolename', 'host_id', 'password', 'userid']}
+        actual = self._db.query_rabbit_credentials(host_id=host_id)
+        expected_dicts = [_to_dict(cred) for cred in expected]
+        actual_dicts = [_to_dict(cred) for cred in actual]
+        self.assertEqual(len(expected), len(actual))
+        for e in expected_dicts:
+            self.assertIn(e, actual_dicts)
+
     def _assert_fails_puts_deletes(self, host_id, rolename):
         init = self._db.get_current_role_association(host_id,
                                                      rolename)
         init_state = role_states.from_name(init.current_state)
+        init_rabbit_creds = self._db.query_rabbit_credentials(host_id=host_id)
         with self.assertRaises(RoleUpdateConflict):
             self._provider.add_role(host_id, rolename, {})
         with self.assertRaises(RoleUpdateConflict):
@@ -199,6 +211,9 @@ class TestProvider(DbTestCase):
 
         # make sure the state didn't change
         self._assert_role_state(host_id, rolename, init_state)
+
+        # make sure the rabbit creds on the host didn't change
+        self._assert_same_rabbit_creds(host_id, init_rabbit_creds)
 
     def _add_and_converge_role(self, rolename):
         host_id = TEST_HOST['id']
@@ -315,6 +330,7 @@ class TestProvider(DbTestCase):
         host_id = TEST_HOST['id']
         self._provider.add_role(host_id, 'test-role', {})
         self._provider.add_role(host_id, 'test-role-2', {})
+        self._assert_fails_puts_deletes(host_id, 'test-role')
         self._get_backbone_host.return_value = self._converged_host()
         self._bbone.process_hosts()
         authed_host = self._inventory.get_authorized_host(host_id)

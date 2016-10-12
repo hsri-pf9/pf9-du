@@ -40,6 +40,8 @@ TIMEDRIFT_MSG_LEVEL = 'warn'
 TIMEDRIFT_MSG = 'Host clock may be out of sync'
 
 # Maintain some state for resource manager
+
+# FIXME: get rid of this - everything should be in the database
 _unauthorized_hosts = {}
 _unauthorized_host_status_time = {}
 _unauthorized_host_status_time_on_du = {}
@@ -1228,7 +1230,6 @@ class ResMgrPf9Provider(ResMgrProvider):
         _authorized_host_role_status[host_id] = None
 
         if initially_inactive:
-            assert host_id in _unauthorized_hosts
             notifier.publish_notification('change', 'host', host_id)
 
         # 1. Record the role addition state in the DB
@@ -1241,15 +1242,11 @@ class ResMgrPf9Provider(ResMgrProvider):
         log.debug('Updating host %s state after %s role association',
                   host_id, role_name)
         try:
-            rabbit_user, rabbit_password = \
-                    self.create_rabbit_credentials(host_id, role_name)
+            role_is_new = False
             self.res_mgr_db.insert_update_host(host_id, host_inst['info'],
                                                role_name, host_settings)
             role_is_new = self.res_mgr_db.associate_role_to_host(host_id,
                                                                  role_name)
-            self.res_mgr_db.associate_rabbit_credentials_to_host(host_id,
-                    role_name, rabbit_user, rabbit_password)
-
             with _host_lock:
                 # Once added to the DB, remove it from the unauthorized
                 # host dict. Note that we don't need to undo this in the
@@ -1258,11 +1255,16 @@ class ResMgrPf9Provider(ResMgrProvider):
                 _unauthorized_host_status_time.pop(host_id, None)
                 _unauthorized_host_status_time_on_du.pop(host_id, None)
             curr_role_state = self._move_to_apply_edit_state(host_id, role_name)
+            # IAAS-6519: rabbit changes after state machine starts
+            rabbit_user, rabbit_password = \
+                    self.create_rabbit_credentials(host_id, role_name)
+            self.res_mgr_db.associate_rabbit_credentials_to_host(host_id,
+                    role_name, rabbit_user, rabbit_password)
         except Exception as e:
             log.error('Host %s role \'%s\' add failed: %s', host_id,
                       role_name, e)
-            self._rabbit_mgmt_cl.delete_user(rabbit_user)
             if role_is_new:
+                self._rabbit_mgmt_cl.delete_user(rabbit_user)
                 self.res_mgr_db.remove_role_from_host(host_id, role_name)
                 if not self.res_mgr_db.query_roles_for_host(host_id):
                     self.res_mgr_db.delete_host(host_id)
@@ -1288,6 +1290,9 @@ class ResMgrPf9Provider(ResMgrProvider):
         :raises DuConfigError: If the on_deauth event for the role fails.
         """
         log.info('Removing role %s from %s', role_name, host_id)
+
+        # FIXME - I think this can be removed. Not sure why we're not just
+        # using the db state.
         if host_id in _unauthorized_hosts:
             log.warn('Host %s is classified as unauthorized host. Nothing '
                      'to delete', host_id)
@@ -1307,6 +1312,11 @@ class ResMgrPf9Provider(ResMgrProvider):
                 log.warn('Role %s is not assigned to %s', role_name, host_id)
                 return
 
+            curr_role_state = self._move_to_deauth_state(host_id, role_name)
+
+            log.debug('Clearing role %s for host %s in DB', role_name, host_id)
+
+            # IAAS-6519: rabbit changes after state machine starts
             credentials_to_delete = self.res_mgr_db.query_rabbit_credentials(
                                     host_id=host_id,
                                     rolename=role_name)
@@ -1316,10 +1326,6 @@ class ResMgrPf9Provider(ResMgrProvider):
                 log.error(msg)
                 raise RabbitCredentialsConfigureError(msg)
             self.delete_rabbit_credentials(credentials_to_delete)
-
-            curr_role_state = self._move_to_deauth_state(host_id, role_name)
-
-            log.debug('Clearing role %s for host %s in DB', role_name, host_id)
 
             # run the on_deauth event
             self.roles_mgr.move_to_pre_deauth_state(host_id, role_name,
