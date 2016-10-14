@@ -217,6 +217,9 @@ class ResMgrDB(object):
                     'pf9-ha-slave', 'auth_password')
             param_vals['pf9_ha_slave_auth_tenant_name'] = self.config.get(
                     'pf9-ha-slave', 'auth_tenant_name')
+        if self.config.has_section('pf9-neutron-config-agent'):
+            param_vals['config_agent_db_pass'] = self.config.get(
+                    'pf9-neutron-config-agent', 'db_pass')
         os_vars.update(param_vals)
         os_vars.update(self._flat_config())
         out = config_str % os_vars
