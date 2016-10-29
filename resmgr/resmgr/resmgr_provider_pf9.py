@@ -50,7 +50,7 @@ _hosts_hypervisor_info = {}
 _hosts_extension_data = {}
 _hosts_message_data = {}
 _host_lock = threading.Lock()
-_role_delete_lock = threading.RLock()
+_role_update_lock = threading.RLock()
 
 def call_remote_service(url):
     """
@@ -705,7 +705,8 @@ class BbonePoller(object):
         :param dict authorized_hosts: details of the authorized hosts
         """
         for host in host_ids:
-            self._recover_unexpected_role_states(host)
+            with _role_update_lock:
+                self._recover_unexpected_role_states(host)
             try:
                 host_info = self._get_backbone_host(host)
             except BBMasterNotFound:
@@ -1241,42 +1242,44 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         log.debug('Updating host %s state after %s role association',
                   host_id, role_name)
-        try:
-            role_is_new = False
-            self.res_mgr_db.insert_update_host(host_id, host_inst['info'],
-                                               role_name, host_settings)
-            role_is_new = self.res_mgr_db.associate_role_to_host(host_id,
+        with _role_update_lock:
+            try:
+                role_is_new = False
+                self.res_mgr_db.insert_update_host(host_id, host_inst['info'],
+                                                   role_name, host_settings)
+                role_is_new = self.res_mgr_db.associate_role_to_host(host_id,
+                                                                     role_name)
+                curr_role_state = self._move_to_apply_edit_state(host_id,
                                                                  role_name)
-            with _host_lock:
-                # Once added to the DB, remove it from the unauthorized
-                # host dict. Note that we don't need to undo this in the
-                # exception handler; it's re-added by process_hosts
-                _unauthorized_hosts.pop(host_id, None)
-                _unauthorized_host_status_time.pop(host_id, None)
-                _unauthorized_host_status_time_on_du.pop(host_id, None)
-            curr_role_state = self._move_to_apply_edit_state(host_id, role_name)
-            # IAAS-6519: rabbit changes after state machine starts
-            rabbit_user, rabbit_password = \
-                    self.create_rabbit_credentials(host_id, role_name)
-            self.res_mgr_db.associate_rabbit_credentials_to_host(host_id,
-                    role_name, rabbit_user, rabbit_password)
-        except Exception as e:
-            log.error('Host %s role \'%s\' add failed: %s', host_id,
-                      role_name, e)
-            if role_is_new:
-                self._rabbit_mgmt_cl.delete_user(rabbit_user)
-                self.res_mgr_db.remove_role_from_host(host_id, role_name)
-                if not self.res_mgr_db.query_roles_for_host(host_id):
-                    self.res_mgr_db.delete_host(host_id)
-            raise
+                with _host_lock:
+                    # Once added to the DB, remove it from the unauthorized
+                    # host dict. Note that we don't need to undo this in the
+                    # exception handler; it's re-added by process_hosts
+                    _unauthorized_hosts.pop(host_id, None)
+                    _unauthorized_host_status_time.pop(host_id, None)
+                    _unauthorized_host_status_time_on_du.pop(host_id, None)
+                # IAAS-6519: rabbit changes after state machine starts
+                rabbit_user, rabbit_password = \
+                        self.create_rabbit_credentials(host_id, role_name)
+                self.res_mgr_db.associate_rabbit_credentials_to_host(host_id,
+                        role_name, rabbit_user, rabbit_password)
+            except Exception as e:
+                log.error('Host %s role \'%s\' add failed: %s', host_id,
+                          role_name, e)
+                if role_is_new:
+                    self._rabbit_mgmt_cl.delete_user(rabbit_user)
+                    self.res_mgr_db.remove_role_from_host(host_id, role_name)
+                    if not self.res_mgr_db.query_roles_for_host(host_id):
+                        self.res_mgr_db.delete_host(host_id)
+                raise
 
-        # run the on_auth event
-        self.roles_mgr.move_to_preauth_state(host_id, role_name,
-                                             curr_role_state)
-        # push the config to bbmaster.
-        self.roles_mgr.move_to_auth_converging_state(host_id, role_name)
+            # run the on_auth event
+            self.roles_mgr.move_to_preauth_state(host_id, role_name,
+                                                 curr_role_state)
+            # push the config to bbmaster.
+            self.roles_mgr.move_to_auth_converging_state(host_id, role_name)
 
-        notifier.publish_notification('change', 'host', host_id)
+            notifier.publish_notification('change', 'host', host_id)
 
     def delete_role(self, host_id, role_name):
         """
@@ -1302,7 +1305,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             log.error('Role %s is not found in list of active roles', role_name)
             raise RoleNotFound(role_name)
 
-        with _role_delete_lock:
+        with _role_update_lock:
             host_inst = self.host_inventory_mgr.get_host(host_id)
             if not host_inst:
                 log.error('Host %s is not a recognized host', host_id)
