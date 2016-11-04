@@ -13,10 +13,11 @@ setup(
     author='',
     author_email='',
     install_requires=[
-        "python-daemon==1.6.1",
-        "alembic",
-        "pecan==1.1.2",
-        "sqlalchemy",
+        'python-daemon==1.6.1',
+        'alembic',
+        'pecan==1.1.2',
+        'python-memcached==1.58',
+        'sqlalchemy',
         'requests'
     ],
     test_suite='resmgr',
