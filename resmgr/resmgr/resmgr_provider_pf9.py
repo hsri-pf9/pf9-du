@@ -154,6 +154,10 @@ class RolesMgr(object):
         self.req_timeout = config.getint('backbone', 'requestTimeout')
         self.req_sleep_interval = config.getint('backbone', 'requestWaitPeriod')
         self.db_handler = db_handler
+        rabbit_username = config.get('amqp', 'username')
+        rabbit_password = config.get('amqp', 'password')
+        self.rabbit_mgmt_cl = rabbit.RabbitMgmtClient(rabbit_username,
+                                                      rabbit_password)
 
     def get_all_roles(self):
         """
@@ -348,6 +352,12 @@ class RolesMgr(object):
                                             role_states.PRE_DEAUTH):
             log.debug('Sending request to backbone to remove role %s from %s',
                       rolename, host_id)
+            credentials = self.db_handler.query_rabbit_credentials(
+                                    host_id=host_id,
+                                    rolename=rolename)
+            if credentials:
+                self._delete_rabbit_credentials(credentials)
+
             app_info = self.get_current_app_config(host_id)
             self.push_configuration(host_id, app_info)
 
@@ -454,6 +464,13 @@ class RolesMgr(object):
                 log.exception(reason)
                 raise DuConfigError(reason)
 
+    def _delete_rabbit_credentials(self, credentials):
+        for credential in credentials:
+            try:
+                self.rabbit_mgmt_cl.delete_user(credential.userid)
+            except:
+                log.error('Failed to clean up RabbitMQ user: %s',
+                          credential.userid)
 
 class HostInventoryMgr(object):
     """
@@ -967,10 +984,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         self.roles_mgr = RolesMgr(config, self.res_mgr_db)
         notifier.init(log, config)
 
-        rabbit_username = config.get('amqp', 'username')
-        rabbit_password = config.get('amqp', 'password')
-        self._rabbit_mgmt_cl = rabbit.RabbitMgmtClient(rabbit_username,
-                                                       rabbit_password)
+        self._rabbit_mgmt_cl = self.roles_mgr.rabbit_mgmt_cl
         self.setup_rabbit_credentials()
         self.bb_url = config.get('backbone', 'endpointURI')
 
@@ -1110,14 +1124,6 @@ class ResMgrPf9Provider(ResMgrProvider):
         # Clear out all the roles
         for role in self.res_mgr_db.query_roles_for_host(host_id):
             self.delete_role(host_id, role.rolename)
-
-    def delete_rabbit_credentials(self, credentials):
-        for credential in credentials:
-            try:
-                self._rabbit_mgmt_cl.delete_user(credential.userid)
-            except:
-                log.error('Failed to clean up RabbitMQ user: %s',
-                          credential.userid)
 
     def random_string_generator(self, len=16):
         return "".join([random.choice(string.ascii_letters + string.digits) for _ in
@@ -1319,22 +1325,11 @@ class ResMgrPf9Provider(ResMgrProvider):
 
             log.debug('Clearing role %s for host %s in DB', role_name, host_id)
 
-            # IAAS-6519: rabbit changes after state machine starts
-            credentials_to_delete = self.res_mgr_db.query_rabbit_credentials(
-                                    host_id=host_id,
-                                    rolename=role_name)
-            if len(credentials_to_delete) != 1:
-                msg = ('Invalid number of rabbit credentials for host %s '
-                       'and role %s' % (host_id, role_name))
-                log.error(msg)
-                raise RabbitCredentialsConfigureError(msg)
-            self.delete_rabbit_credentials(credentials_to_delete)
-
             # run the on_deauth event
             self.roles_mgr.move_to_pre_deauth_state(host_id, role_name,
                                                     curr_role_state)
 
-            # push the new config
+            # remove rabbit credentials and push the new config
             self.roles_mgr.move_to_deauth_converging_state(host_id, role_name)
 
         notifier.publish_notification('change', 'host', host_id)

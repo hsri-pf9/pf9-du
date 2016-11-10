@@ -111,9 +111,10 @@ class TestProvider(DbTestCase):
         self._patchfun('notifier.init')
         self._patchfun('notifier.publish_notification')
 
-        # FIXME: verify rabbit setup calls
-        self._patchobj(RabbitMgmtClient, 'create_user')
-        self._patchobj(RabbitMgmtClient, 'delete_user')
+        self._create_rabbit_user = self._patchobj(RabbitMgmtClient,
+                                                  'create_user')
+        self._delete_rabbit_user = self._patchobj(RabbitMgmtClient,
+                                                  'delete_user')
         self._patchobj(RabbitMgmtClient, 'set_permissions')
 
         # FIXME: check service config
@@ -204,6 +205,7 @@ class TestProvider(DbTestCase):
                                                      rolename)
         init_state = role_states.from_name(init.current_state)
         init_rabbit_creds = self._db.query_rabbit_credentials(host_id=host_id)
+        init_delete_calls = self._delete_rabbit_user.call_count
         with self.assertRaises(RoleUpdateConflict):
             self._provider.add_role(host_id, rolename, {})
         with self.assertRaises(RoleUpdateConflict):
@@ -214,6 +216,7 @@ class TestProvider(DbTestCase):
 
         # make sure the rabbit creds on the host didn't change
         self._assert_same_rabbit_creds(host_id, init_rabbit_creds)
+        self.assertEquals(init_delete_calls, self._delete_rabbit_user.call_count)
 
     def _add_and_converge_role(self, rolename):
         host_id = TEST_HOST['id']
@@ -516,11 +519,18 @@ class TestProvider(DbTestCase):
         host_id = TEST_HOST['id']
         rolename = TEST_ROLE['test-role']['1.0']['role_name']
         self._add_and_converge_role(rolename)
+        init_rabbit_creds = self._db.query_rabbit_credentials(host_id=host_id)
+        init_delete_calls = self._delete_rabbit_user.call_count
+        self.assertTrue(init_rabbit_creds)
 
         # try to deauth, but the event fails
         self._fail_auth_event('on_deauth')
         with self.assertRaises(DuConfigError):
             self._provider.delete_role(host_id, rolename)
+
+        # make sure the rabbit creds didn't change
+        self._assert_same_rabbit_creds(host_id, init_rabbit_creds)
+        self.assertEquals(init_delete_calls, self._delete_rabbit_user.call_count)
 
     def test_failed_on_auth_converged_event(self):
         host_id = TEST_HOST['id']
