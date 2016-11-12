@@ -96,16 +96,16 @@ def serve(config_file):
     while True:
         try:
             glance_obj.cleanup()
+            alarm_obj.manage()
             # pshanbhag:
             # See IAAS-5438. To avoid janitor triggering a VM network cleanup, we
             # will temporarily make janitor do nothing on Neutron setups. This can
             # go away once we have a good fix in place for IAAS-5438
-            # sarun: We are not going to do nova, nova  network and ceilometer cleanup.
+            # sarun: We are not going to do nova, nova  network cleanup.
             # Opening  up glance cleanup.
             if not neutron_present:
                 nova_obj.cleanup()
                 nw_obj.cleanup()
-                alarm_obj.manage()
         except (exceptions.ConnectionError, urllib_exceptions.ProtocolError) as e:
             LOG.info('Connection error: {err}, will retry in a bit'.format(err=e))
         except RuntimeError as e:
