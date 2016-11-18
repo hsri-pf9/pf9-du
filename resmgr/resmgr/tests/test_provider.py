@@ -15,7 +15,7 @@ import threading
 from rabbit import RabbitMgmtClient
 from resmgr import resmgr_provider_pf9
 from resmgr import role_states
-from resmgr.exceptions import DuConfigError, RoleUpdateConflict
+from resmgr.exceptions import DuConfigError, RoleUpdateConflict, HostDown
 from resmgr.resmgr_provider_pf9 import ResMgrPf9Provider, BbonePoller
 from resmgr.resmgr_provider_pf9 import log as provider_logger
 from resmgr.tests.dbtestcase import DbTestCase
@@ -866,6 +866,52 @@ class TestProvider(DbTestCase):
         self._assert_event_handler_called('on_deauth_converged')
         hosts = self._inventory.get_all_hosts()
         self.assertFalse(hosts)
+
+    def test_deauth_unresponsive_host(self):
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._add_and_converge_role(rolename)
+
+        # host is not responsive
+        self._responding_within_threshold.return_value = False
+
+        # delete it
+        self._provider.delete_role(host_id, rolename)
+
+        # check that empty config was pushed to bbmaster.
+        self._requests_put.assert_called_with(
+            'http://fake/v1/hosts/1234/apps', '{}')
+
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.DEAUTH_CONVERGING)
+        self._assert_event_handler_called('on_deauth')
+        self._assert_fails_puts_deletes(host_id, 'test-role')
+
+        # bbmaster still thinks the host is empty
+        self._get_backbone_host.return_value = self._empty_host()
+
+        # the host isn't responding, so it should converge, call the
+        # post-deauth-converge hook and finish up.
+        self._bbone.process_hosts()
+        self._assert_event_handler_called('on_deauth_converged')
+
+        # host is gone
+        hosts = self._inventory.get_all_hosts()
+        self.assertFalse(hosts)
+
+    def test_add_role_unresponsive_host(self):
+        # add a role so the host isn't deleted
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._add_and_converge_role(rolename)
+
+        # host is not responsive - let the bbone poller notice it
+        self._responding_within_threshold.return_value = False
+        self._get_backbone_host.return_value = self._converged_host()
+        self._bbone.process_hosts()
+
+        with self.assertRaises(HostDown):
+            self._provider.add_role(host_id, 'test-role-2', {})
 
     @staticmethod
     def _plain_http_response(code):

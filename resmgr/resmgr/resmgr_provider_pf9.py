@@ -755,7 +755,6 @@ class BbonePoller(object):
                                                                      responding_threshold)
                 if responding_on_du:
                     self._add_host_message(host, TIMEDRIFT_MSG_LEVEL, TIMEDRIFT_MSG)
-
             if host in authorized_hosts:
                 if authorized_hosts[host]['responding'] != (responding or responding_on_du):
                     # If host status is responding and is marked as not
@@ -764,9 +763,6 @@ class BbonePoller(object):
                     self.notifier.publish_notification('change', 'host', host)
                     log.info('Marking %s as %s responding, status time: %s',
                              host, '' if (responding or responding_on_du) else 'not', host_info['timestamp'])
-                if not (responding or responding_on_du):
-                    # If not responding, nothing more to do
-                    continue
 
                 self._update_role_status(host, host_info)
                 if authorized_hosts[host]['hostname'] != hostname:
@@ -779,34 +775,37 @@ class BbonePoller(object):
                         # put the roles that were converging into the failed state and
                         # continue to other hosts
                         self._fail_role_converge(host)
-                        continue
-
-                    cfg_key = 'apps' if host_status == 'ok' else 'desired_apps'
-                    # if host_status is 'ok'
-                    # Check if app status in the DB is same as the app config
-                    # in the result
-                    # if host_status is 'retrying' or 'converging'
-                    # Check if desired app status in result is same as app status
-                    # in DB
-                    # TODO: Cross check if this is intended design
-                    expected_cfg = substitute_host_id(
-                        authorized_hosts[host]['apps_config'],
-                        host)
-                    role_settings = authorized_hosts[host]['role_settings']
-                    roles = self.rolemgr.db_handler.query_roles_for_host(host)
-                    if roles:
-                        _update_custom_role_settings(expected_cfg, role_settings, roles)
-                        self.db_handle.substitute_rabbit_credentials(expected_cfg, host)
-                    if host_status == 'ok' and \
-                       is_satisfied_by(expected_cfg, host_info['apps']):
+                    elif not (responding or responding_on_du):
+                        # if we're waiting for convergence, assume we'll never see it,
+                        # finish setup/cleanup with on post converge event handlers.
                         self._finish_role_converge(host)
-                    elif not is_satisfied_by(expected_cfg, host_info[cfg_key]):
-                        log.debug('Pushing new configuration for %s, config: %s. '
-                                  'Expected config %s', host, host_info[cfg_key],
-                                  expected_cfg)
-                        self.rolemgr.push_configuration(host, expected_cfg,
-                                                        needs_hostid_subst=False,
-                                                        needs_rabbit_subst=False)
+                    else:
+                        cfg_key = 'apps' if host_status == 'ok' else 'desired_apps'
+                        # if host_status is 'ok'
+                        # Check if app status in the DB is same as the app config
+                        # in the result
+                        # if host_status is 'retrying' or 'converging'
+                        # Check if desired app status in result is same as app status
+                        # in DB
+                        # TODO: Cross check if this is intended design
+                        expected_cfg = substitute_host_id(
+                            authorized_hosts[host]['apps_config'],
+                            host)
+                        role_settings = authorized_hosts[host]['role_settings']
+                        roles = self.rolemgr.db_handler.query_roles_for_host(host)
+                        if roles:
+                            _update_custom_role_settings(expected_cfg, role_settings, roles)
+                            self.db_handle.substitute_rabbit_credentials(expected_cfg, host)
+                        if host_status == 'ok' and \
+                           is_satisfied_by(expected_cfg, host_info['apps']):
+                            self._finish_role_converge(host)
+                        elif not is_satisfied_by(expected_cfg, host_info[cfg_key]):
+                            log.debug('Pushing new configuration for %s, config: %s. '
+                                      'Expected config %s', host, host_info[cfg_key],
+                                      expected_cfg)
+                            self.rolemgr.push_configuration(host, expected_cfg,
+                                                            needs_hostid_subst=False,
+                                                            needs_rabbit_subst=False)
                 except (BBMasterNotFound, HostConfigFailed):
                     log.exception('Backbone request for %s failed', host)
                     continue
@@ -1231,6 +1230,10 @@ class ResMgrPf9Provider(ResMgrProvider):
         if not host_inst:
             log.error('Host %s is not a recognized host', host_id)
             raise HostNotFound(host_id)
+        elif not host_inst.get('info', {}).get('responding', True):
+            log.warn('Can\'t apply role %s to host %s: host is not responding',
+                     role_name, host_id)
+            raise HostDown('Applying %s to host %s' % (role_name, host_id))
 
         initially_inactive = not host_inst['roles']
         host_inst['roles'].append(role_name)

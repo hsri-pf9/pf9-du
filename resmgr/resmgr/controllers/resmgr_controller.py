@@ -124,9 +124,10 @@ class HostRolesController(RestController):
                   role_name, host_id, msg_body)
         try:
             _provider.add_role(host_id, role_name, msg_body)
-        except (RoleNotFound, HostNotFound):
-            log.exception('Role %s or Host %s not found', role_name, host_id)
-            abort(404)
+        except (RoleNotFound, HostNotFound, HostDown) as e:
+            log.exception('Role %s or Host %s not found: %s', role_name,
+                          host_id, e)
+            return _json_error_response(pecan.response, 404, e)
         except (HostConfigFailed, BBMasterNotFound,
                 RabbitCredentialsConfigureError):
             log.exception('Role assignment failed')

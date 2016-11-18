@@ -67,3 +67,7 @@ class RoleUpdateConflict(ResMgrException):
     def __init__(self, reason):
         super(RoleUpdateConflict, self).__init__(
             'Role cannot be updated in the current state: %s' % reason)
+
+class HostDown(ResMgrException):
+    def __init__(self, reason):
+        super(HostDown, self).__init__('Host is down: %s' % reason)

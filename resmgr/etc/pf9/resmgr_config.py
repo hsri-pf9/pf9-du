@@ -7,12 +7,7 @@ server = {
 # Pecan Application Configurations
 app = {
     'root': 'resmgr.controllers.root.RootController',
-    'modules': ['resmgr'],
-    'debug': True,
-    'errors': {
-        404: '/error/404',
-        '__force_dict__': True
-    }
+    'modules': ['resmgr']
 }
 
 logging = {
