@@ -44,5 +44,5 @@ run_test "0" pf9.platform9.net 443 squid.platform9.sys 3128
 run_test "0" pf9.platform9.net 443
 run_test "0" ipv4.google.com 443
 run_test "0" 8.8.8.8 53
-run_test "1" "squid.company.com" 443
+run_test "1" "no-such-host.platform9.com" 443
 run_test "2" "pf9.platform9.net" 442
