@@ -626,7 +626,6 @@ class ResMgrDB(object):
         host is not present
         :rtype: List of roles
         """
-        log.info('Querying roles for host %s', host_id)
         out = None
         with self.dbsession() as session:
             try:
@@ -850,8 +849,6 @@ class ResMgrDB(object):
         session.commit()
         session.close()
         if updated == 0:
-            log.debug('No %s role association with host %s in state %s',
-                      role_name, host_id, current_state)
             return False
         elif updated > 1:
             log.error('Something is very wrong, %d  %s role associations '
@@ -1011,27 +1008,29 @@ class ResMgrDB(object):
                     log.error('Exception %s:%s, traceback = %s', exc_type,
                               exc, traceback)
                     if start_state == failure_state:
-                        log.error('action failed for move from %s to %s, '
-                                  'remaining in %s', start_state,
-                                  success_state, start_state)
+                        log.error('%s: (%s) action failed for move from %s to '
+                                  '%s, remaining in %s', host_id, role_name,
+                                  start_state, success_state, start_state)
                     else:
-                        log.error('Failed to run actions to move to %s, '
-                                  'moving to %s', success_state, failure_state)
+                        log.error('%s: (%s) failed to run actions to move to '
+                                  '%s, moving to %s', host_id, role_name,
+                                  success_state, failure_state)
 
                         if not self.db.advance_role_state(host_id, role_name,
                                                           start_state,
                                                           failure_state):
-                            # FIXME: handle this situation better.
-                            log.error('Failed to transtion from \'%s\' to error '
-                                      'state \'%s\'', start_state, failure_state)
+                            log.error('%s (%s): failed to transition from %s '
+                                      'to error state %s', host_id,
+                                      role_name, start_state, failure_state)
                 else:
                     # body succeeded, move to new state
                     if not self.db.advance_role_state(host_id, role_name,
                                                       start_state,
                                                       success_state):
-                        # FIXME: handle this situation better.
-                        log.error('Failed to transtion from \'%s\' to success '
-                                  'state \'%s\'', start_state, success_state)
+                        log.error('%s (%s): failed to transition from %s to success '
+                                  'state %s', host_id, role_name, start_state,
+                                  success_state)
                     else:
-                        log.info('Successfully moved to %s state', success_state)
+                        log.info('%s (%s): successfully moved to the %s state',
+                                 host_id, role_name, success_state)
         return _move_new_state(self)
