@@ -7,16 +7,6 @@ License:          Commercial
 URL:              http://www.platform9.net/
 Source0:          %{name}-%{version}.tar.gz
 BuildArch:        noarch
-Requires: pf9-resmgr
-Requires: pf9-bbmaster
-Requires: pf9-clarity
-Requires: pf9-hostagent-tarball
-Requires: pf9-hostagent-tarball-debian
-Requires: pf9-ostackhost-wrapper
-Requires: pf9-ostackhost-wrapper-debian
-Requires: pf9-notifications
-Requires: pf9-janitor
-Requires: pf9-switcher
 
 %description
 Platform9 deployment unit.
