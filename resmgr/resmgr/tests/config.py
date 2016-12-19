@@ -21,7 +21,7 @@ logging = {
     'loggers': {
         'root': {'level': 'INFO', 'handlers': ['console']},
         'resmgr': {'level': 'DEBUG', 'handlers': ['console']},
-        'keystoneclient.middleware.auth_token': {'level': 'DEBUG', 'handlers': ['console']},
+        'keystonemiddleware.auth_token': {'level': 'DEBUG', 'handlers': ['console']},
         'py.warnings': {'handlers': ['console']},
         '__force_dict__': True
     },

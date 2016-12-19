@@ -26,15 +26,15 @@ class TestAuthApi(unittest.TestCase) :
         # authenticated with admin
         self.admin_token = 'admintoken'
         self.admin_response = deepcopy(responses['good'])
-        self.admin_response['access']['token']['id'] = self.admin_token
-        self.admin_response['access']['token']['expires'] = tomorrow.isoformat()
-        self.admin_response['access']['user']['roles'].append({'name' : 'admin'})
+        self.admin_response['token']['expires_at'] = tomorrow.isoformat()
 
-        # autherticated with user
+        # authenticated with user, _member_ role only
         self.user_token = 'usertoken'
         self.user_response = deepcopy(responses['good'])
-        self.user_response['access']['token']['id'] = self.user_token
-        self.user_response['access']['token']['expires'] = tomorrow.isoformat()
+        self.user_response['token']['expires_at'] = tomorrow.isoformat()
+        self.user_response['token']['roles'] = \
+            [r for r in self.user_response['token']['roles']
+             if r['name'] == '_member_']
 
         # not authenticated
         self.unauth_token = 'unauthtoken'
@@ -70,7 +70,7 @@ class TestAuthApi(unittest.TestCase) :
                                content_type="application/json")
 
         httpretty.register_uri(httpretty.GET,
-                               "http://127.0.0.1:35357/v2.0/tokens/%s" % token_id,
+                               "http://127.0.0.1:35357/v3/auth/tokens",
                                status = status,
                                body = json.dumps(response_dict),
                                content_type="application/json")

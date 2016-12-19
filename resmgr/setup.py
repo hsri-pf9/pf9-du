@@ -17,6 +17,7 @@ setup(
         'alembic',
         'pecan==1.1.2',
         'python-memcached==1.58',
+        'keystonemiddleware==4.3.0',
         'sqlalchemy',
         'requests'
     ],
@@ -25,7 +26,3 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=['ez_setup'])
 )
-
-# FIXME: Because of
-# https://bitbucket.org/pypa/setuptools/issue/73/typeerror-dist-must-be-a-distribution
-# python-keystone client has to be installed with a separate 'pip install'.
