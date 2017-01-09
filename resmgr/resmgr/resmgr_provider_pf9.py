@@ -159,6 +159,13 @@ class RolesMgr(object):
         self.rabbit_mgmt_cl = rabbit.RabbitMgmtClient(rabbit_username,
                                                       rabbit_password)
 
+        # Map to keep track of when the last push was made to each host.
+        # This will be updated each time we push configuration to a host,
+        # and checked when we process the host. Without this, when a host
+        # is reported as 'ok' by bbmaster, it's not clear whether it's
+        # converged or it just hasn't started working on the new config yet.
+        self._last_config_push_time = {}
+
     def get_all_roles(self):
         """
         Returns information of all active roles
@@ -266,9 +273,39 @@ class RolesMgr(object):
                 log.error('PUT request failed, response status code %d', r.status_code)
                 raise HostConfigFailed('Error in PUT request response: %d' % r.status_code)
 
+            # when we process the host, we need to know if the update we get
+            # from hostagent was received since the last push.
+            self._last_config_push_time[host_id] = datetime.datetime.utcnow()
+
         except requests.exceptions.RequestException as exc:
             log.error('Configuring host %s failed: %s', host_id, exc)
             raise BBMasterNotFound(exc)
+
+    def received_since_last_push(self, host_id, host_info):
+        """
+        Check a host_info update from bbmaster to see if it's been received
+        since the last time a new config was pushed to the host. Use this
+        to decide whether a host_status should trigger or state change after
+        a push, or ignore it if it's leftover in the bbmaster.
+        """
+        update_time_string = host_info.get('timestamp_on_du', None)
+        if not update_time_string:
+            log.warn('hostagent update for host %s doesn\'t contain '
+                     'timestamp_on_du!', host_id)
+            return True
+        try:
+            # this format must match the one in bbone_provider_pf9_pika,
+            # consume_msg
+            update_time = datetime.datetime.strptime(update_time_string,
+                                                     "%Y-%m-%d %H:%M:%S.%f")
+            return update_time > self._last_config_push_time[host_id]
+        except ValueError:
+            log.error('update time in host_info \'%s\' for host %s is in the '
+                      'wrong format!', update_time_string, host_id)
+            return True
+        except KeyError:
+            # host_id isn't there, no push yet
+            return True
 
     def get_current_app_config(self, host_id, include_deauthed_roles=False):
         """
@@ -372,19 +409,27 @@ class RolesMgr(object):
             self.on_auth_converged(rolename, app_info)
 
     def move_to_not_applied_state(self, host_id, rolename):
-        with self.db_handler.move_new_state(host_id, rolename,
-                                            role_states.DEAUTH_CONVERGED,
-                                            role_states.NOT_APPLIED,
-                                            role_states.DEAUTH_ERROR):
-            log.info('Running on_deauth_converged_event')
+        """
+        Note there's no role transition to 'NOT_APPLIED' because the
+        the role is removed from the associations.
+        """
+        try:
+            log.info('Running on_deauth_converged_event for %s(%s)',
+                     host_id, rolename)
             app_info = self.get_current_app_config(host_id,
                                 include_deauthed_roles=True)
             self.on_deauth_converged(rolename, app_info)
 
             # now we can drop the association and remove from the host
             self.db_handler.remove_role_from_host(host_id, rolename)
-            if not self.db_handler.query_roles_for_host(host_id):
+            if not self.db_handler.get_all_role_associations(host_id):
                 self.db_handler.delete_host(host_id)
+        except Exception as e:
+            log.error('Failed to remove role %s from host %s: %s',
+                      rolename, host_id, e)
+            self.db_handler.advance_role_state(host_id, rolename,
+                                               role_states.DEAUTH_CONVERGED,
+                                               role_states.DEAUTH_ERROR)
 
     def on_auth(self, role_name, app_config):
         self._run_event('on_auth', role_name, app_config)
@@ -423,8 +468,6 @@ class RolesMgr(object):
             if app_name not in role_apps or \
                'du_config' not in app_details or \
                'auth_events' not in app_details['du_config']:
-                log.debug('No auth events for %s and role %s',
-                          app_name, role_name)
                 continue
 
             event_spec = app_details['du_config']['auth_events']
@@ -711,8 +754,21 @@ class BbonePoller(object):
                 self.notifier.publish_notification('change', 'host', host)
 
     def _update_role_status(self, host_id, host):
-        if _authorized_host_role_status.get(host_id) != host['status']:
-            _authorized_host_role_status[host_id] = host['status']
+        """
+        Calculate role status based on both the response from bbmaster and
+        the host roles state machine states.
+        """
+        role_assocs = self.db_handle.get_all_role_associations(host_id)
+        states = [assoc.current_state for assoc in role_assocs]
+        if any([role_states.role_is_failed(str(s)) for s in states]):
+            host_status = 'failed'
+        elif any([role_states.role_is_converging(str(s)) for s in states]):
+            host_status = 'converging'
+        else:
+            host_status = host['status']
+
+        if _authorized_host_role_status.get(host_id) != host_status:
+            _authorized_host_role_status[host_id] = host_status
             self.notifier.publish_notification('change', 'host', host_id)
 
     def _process_existing_hosts(self, host_ids, authorized_hosts):
@@ -764,14 +820,10 @@ class BbonePoller(object):
                     log.info('Marking %s as %s responding, status time: %s',
                              host, '' if (responding or responding_on_du) else 'not', host_info['timestamp'])
 
-                self._update_role_status(host, host_info)
-                if authorized_hosts[host]['hostname'] != hostname:
-                    self.db_handle.update_host_hostname(host, hostname)
-                    self.notifier.publish_notification('change', 'host', host)
-
                 # Active hosts but we need to change the configuration
                 try:
-                    if host_status not in ('ok', 'retrying', 'converging'):
+                    if self.rolemgr.received_since_last_push(host, host_info) and \
+                       host_status not in ('ok', 'retrying', 'converging'):
                         # put the roles that were converging into the failed state and
                         # continue to other hosts
                         self._fail_role_converge(host)
@@ -796,7 +848,8 @@ class BbonePoller(object):
                         if roles:
                             _update_custom_role_settings(expected_cfg, role_settings, roles)
                             self.db_handle.substitute_rabbit_credentials(expected_cfg, host)
-                        if host_status == 'ok' and \
+                        if self.rolemgr.received_since_last_push(host, host_info) and \
+                           host_status == 'ok' and \
                            is_satisfied_by(expected_cfg, host_info['apps']):
                             self._finish_role_converge(host)
                         elif not is_satisfied_by(expected_cfg, host_info[cfg_key]):
@@ -806,6 +859,11 @@ class BbonePoller(object):
                             self.rolemgr.push_configuration(host, expected_cfg,
                                                             needs_hostid_subst=False,
                                                             needs_rabbit_subst=False)
+                    self._update_role_status(host, host_info)
+                    if authorized_hosts[host]['hostname'] != hostname:
+                        self.db_handle.update_host_hostname(host, hostname)
+                        self.notifier.publish_notification('change', 'host', host)
+
                 except (BBMasterNotFound, HostConfigFailed):
                     log.exception('Backbone request for %s failed', host)
                     continue
@@ -1200,6 +1258,11 @@ class ResMgrPf9Provider(ResMgrProvider):
                 role_states.DEAUTH_ERROR, role_states.START_DEAUTH):
             log.info('role %s on host %s moved from %s to %s', role_name,
                      host_id, role_states.DEAUTH_ERROR, role_states.START_DEAUTH)
+            curr_state = role_states.START_DEAUTH
+        elif self.res_mgr_db.advance_role_state(host_id, role_name,
+                role_states.AUTH_ERROR, role_states.START_DEAUTH):
+            log.info('role %s on host %s moved from %s to %s', role_name,
+                     host_id, role_states.AUTH_ERROR, role_states.START_DEAUTH)
             curr_state = role_states.START_DEAUTH
         else:
             raise RoleUpdateConflict('Cannot remove role %s from host %s in the '

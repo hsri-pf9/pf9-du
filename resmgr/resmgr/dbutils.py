@@ -803,7 +803,6 @@ class ResMgrDB(object):
         """
         # the delete query doesn't dirty the session, so we can't use
         # dbsession()
-        log.info('Removing role with name %s from host %s', role_name, host_id)
         session = self.session_maker()
         role_ids = session.query(Role.id).filter_by(rolename=role_name).subquery()
         removed = session.query(HostRoleAssociation

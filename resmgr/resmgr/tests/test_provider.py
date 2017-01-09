@@ -1,7 +1,7 @@
 # Copyright (c) 2016 Platform9 Systems Inc. All Rights Reserved.
 
 # pylint: disable=protected-access, too-many-instance-attributes
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods, too-many-public-methods
 
 import copy
 import json
@@ -12,6 +12,7 @@ import requests
 import sys
 import threading
 
+from datetime import datetime
 from rabbit import RabbitMgmtClient
 from resmgr import resmgr_provider_pf9
 from resmgr import role_states
@@ -283,7 +284,18 @@ class TestProvider(DbTestCase):
         self._assert_event_handler_not_called('on_auth_converged')
         self._assert_fails_puts_deletes(host_id, 'test-role')
 
-        # our pretend host has converged
+        # update with an old timestamp, should ignore
+        self._get_backbone_host.return_value = \
+            self._converged_host(old_timestamp=True)
+        self._bbone.process_hosts()
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertEqual('converging', authed_host.get('role_status'))
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.AUTH_CONVERGING)
+        self._assert_event_handler_not_called('on_auth_converged')
+        self._assert_fails_puts_deletes(host_id, 'test-role')
+
+        # our pretend host has converged (fresh bbone update)
         self._get_backbone_host.return_value = self._converged_host()
         self._bbone.process_hosts()
         authed_host = self._inventory.get_authorized_host(host_id)
@@ -913,6 +925,56 @@ class TestProvider(DbTestCase):
         with self.assertRaises(HostDown):
             self._provider.add_role(host_id, 'test-role-2', {})
 
+    def test_delete_role_from_auth_error(self):
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._provider.add_role(host_id, rolename, {})
+        self._assert_event_handler_called('on_auth')
+        self._assert_role_state(host_id, rolename,
+                                role_states.AUTH_CONVERGING)
+        self._get_backbone_host.return_value = self._failed_host()
+        self._bbone.process_hosts()
+        self._assert_role_state(host_id, rolename,
+                                role_states.AUTH_ERROR)
+
+        # delete it
+        self._provider.delete_role(host_id, rolename)
+
+        # check that empty config was pushed to bbmaster.
+        self._requests_put.assert_called_with(
+            'http://fake/v1/hosts/1234/apps', '{}')
+
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.DEAUTH_CONVERGING)
+        self._assert_event_handler_called('on_deauth')
+        self._assert_fails_puts_deletes(host_id, 'test-role')
+
+        # bbone hasn't got new update from hostagent since the delete call.
+        # _process_existing_hosts should ignore it, even though it reports
+        # 'failed'.
+        self._bbone.process_hosts()
+        self._assert_role_state(host_id, rolename,
+                                role_states.DEAUTH_CONVERGING)
+
+        # now it's converging
+        self._get_backbone_host.return_value = self._converging_host()
+        self._bbone.process_hosts()
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.DEAUTH_CONVERGING)
+        self._assert_event_handler_not_called('on_deauth_converged')
+        self._assert_fails_puts_deletes(host_id, 'test-role')
+
+        # converged
+        self._get_backbone_host.return_value = self._empty_host()
+        self._bbone.process_hosts()
+
+        # verify that the deauth post-converge event ran.
+        self._assert_event_handler_called('on_deauth_converged')
+
+        # host is gone
+        hosts = self._inventory.get_all_hosts()
+        self.assertFalse(hosts)
+
     @staticmethod
     def _plain_http_response(code):
         resp = requests.Response()
@@ -924,24 +986,37 @@ class TestProvider(DbTestCase):
         return copy.deepcopy(BBONE_HOST)
 
     @staticmethod
-    def _converging_host():
-        host = copy.deepcopy(BBONE_HOST)
-        apps = copy.deepcopy(BBONE_APPS)
-        host.update({'desired_apps': apps})
-        host['status'] = 'converging'
-        return host
+    def _converging_host(old_timestamp=False):
+        return TestProvider._host_info('desired_apps', 'converging',
+                                       old_timestamp)
 
     @staticmethod
-    def _converged_host():
-        host = copy.deepcopy(BBONE_HOST)
-        apps = copy.deepcopy(BBONE_APPS)
-        host.update({'apps': apps})
-        host['status'] = 'ok'
-        return host
+    def _converged_host(old_timestamp=False):
+        return TestProvider._host_info('apps', 'ok', old_timestamp)
 
     @staticmethod
-    def _empty_host():
+    def _failed_host(old_timestamp=False):
+        return TestProvider._host_info('desired_apps', 'failed', old_timestamp)
+
+    @staticmethod
+    def _empty_host(old_timestamp=False):
         host = copy.deepcopy(BBONE_HOST)
         host.update({'apps': {}})
         host['status'] = 'ok'
+        if not old_timestamp:
+            timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+            host['timestamp'] = timestamp
+            host['timestamp_on_du'] = timestamp
+        return host
+
+    @staticmethod
+    def _host_info(apps_key, host_status, old_timestamp):
+        host = copy.deepcopy(BBONE_HOST)
+        apps = copy.deepcopy(BBONE_APPS)
+        host.update({apps_key: apps})
+        host['status'] = host_status
+        if not old_timestamp:
+            timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+            host['timestamp'] = timestamp
+            host['timestamp_on_du'] = timestamp
         return host

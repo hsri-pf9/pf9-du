@@ -68,12 +68,34 @@ def role_is_authed(state_name):
                           AUTH_CONVERGED,
                           AUTH_ERROR]
 
+def role_is_failed(state_name):
+    """
+    True when a role is in a state where it's failed.
+    """
+    role_state = from_name(state_name)
+    return role_state in [DEAUTH_ERROR, AUTH_ERROR]
+
+def role_is_converging(state_name):
+    """
+    True when a role is in a state where it's in the middle somewhere.
+    """
+    role_state = from_name(state_name)
+    return role_state in [START_APPLY,
+                          START_EDIT,
+                          PRE_AUTH,
+                          AUTH_CONVERGING,
+                          AUTH_CONVERGED,
+                          START_DEAUTH,
+                          PRE_DEAUTH,
+                          DEAUTH_CONVERGING,
+                          DEAUTH_CONVERGED]
+
 NOT_APPLIED = _RoleState('not-applied', ['start-apply'])
 START_APPLY = _RoleState('start-apply', ['not-applied', 'pre-auth'])
 PRE_AUTH = _RoleState('pre-auth', ['auth-converging'])
 AUTH_CONVERGING = _RoleState('auth-converging', ['auth-converged', 'auth-error'])
 AUTH_CONVERGED = _RoleState('auth-converged', ['applied', 'auth-error'])
-AUTH_ERROR = _RoleState('auth-error', ['start-apply'])
+AUTH_ERROR = _RoleState('auth-error', ['start-apply', 'start-deauth'])
 APPLIED = _RoleState('applied', ['start-edit', 'start-deauth'])
 START_EDIT = _RoleState('start-edit', ['pre-auth', 'applied'])
 START_DEAUTH = _RoleState('start-deauth', ['pre-deauth', 'applied'])
