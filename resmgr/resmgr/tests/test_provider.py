@@ -975,6 +975,38 @@ class TestProvider(DbTestCase):
         hosts = self._inventory.get_all_hosts()
         self.assertFalse(hosts)
 
+    def test_missing_auth_events_file(self):
+        # add a role so the host isn't deleted
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._add_and_converge_role(rolename)
+
+        module_path = TEST_ROLE['test-role']['1.0']['config']['test-role'
+                              ]['du_config']['auth_events']['module_path']
+        real_isfile = os.path.isfile
+        isfile = self._patchfun('os.path.isfile')
+        isfile.side_effect = \
+            lambda f: False if f == module_path else real_isfile(f)
+
+        # delete it
+        self._provider.delete_role(host_id, rolename)
+
+        # check that empty config was pushed to bbmaster.
+        self._requests_put.assert_called_with(
+            'http://fake/v1/hosts/1234/apps', '{}')
+
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.DEAUTH_CONVERGING)
+        self._assert_fails_puts_deletes(host_id, 'test-role')
+
+        # converged
+        self._get_backbone_host.return_value = self._empty_host()
+        self._bbone.process_hosts()
+
+        # host is gone
+        hosts = self._inventory.get_all_hosts()
+        self.assertFalse(hosts)
+
     @staticmethod
     def _plain_http_response(code):
         resp = requests.Response()

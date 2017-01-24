@@ -486,6 +486,9 @@ class RolesMgr(object):
         module_path = event_spec.get('module_path', None)
         if not module_path:
             log.warn('No auth events module_path specified in app_config.')
+        elif not os.path.isfile(module_path):
+            log.warn('Auth events module %s not found, not running event '
+                     '%s.', module_path, event_method)
         else:
             params = event_spec.get('params', {})
             try:
