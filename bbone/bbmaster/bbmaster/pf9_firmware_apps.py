@@ -9,12 +9,13 @@ from os import path, environ
 import logging
 import pf9_comms
 import pf9_vmw_mgmt
+import pf9_muster
 import subprocess
 
 LOG = logging.getLogger(__name__)
 
 # TODO: Load these modules dynamically
-firmware_apps = {'pf9-comms': pf9_comms, 'pf9-vmw-mgmt': pf9_vmw_mgmt}
+firmware_apps = { 'pf9-comms': pf9_comms, 'pf9-vmw-mgmt': pf9_vmw_mgmt, 'pf9-muster': pf9_muster }
 
 
 def _app_package_and_version(app_name, base_dir):
