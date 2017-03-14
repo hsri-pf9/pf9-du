@@ -19,7 +19,7 @@ setup(
         'python-memcached==1.58',
         'keystonemiddleware==4.3.0',
         'sqlalchemy',
-        'requests'
+        'requests==2.12.5'
     ],
     test_suite='resmgr',
     zip_safe=False,
