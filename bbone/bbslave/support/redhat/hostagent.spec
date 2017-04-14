@@ -3,7 +3,7 @@
 Name:           pf9-hostagent
 Version:        %{_version}
 Release:        %{_release}
-Summary:        Platform 9 host agent
+Summary:        Platform9 host agent
 
 License:        Commercial
 URL:            http://www.platform9.net
@@ -19,7 +19,7 @@ Requires:       sudo
 %define __prelink_undo_cmd %{nil}
 
 %description
-Platform 9 host agent
+Platform9 host agent
 
 %prep
 
@@ -38,11 +38,11 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 /opt/pf9
-/etc/rc.d/init.d/pf9-hostagent
 %dir /var/cache/pf9apps
 %attr(0440, root, root) /etc/sudoers.d/pf9-hostagent
 %attr(0550, root, root) /opt/pf9/hostagent/bin/pf9-yum
 %attr(0550, root, root) /opt/pf9/hostagent/bin/openport.py
+%attr(0550, root, root) /opt/pf9/hostagent/pf9-hostagent-prestart.sh
 %dir /var/opt/pf9
 %config /etc/pf9/hostagent.conf
 /etc/pf9/certs
@@ -57,6 +57,9 @@ change_file_permissions() {
     chown -R pf9:pf9group /var/opt/pf9/
     chown -R pf9:pf9group /var/cache/pf9apps
 }
+
+. /opt/pf9/pf9-service-functions.sh
+pf9_setup_service_files pf9-hostagent /opt/pf9/hostagent/pf9-hostagent-systemd /opt/pf9/hostagent/pf9-hostagent-deb-init
 
 if [ "$1" = "1" ]; then
     # Create the pf9 user and group
@@ -73,24 +76,29 @@ if [ "$1" = "1" ]; then
     # Add root also to the pf9group
     usermod -aG pf9group root
     change_file_permissions
-    chkconfig --add pf9-hostagent
+
+    pf9_enable_service_on_boot pf9-hostagent
 elif [ "$1" = "2" ]; then
     # During an upgrade, hostagent files are reverted to the default owner and
     # group. So, permissions must be reassigned.
     change_file_permissions
     # Restart comms in case certs were upgraded
-    service pf9-comms condrestart
+    pf9_service_condrestart pf9-comms
     # In case of an upgrade, restart the service if it's running
-    service pf9-hostagent condrestart
+    pf9_service_condrestart pf9-hostagent
 fi
 
 %preun
 # $1==0: remove the last version of the package
 # $1==1: install the first time
 # $1>=2: upgrade
+
+. /opt/pf9/pf9-service-functions.sh
+
 if [ "$1" = 0 ]; then
-    service pf9-hostagent stop > /dev/null
-    chkconfig --del pf9-hostagent
+    pf9_service_stop
+    pf9_disable_service_on_boot pf9-hostagent
+    pf9_remove_service_files pf9-hostagent
 fi
 
 %postun

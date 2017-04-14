@@ -1,3 +1,4 @@
+#!/bin/bash
 set -e
 
 # Arguments to the postrm script:

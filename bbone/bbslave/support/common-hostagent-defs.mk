@@ -59,6 +59,7 @@ $(VENV_DIR): $(PYTHON_DIR)
 	cp $(SRC_DIR)/scripts/pf9-hostagent-$(TARGET_DISTRO) $(VENV_DIR)/bin/pf9-hostagent
 	cp $(SRC_DIR)/scripts/run_support_scripts.sh $(VENV_DIR)/bin
 	cp $(SRC_DIR)/scripts/openport.py $(VENV_DIR)/bin
+	cp $(SRC_DIR)/service_scripts/pf9-service-functions.sh $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/
 	# Create a symlink so that the program names of the hostagent and the
 	# init script are different. This will allow the start-stop-daemon to
 	# determine if the imagelibrary is running by looking at the program names.

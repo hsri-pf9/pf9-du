@@ -23,12 +23,14 @@ UID ?= $(shell id -u)
 GID ?= $(shell id -g)
 
 $(HOSTAGENT_TARBALL): $(VENV_DIR)
-	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/rc.d/init.d
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/sudoers.d
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/var/opt/pf9
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/var/cache/pf9apps
 	cp $(SRC_DIR)/support_scripts/redhat/* $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/support/
-	cp $(SRC_DIR)/etc/init.d/pf9-hostagent-redhat $(HOSTAGENT_TARBALL_SRCDIR)/etc/rc.d/init.d/pf9-hostagent
+	cp $(SRC_DIR)/service_scripts/pf9-hostagent-deb-init $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/
+	cp $(SRC_DIR)/service_scripts/pf9-hostagent-systemd $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/
+	cp $(SRC_DIR)/service_scripts/pf9-hostagent.env $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/
+	cp $(SRC_DIR)/service_scripts/pf9-hostagent-prestart.sh $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/
 	cp $(SRC_DIR)/etc/sudoers.d/pf9-hostagent-redhat $(HOSTAGENT_TARBALL_SRCDIR)/etc/sudoers.d/pf9-hostagent
 	cp $(SRC_DIR)/support/redhat/hostagent.spec $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/redhat/hostagent-rpm-build.sh $(HOSTAGENT_TARBALL_SRCDIR)

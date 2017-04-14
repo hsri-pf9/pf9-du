@@ -1,3 +1,4 @@
+#!/bin/bash
 set -e
 
 # Arguments to the postinst script:
@@ -15,7 +16,11 @@ change_file_permissions() {
     chmod 0440 /etc/sudoers.d/pf9-hostagent
     chmod 0550 /opt/pf9/hostagent/bin/pf9-apt
     chmod 0550 /opt/pf9/hostagent/bin/openport.py
+    chmod 0550 /opt/pf9/hostagent/pf9-hostagent-prestart.sh
 }
+
+. /opt/pf9/pf9-service-functions.sh
+pf9_setup_service_files pf9-hostagent /opt/pf9/hostagent/pf9-hostagent-systemd /opt/pf9/hostagent/pf9-hostagent-deb-init
 
 if [ "$script_step" = "configure" ] && [ -z $configured_version ]; then
     # Create the pf9 user and group
@@ -28,13 +33,13 @@ if [ "$script_step" = "configure" ] && [ -z $configured_version ]; then
     usermod -aG pf9group root
     # Make the certs and log files belong to the pf9group
     change_file_permissions
-    update-rc.d pf9-hostagent defaults > /dev/null 2>&1
+    pf9_enable_service_on_boot pf9-hostagent > /dev/null 2>&1
 elif [ "$script_step" = "configure" ]; then
     # During an upgrade, hostagent files are reverted to the default owner and
     # group. So, permissions must be reassigned.
     change_file_permissions
     # Restart comms in case certs were upgraded
-    service pf9-comms condrestart
+    pf9_service_condrestart pf9-comms
     # In case of an upgrade, restart the service if it's running
-    service pf9-hostagent condrestart
+    pf9_service_condrestart pf9-hostagent
 fi

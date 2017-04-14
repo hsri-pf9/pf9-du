@@ -14,12 +14,15 @@ PYTHON_VERSION = 2.7
 include ../common-hostagent-defs.mk
 
 $(HOSTAGENT_TARBALL): | $(VENV_DIR)
-	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/init.d
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/sudoers.d
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/var/opt/pf9
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/var/cache/pf9apps
 	cp $(SRC_DIR)/support_scripts/debian/* $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/support/
-	cp $(SRC_DIR)/etc/init.d/pf9-hostagent-debian $(HOSTAGENT_TARBALL_SRCDIR)/etc/init.d/pf9-hostagent
+	cp $(SRC_DIR)/service_scripts/pf9-hostagent-deb-init $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/
+	cp $(SRC_DIR)/service_scripts/pf9-hostagent-systemd $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/
+	cp $(SRC_DIR)/service_scripts/pf9-hostagent-systemd $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/
+	cp $(SRC_DIR)/service_scripts/pf9-hostagent.env $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/
+	cp $(SRC_DIR)/service_scripts/pf9-hostagent-prestart.sh $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/
 	cp $(SRC_DIR)/etc/sudoers.d/pf9-hostagent-debian $(HOSTAGENT_TARBALL_SRCDIR)/etc/sudoers.d/pf9-hostagent
 	cp $(SRC_DIR)/support/debian/hostagent-deb-build.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/debian/after-install.sh $(HOSTAGENT_TARBALL_SRCDIR)
