@@ -49,6 +49,8 @@ rm -rf $RPM_BUILD_ROOT
 %dir /var/log/pf9
 
 %post
+set -e
+set -x
 change_file_permissions() {
     chown -R pf9:pf9group /var/log/pf9
     chown pf9:pf9group /etc/pf9/
