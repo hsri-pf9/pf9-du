@@ -67,7 +67,7 @@ if [ "$1" = "1" ]; then
     # Create the pf9 user and group
     grep ^pf9group: /etc/group &>/dev/null || groupadd pf9group
     homedir=/opt/pf9/home
-    id pf9 &>/dev/null || useradd -g pf9group -d ${homedir} -s /sbin/nologin --create-home -c "Platform9 user" pf9
+    id pf9 &>/dev/null || useradd -g pf9group -d ${homedir} -s /sbin/nologin --create-home -c "Platform9 user" pf9 || true
     # Create pf9 home directory ourselves if necessary due to IAAS-4714
     source /opt/pf9/hostagent/bin/create_pf9_homedir.sh
     create_pf9_homedir_if_absent ${homedir}
