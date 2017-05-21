@@ -86,8 +86,6 @@ elif [ "$1" = "2" ]; then
     change_file_permissions
     # Restart comms in case certs were upgraded
     pf9_service_condrestart pf9-comms
-    # In case of an upgrade, restart the service if it's running
-    pf9_service_condrestart pf9-hostagent
 fi
 
 %preun

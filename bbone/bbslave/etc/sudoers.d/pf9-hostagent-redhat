@@ -5,6 +5,10 @@ pf9	ALL = NOPASSWD: /opt/pf9/hostagent/bin/pf9-yum install /var/cache/pf9apps/*.
           NOPASSWD: /sbin/service pf9-*, \
           NOPASSWD: /usr/bin/systemctl is-active pf9-*, \
           NOPASSWD: /usr/bin/systemctl start pf9-*, \
+          NOPASSWD: /usr/bin/systemctl stop pf9-*, \
+          NOPASSWD: /usr/bin/systemctl restart pf9-*, \
+          NOPASSWD: /usr/bin/systemctl condrestart pf9-*, \
+          NOPASSWD: /usr/bin/systemctl daemon-reload, \
           NOPASSWD: /usr/bin/yum clean all, \
           NOPASSWD: /sbin/vgs, \
           NOPASSWD: /bin/mkdir -p /opt/pf9/home, \

@@ -3,6 +3,10 @@ pf9	ALL = NOPASSWD: /opt/pf9/hostagent/bin/pf9-apt install /var/cache/pf9apps/*.
           NOPASSWD: /usr/sbin/service pf9-*, \
           NOPASSWD: /bin/systemctl is-active pf9-*, \
           NOPASSWD: /bin/systemctl start pf9-*, \
+          NOPASSWD: /bin/systemctl stop pf9-*, \
+          NOPASSWD: /bin/systemctl restart pf9-*, \
+          NOPASSWD: /bin/systemctl condrestart pf9-*, \
+          NOPASSWD: /bin/systemctl daemon-reload, \
           NOPASSWD: /bin/df -kh, \
           NOPASSWD: /usr/sbin/aa-status, \
           NOPASSWD: /sbin/vgs, \
