@@ -30,10 +30,10 @@ class AlarmsManager(NovaBase):
         cfg = ConfigParser()
         cfg.read(ceilometer_config)
 
-        self._ceil_auth_url = cfg.get('service_credentials', 'os_auth_url')
-        self._ceil_user = cfg.get('service_credentials', 'os_username')
-        self._ceil_pass = cfg.get('service_credentials', 'os_password')
-        self._ceil_tenant = cfg.get('service_credentials', 'os_tenant_name')
+        self._ceil_auth_url = cfg.get('service_credentials', 'auth_url')
+        self._ceil_user = cfg.get('service_credentials', 'username')
+        self._ceil_pass = cfg.get('service_credentials', 'password')
+        self._ceil_tenant = cfg.get('service_credentials', 'project_name')
 
         # TODO: Make this configurable
         pipeline_file = 'pipeline.yaml'

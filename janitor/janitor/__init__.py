@@ -83,13 +83,20 @@ def serve(config_file):
 
     :param: config_file Janitor config file
     """
-    cfg = _parse_config(config_file)
-    _setup_logging(cfg)
+    while True:
+        try:
+            cfg = _parse_config(config_file)
+            _setup_logging(cfg)
 
-    nova_obj = NovaCleanup(conf=cfg)
-    glance_obj = GlanceCleanup(conf=cfg)
-    nw_obj = NetworkCleanup(conf=cfg)
-    alarm_obj = AlarmsManager(conf=cfg)
+            nova_obj = NovaCleanup(conf=cfg)
+            glance_obj = GlanceCleanup(conf=cfg)
+            nw_obj = NetworkCleanup(conf=cfg)
+            alarm_obj = AlarmsManager(conf=cfg)
+            break
+        except Exception as e:
+            LOG.error('Unexpected error during init: %s', e)
+
+        sleep(int(cfg.get('DEFAULT', 'pollInterval')))
 
     neutron_present = check_for_neutron()
 
