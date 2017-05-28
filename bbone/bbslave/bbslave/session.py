@@ -423,7 +423,10 @@ def start(config, log, app_db, agent_app_db, app_cache,
                                  agent_app_class, log)
             # Restart the hostagent. A new instance of the agent will take over
             # this process space after this step.
-            reboot_agent()
+            # NOTE: The host agent reboot is currently commented out here
+            # because we have an alternate way to handle this in the post
+            # install of the hostagent package
+            #reboot_agent()
         except Pf9Exception:
             # TODO:  Currently we don't retry the update. Consider reporting
             # a failure and retry logic
