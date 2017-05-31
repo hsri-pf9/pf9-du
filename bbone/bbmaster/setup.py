@@ -14,6 +14,7 @@ setup(
     author_email='',
     install_requires=[
         "pecan==1.1.2",
+        "requests==2.11.1",
         "pika"
     ],
     test_suite='bbmaster',
