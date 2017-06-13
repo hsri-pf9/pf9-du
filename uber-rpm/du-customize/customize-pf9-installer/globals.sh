@@ -11,8 +11,12 @@ SKIP_OS_CHECK="false"
 ASK_NTPD="true"
 INSTALL_NTPD="true"
 VMWARE="false"
+PROXY_URL=""
+PROXY_PROTOCOL="http"
 PROXY_HOST=""
 PROXY_PORT=""
+PROXY_USER=""
+PROXY_PASS=""
 JSON_TOOL="jsontool.py"
 
 # to be replaced by the build script

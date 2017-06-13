@@ -13,45 +13,52 @@ function proxy_ask()
 
 function proxy_setup()
 {
-    local host=$1
-    local port=$2
-
-    if [[ -z "${host}" || -z "${port}" ]]; then
+    if [[ -z "${PROXY_HOST}" || -z "${PROXY_PORT}" ]]; then
       echo "Skipping proxy setup since the proxy host or the proxy port is not set."
       return
     fi
 
     echo "Setting up proxy with: "
-    echo "host: $host"
-    echo "port: $port"
+    echo "protocol: $PROXY_PROTOCOL"
+    echo "host: $PROXY_HOST"
+    echo "port: $PROXY_PORT"
 
-    echo "{\"http_proxy\":{\"host\":\"$host\", \"port\":$port}}" > ${PF9_COMMS_PROXY_CONF}
+    json="{\"http_proxy\":{\"protocol\":\"${PROXY_PROTOCOL}\", \"host\":\"${PROXY_HOST}\", \"port\":${PROXY_PORT}"
+    if [[ -n "$PROXY_USER" ]] && [[ -n "$PROXY_PASS" ]]; then
+        json+=", \"user\":\"${PROXY_USER}\", \"pass\":\"${PROXY_PASS}\"}}"
+    else
+        json+="}}"
+    fi
+
+    echo "${json}" > ${PF9_COMMS_PROXY_CONF}
 }
 
 function _ask_proxy_settings()
 {
     echo
-    echo "Example: "
-    echo "proxy host: squid.mycompany.com "
-    echo "proxy port: 3128 "
+    echo "Examples: "
+    echo "http://squid.mycompany.com:3128"
+    echo "https://username:password@squid.mycompany.com:443"
     echo
 
     while true; do
-        read -p "proxy host: " PROXY_HOST
-        read -p "proxy port: " PROXY_PORT
+        read -p "proxy url: " PROXY_URL
 
-        echo "Stripping http/https schema..."
-        echo
-        PROXY_HOST=$(strip_http_schema "${PROXY_HOST}")
+        if [[ -z "${PROXY_URL}" ]]; then
+            echo "Skipping proxy setup since the proxy url is not set."
+            SETUP_PROXY="false"
+        else
+            PROXY_URL=($(./nettool urlparse "${PROXY_URL}"))
 
-        echo "These are your proxy settings:"
-        echo "host: \"$PROXY_HOST\""
-        echo "port: \"$PROXY_PORT\""
-
-        if [[ -z "${PROXY_HOST}" || -z "${PROXY_PORT}" ]]; then
-          echo "Skipping proxy setup since the proxy host or the proxy port is not set."
-          SETUP_PROXY="false"
+            if [[ $? != 0 ]]; then
+                echo
+                echo "Invalid proxy url. Please retry."
+                continue
+            fi
+            parse_proxy_url
         fi
+
+
 
         read -p "Are these correct? (yes/no) " yn
         case $yn in
@@ -62,12 +69,27 @@ function _ask_proxy_settings()
     done
 }
 
-function strip_http_schema()
-{
-    local proxy_host=$1
-    if echo $proxy_host | grep -E -q "^https?://"; then
-        proxy_host=$(echo $proxy_host | sed -n -e 's/^https\?\:\/\///p')
+function parse_proxy_url() {
+    echo "These are your proxy settings:"
+    PROXY_PROTOCOL="${PROXY_URL[0]}"
+    echo "protocol: \"$PROXY_PROTOCOL\""
+    if [[ "${#PROXY_URL[@]}" = 3 ]]; then
+        PROXY_HOST="${PROXY_URL[1]}"
+        PROXY_PORT="${PROXY_URL[2]}"
+        echo "host: \"$PROXY_HOST\""
+        echo "port: \"$PROXY_PORT\""
+    elif [[ "${#PROXY_URL[@]}" = 5 ]]; then
+        PROXY_HOST="${PROXY_URL[1]}"
+        PROXY_PORT="${PROXY_URL[2]}"
+        PROXY_USER="${PROXY_URL[3]}"
+        PROXY_PASS="${PROXY_URL[4]}"
+        echo "host: \"$PROXY_HOST\""
+        echo "port: \"$PROXY_PORT\""
+        echo "user: \"$PROXY_USER\""
+        echo "password: \"$PROXY_PASS\""
+    else
+        # If nettool succeeded, this shouldn't be reached
+        echo "Unexpected result from proxy url parser: ${PROXY_URL[*]}"
+        exit 1
     fi
-    echo $proxy_host
 }
-

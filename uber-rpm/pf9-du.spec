@@ -6,7 +6,10 @@ Group:            Applications/System
 License:          Commercial
 URL:              http://www.platform9.net/
 Source0:          %{name}-%{version}.tar.gz
-BuildArch:        noarch
+BuildArch:        x86_64
+
+# Avoid extracting debug info
+%define debug_package %{nil}
 
 %description
 Platform9 deployment unit.

@@ -65,7 +65,7 @@ function setup_payload()
     cp ../ntpd.${distro}.sh ntpd.${distro}.sh
     cp ../support.sh support.sh
     cp ../jsontool.py  jsontool.py
-    cp ../nettool.py nettool.py
+    cp ../nettool nettool
     cp ../check_os_distro.sh  check_os_distro.sh
     cp ../check_sudoers.sh  check_sudoers.sh
     cp ../check_ports.sh check_ports.sh

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-nettool=$(dirname $0)/../nettool.py
+nettool="$1"
 
 
 function format_print()
@@ -16,33 +16,152 @@ function format_print()
     printf '%s\n' "${status}"
 
 }
-function run_test()
+
+function test_connect_success()
 {
-    local expected_return_code=$1
     local host=$2
-    local port=$3
-    local proxy_host=$4
-    local proxy_port=$5
+    "$nettool" connect "$@"
 
-    if [[ $proxy_host == "" ]]; then
-        python $nettool --du-fqdn=$host --port=$port
-    else
-        python $nettool --du-fqdn=$host --port=$port\
-                        --proxy-host=$proxy_host --proxy-port=$proxy_port
-    fi
-
-    if [[ $? == "${expected_return_code}" ]]; then
+    if [[ $? == 0 ]]; then
         format_print $host "OK"
-        echo
     else
         format_print $host "FAILED"
         exit 1
     fi
 }
 
-run_test "0" pf9.platform9.net 443 squid.platform9.sys 3128
-run_test "0" pf9.platform9.net 443
-run_test "0" ipv4.google.com 443
-run_test "0" 8.8.8.8 53
-run_test "1" "no-such-host.platform9.com" 443
-run_test "2" "pf9.platform9.net" 442
+function test_connect_fail()
+{
+    local expected="$1"
+    local host=$3
+    shift
+
+    local actual
+    actual="$("$nettool" connect "$@" 2>&1)"
+
+    if [[ $? != 1 ]] || ! [[ "${actual}" =~ "${expected}" ]]; then
+        echo "expected: ${expected}"
+        echo "actual: ${actual}"
+
+        format_print $host "FAILED"
+        exit 1
+    else
+        format_print $host "OK"
+    fi
+}
+
+function test_urlparse_success() {
+    local url="$1"
+    local expected="$2"
+
+    local actual="$("$nettool" urlparse "$url")"
+
+    if [[ $? != 0 ]] || [[ "${actual}" != "${expected}" ]]; then
+
+        echo "expected: ${expected}"
+        echo "actual: ${actual}"
+
+        format_print $url "FAILED"
+        exit 1
+    fi
+    format_print $url "OK"
+
+}
+
+function test_urlparse_fail() {
+    local url="$1"
+    local expected="$2"
+
+    local actual
+    actual="$("$nettool" urlparse "$url" 2>&1)"
+
+    if [[ $? != 1 ]] || ! [[ "${actual}" =~ "${expected}" ]]; then
+
+        format_print $url "FAILED"
+        exit 1
+    fi
+    format_print $url "OK"
+
+}
+
+function main()
+{
+    if [[ -z "${nettool}" ]]; then
+        echo "Usage: $0 <Nettool program>"
+        exit 1
+    fi
+
+    # Test direct connects
+    test_connect_success --host pf9.platform9.net --port 443
+    test_connect_success --host ipv4.google.com --port 443
+    test_connect_success --host 8.8.8.8 --port 53
+
+    # Test http proxy connect
+    test_connect_success --host pf9.platform9.net --port 443 \
+        --proxy-host squid.platform9.sys --proxy-port 3128
+
+    # Test https proxy connect
+    test_connect_success --host pf9.platform9.net --port 443 \
+        --proxy-protocol https --proxy-host squid.platform9.sys --proxy-port 443
+
+    # Test http proxy with basic auth connect
+    test_connect_success --host pf9.platform9.net --port 443 \
+        --proxy-host squid-basic-auth.platform9.sys --proxy-port 3128 \
+        --proxy-user pf9 --proxy-pass dummy
+
+    # Test https proxy with basic auth connect
+    test_connect_success --host pf9.platform9.net --port 443 \
+        --proxy-protocol https --proxy-host squid-basic-auth.platform9.sys --proxy-port 443 \
+        --proxy-user pf9 --proxy-pass dummy
+
+
+    # Test unresolvable hostnames
+    test_connect_fail "no such host" --host "no-such-host.platform9.com" --port 443
+    test_connect_fail "503 Service Unavailable" --host "no-such-host.platform9.com" --port 443 \
+        --proxy-host squid.platform9.sys
+    test_connect_fail "503 Service Unavailable" --host "no-such-host.platform9.com" --port 443 \
+        --proxy-host squid.platform9.sys --proxy-protocol https --proxy-port 443
+    test_connect_fail "503 Service Unavailable" --host "no-such-host.platform9.com" --port 443 \
+        --proxy-host squid-basic-auth.platform9.sys --proxy-user pf9 --proxy-pass dummy
+    test_connect_fail "503 Service Unavailable" --host "no-such-host.platform9.com" --port 443 \
+        --proxy-host squid-basic-auth.platform9.sys --proxy-user pf9 --proxy-pass dummy \
+        --proxy-protocol https --proxy-port 443
+
+    # Test connection timeouts
+    test_connect_fail "connection timed out" --host "pf9.platform9.net" --port 442
+
+    # Test invalid passwords
+    test_connect_fail "407 Proxy Authentication Required" --host "pf9.platform9.com" --port 443 \
+        --proxy-host squid-basic-auth.platform9.sys --proxy-user pf9 --proxy-pass wrongPassword \
+        --proxy-protocol https --proxy-port 443
+    test_connect_fail "407 Proxy Authentication Required" --host "pf9.platform9.com" --port 443 \
+        --proxy-host squid-basic-auth.platform9.sys --proxy-user wrongUser --proxy-pass dummy
+
+
+    test_urlparse_success http://squid.platform9.net:3128 "http squid.platform9.net 3128"
+    test_urlparse_success squid.platform9.net:3128 "http squid.platform9.net 3128"
+    test_urlparse_success squid.platform9.net "http squid.platform9.net 3128"
+    test_urlparse_success https://squid.platform9.net "https squid.platform9.net 3128"
+    test_urlparse_success https://squid.platform9.net:443 "https squid.platform9.net 443"
+
+    test_urlparse_success http://pf9:dummyPass@squid.platform9.net:3128 \
+        "http squid.platform9.net 3128 pf9 dummyPass"
+    test_urlparse_success pf9@platform9.net:dummyAgain@squid.platform9.net:3128 \
+        "http squid.platform9.net 3128 pf9@platform9.net dummyAgain"
+    test_urlparse_success usernames:cant:have:colons@squid.platform9.net \
+        "http squid.platform9.net 3128 usernames cant:have:colons"
+    test_urlparse_success pf9@platform9.net:dummy:again@squid.platform9.net \
+        "http squid.platform9.net 3128 pf9@platform9.net dummy:again"
+    test_urlparse_success https://squid.platform9.net \
+        "https squid.platform9.net 3128"
+    test_urlparse_success https://squid.platform9.net:443 \
+        "https squid.platform9.net 443"
+
+    test_urlparse_fail http://squid.platform9.net:portstring "Could not parse port"
+    test_urlparse_fail nopassword@squid.platform9.net "Password not found in user info"
+    test_urlparse_fail ftp://squid.platform9.net "Invalid protocol: ftp"
+    test_urlparse_fail squid.platform9.net:80:82 \
+        "Unexpected address format (expected <host>:<port>): squid.platform9.net:80:82"
+}
+
+main

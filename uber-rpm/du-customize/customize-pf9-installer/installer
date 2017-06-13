@@ -27,13 +27,14 @@ function usage()
     echo "Description: Platform9 installer"
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "--proxy=<host>:<port>  | Setup HTTP proxy with <host> and <port> as the proxy host and port respectively."
-    echo "--no-proxy             | Do not ask proxy configuration."
-    echo "--ntpd                 | Install ntpd."
-    echo "--no-ntpd              | Do not install ntpd."
-    echo "--extract              | Extract installation files to /tmp/pf9-install-XXXXX and exit."
-    echo "--skip-os-check        | Do not ask operating system compatibility questions."
-    echo "--help                 | Display program help."
+    echo "--proxy=[<protocol>][<username>:<password>@]<host>:<port>  | Setup HTTP(S) proxy with <host> and <port> as the proxy host and port respectively."
+    echo "                                                           | <protocol> defaults to http. <username> and <password> are optional."
+    echo "--no-proxy                                                 | Do not ask proxy configuration."
+    echo "--ntpd                                                     | Install ntpd."
+    echo "--no-ntpd                                                  | Do not install ntpd."
+    echo "--extract                                                  | Extract installation files to /tmp/pf9-install-XXXXX and exit."
+    echo "--skip-os-check                                            | Do not ask operating system compatibility questions."
+    echo "--help                                                     | Display program help."
 }
 
 while getopts ":-:" optchar; do
@@ -45,13 +46,13 @@ while getopts ":-:" optchar; do
                     SETUP_PROXY="false"
                     ;;
                 proxy=*)
-                    PROXYINFO=${OPTARG#*=}
-                    PROXYINFO=$(strip_http_schema "${PROXYINFO}")
-                    # replace every instance of ':' with ' '
-                    PROXYARR=(${PROXYINFO//:/ })
+                    PROXY_URL=($(./nettool urlparse "${OPTARG#*=}"))
+                    if [[ $? != 0 ]]; then
+                        echo "Error parsing proxy url"
+                        exit 1
+                    fi
 
-                    PROXY_HOST=${PROXYARR[0]}
-                    PROXY_PORT=${PROXYARR[1]}
+                    parse_proxy_url
 
                     ASK_PROXY="false"
                     SETUP_PROXY="true"
@@ -233,7 +234,7 @@ function main()
     rm -rf /var/opt/pf9/hostagent
 
     if [[ "${SETUP_PROXY}" == "true" ]]; then
-        proxy_setup $PROXY_HOST $PROXY_PORT
+        proxy_setup
     fi
 
     start_services

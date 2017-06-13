@@ -41,3 +41,6 @@ coverage.zip
 venv
 
 tags
+
+vendor
+.*.swp
