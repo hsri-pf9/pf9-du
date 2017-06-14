@@ -16,6 +16,11 @@ function proxy_setup()
     local host=$1
     local port=$2
 
+    if [[ -z "${host}" || -z "${port}" ]]; then
+      echo "Skipping proxy setup since the proxy host or the proxy port is not set."
+      return
+    fi
+
     echo "Setting up proxy with: "
     echo "host: $host"
     echo "port: $port"
