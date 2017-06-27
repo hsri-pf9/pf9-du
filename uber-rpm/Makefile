@@ -36,6 +36,7 @@ $(NETTOOL): $(STAGING) $(GLIDE)
 	export CGO_ENABLED=0 && \
 	cd $(SRCROOT)/nettool/src/nettool && \
 	$(GLIDE) install && \
+	go vet nettool nettool/cmd && \
 	go build -o $@ nettool
 
 $(GLIDE):

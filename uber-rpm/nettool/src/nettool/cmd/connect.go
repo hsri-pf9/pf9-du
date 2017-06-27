@@ -88,7 +88,7 @@ func connectViaProxy(host string, port int, proxyProtocol string, proxyHost stri
 
 func sendConnectRequest(conn net.Conn, host string, port int, proxyUser string,
 	proxyPass string) (int, error) {
-	text := fmt.Sprintf("CONNECT %s:%s HTTP/1.0\r\n", host, port)
+	text := fmt.Sprintf("CONNECT %s:%d HTTP/1.0\r\n", host, port)
 	if proxyUser == "" || proxyPass == "" {
 		text += "\r\n"
 	} else {
@@ -96,12 +96,14 @@ func sendConnectRequest(conn net.Conn, host string, port int, proxyUser string,
 			[]byte(fmt.Sprintf("%s:%s", proxyUser, proxyPass)))
 		text += fmt.Sprintf("Proxy-Authorization: Basic %s\r\n\r\n", basic)
 	}
+	log.Debug("Sending CONNECT request:\n", text)
 	return fmt.Fprintf(conn, text)
 }
 
 func dial(protocol string, host string, port int) (net.Conn, error) {
 	address := fmt.Sprintf("%s:%d", host, port)
-	log.Debug("Dialing address:", address)
+	log.Debug("Dialing address: ", address)
+	log.Debug("Using proxy protocol: ", protocol)
 	if protocol == "http" {
 		return net.Dial("tcp", address)
 	}
