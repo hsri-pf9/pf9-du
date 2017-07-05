@@ -23,14 +23,15 @@ MOCK = /usr/bin/mock -r epel-7-x86_64
 RESMGR_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-resmgr-${PF9_VERSION}
 RESMGR_SRC_TARBALL = ${BUILD_DIR}/pf9-resmgr-${PF9_VERSION}.tgz
 PF9_OPT_DIR = ${RESMGR_SRC_STAGE}/opt/pf9
+CONSTRAINTS_FILE=${SRC_DIR}/upper-constraints.txt
 PROD_VENV = ${PF9_OPT_DIR}/resmgr
 # These are additional modules needed to setup for production purposes
 PROD_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${CONFIGUTILS_DIR} ${NOTIFIER_DIR} ${RABBIT_MGMT_DIR}
-PROD_VENV_INSTALL_CMD=${PROD_VENV}/bin/python setup.py install
+PROD_VENV_INSTALL_CMD=${PROD_VENV}/bin/python ${PROD_VENV}/bin/pip install -c${CONSTRAINTS_FILE}
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${PROD_SETUP_DEPS}
 TEST_VENV = ${BUILD_DIR}/test_venv
-TEST_VENV_DEVELOP_CMD=${TEST_VENV}/bin/python setup.py develop
+TEST_VENV_DEVELOP_CMD=${TEST_VENV}/bin/python ${TEST_VENV}/bin/pip install -c${CONSTRAINTS_FILE} -e
 
 ifeq ($(MAKECMDGOALS),rpm)
 	VENV=${PROD_VENV}
@@ -53,10 +54,6 @@ ${VENV}: ${BUILD_DIR}
 	$(SRC_ROOT)/build-venv.sh ${VENV}
 
 ${RESMGR_SRC_STAGE}: pre-reqs
-	source ${VENV}/bin/activate && \
-	pip install MySQL-python && \
-	deactivate
-
 	mkdir -p ${RESMGR_SRC_STAGE}/var/log/pf9
 	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9
 	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9/resmgr_roles
@@ -90,18 +87,7 @@ rpm: ${RESMGR_SRC_TARBALL}
 	rm -f ${BUILD_DIR}/*.src.rpm
 
 pre-reqs: ${VENV}
-	for pkg in ${SETUP_DEPS}; do \
-		cd $${pkg} && \
-		${VENV_CMD}; \
-	done
-	cd ${RESMGR_DIR} && \
-	${VENV_CMD}
-
-	source ${VENV}/bin/activate &&  \
-	pip install Paste==1.7.5.1 && \
-	pip install PasteDeploy && \
-	deactivate
-
+	${VENV_CMD} ${SETUP_DEPS} ${RESMGR_DIR}
 
 unit-test-setup: pre-reqs
 	# Setup up nose and coverage in addition to pre-reqs

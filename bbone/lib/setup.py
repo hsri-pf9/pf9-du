@@ -12,7 +12,7 @@ setup(
     description='',
     author='',
     author_email='',
-    install_requires=['configutils', 'requests'],
+    install_requires=['requests'],
     test_suite='bbcommon',
     zip_safe=False,
     include_package_data=True,

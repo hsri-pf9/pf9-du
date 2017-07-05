@@ -15,12 +15,14 @@ setup(
     install_requires=[
         'python-daemon==1.6.1',
         'alembic',
-        'pecan==1.1.2',
-        'python-memcached==1.58',
-        'keystonemiddleware==4.3.0',
-        'python-keystoneclient==3.5.1',
+        'pecan',
+        'keystonemiddleware',
+        'python-memcached',
         'sqlalchemy',
-        'requests==2.12.5'
+        'requests',
+        'MySQL-python',
+        'Paste',
+        'PasteDeploy'
     ],
     test_suite='resmgr',
     zip_safe=False,
