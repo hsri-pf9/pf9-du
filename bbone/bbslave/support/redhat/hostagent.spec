@@ -100,7 +100,7 @@ fi
 . /opt/pf9/pf9-service-functions.sh
 
 if [ "$1" = 0 ]; then
-    pf9_service_stop
+    pf9_service_stop pf9-hostagent
     pf9_disable_service_on_boot pf9-hostagent
     pf9_remove_service_files pf9-hostagent
 fi
