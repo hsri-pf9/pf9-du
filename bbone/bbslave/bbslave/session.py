@@ -366,46 +366,6 @@ def start(config, log, app_db, agent_app_db, app_cache,
                             current_config=current_config,
                             url_interpolations=url_interpolations) == 0
 
-    def close_fds():
-        '''
-        Flush and close all possible file descriptors for this process
-        '''
-        try:
-            maxfd = os.sysconf("SC_OPEN_MAX")
-        except:
-            # Assume 256 fds
-            maxfd = 256
-
-        for fd in xrange(3, maxfd):
-            try:
-                os.fsync(fd)
-                os.close(fd)
-            except OSError:
-                pass
-
-    def reboot_agent():
-        '''
-        Reboot host agent. Needed when the host agent updates itself.
-        '''
-        # Flush the stdout and stderr buffers are flushed so that all relevant
-        # logs are written out before the restart.
-        # TODO: stdout and stderr need to be explicitly flushed and don't behave
-        # well when done as part of the flush_fds method. Need to figure out why.
-        log.warn("Launching %s as %s", sys.argv[0], sys.argv)
-        sys.stdout.flush()
-        sys.stderr.flush()
-        # Perform a clean shutdown of the loggers, before closing all the fds.
-        # Otherwise the logger gets messed up on respawn of the process with bad
-        # file descriptor errors. Note that the loggers get recreated on start
-        # of the new process.
-        logging.shutdown()
-        close_fds()
-        # Execute a new host agent program REPLACING the current process
-        # NOTE: This assumes that the args passed to the new hostagent process
-        # are the same as the current hostagent process. Needs more work if this
-        # has to change between 2 versions of hostagent.
-        os.execve(sys.argv[0], sys.argv, os.environ)
-
     def update_agent(agent_info, current_config, desired_config):
         """
         Trigger an update of the host agent.
@@ -421,12 +381,6 @@ def start(config, log, app_db, agent_app_db, app_cache,
             # Agent update doesn't restart the hostagent process itself.
             process_agent_update(agent_info, agent_app_db, app_cache,
                                  agent_app_class, log)
-            # Restart the hostagent. A new instance of the agent will take over
-            # this process space after this step.
-            # NOTE: The host agent reboot is currently commented out here
-            # because we have an alternate way to handle this in the post
-            # install of the hostagent package
-            #reboot_agent()
         except Pf9Exception:
             # TODO:  Currently we don't retry the update. Consider reporting
             # a failure and retry logic
