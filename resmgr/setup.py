@@ -18,6 +18,7 @@ setup(
         'pecan==1.1.2',
         'python-memcached==1.58',
         'keystonemiddleware==4.3.0',
+        'python-keystoneclient==3.5.1',
         'sqlalchemy',
         'requests==2.12.5'
     ],
