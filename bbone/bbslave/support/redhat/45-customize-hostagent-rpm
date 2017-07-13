@@ -28,10 +28,20 @@ RELEASE=${HOST_AGENT_RELEASE:-${RELEASE}}
 MGMT_FQDN=${MGMT_FQDN:-${DU_FQDN}}
 DU_IS_CONTAINER=${DU_IS_CONTAINER:-"false"}
 
-CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOT_DIR=$CURR_DIR/../
-HOSTAGENT_TARBALL=$ROOT_DIR/hostagent-tarball/redhat/pf9-hostagent.tar.gz
-RPMBUILD_DIR=$ROOT_DIR/hostagent-tarball/redhat/rpm-build
+ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+
+# When HOST_AGENT_SKIP_CERTS is true, we're building in teamcity, not as part
+# of ansible DU configuration. In this case, the DU address, rabbit creds and
+# certs aren't included in the build. Also, the location of the tarball and
+# destination rpm is different.
+if [ -n "${HOSTAGENT_SKIP_CERTS}" ]; then
+    DU_FQDN=''
+    HOSTAGENT_TARBALL=${ROOT_DIR}/redhat/pf9-hostagent.tar.gz
+    RPMBUILD_DIR=${ROOT_DIR}/redhat-nocert/rpm-build
+else
+    HOSTAGENT_TARBALL=$ROOT_DIR/hostagent-tarball/redhat/pf9-hostagent.tar.gz
+    RPMBUILD_DIR=$ROOT_DIR/hostagent-tarball/redhat/rpm-build
+fi
 
 HOST_AGENT_VMW_RPM_NAME=pf9-hostagent-vmw-$VERSION-$RELEASE.x86_64.rpm
 HOST_AGENT_VMW_RPM_SYMLINK=pf9-hostagent-vmw.x86_64.rpm
@@ -47,46 +57,63 @@ HOSTAGENT_TARBALL_EXPANDEDDIR=`mktemp -d -t pf9-XXX`
 # Expand the tarball
 tar -xzf $HOSTAGENT_TARBALL -C $HOSTAGENT_TARBALL_EXPANDEDDIR
 
+# In our netsvc python installer, this file is readonly. It seems to be ok
+# in the on-DU config-time build of hostagent, but for the nocert build-time
+# installer build, it remains readonly, and rpmbuild fails when it tries to
+# strip the binary. Fix the permissions here.
+chmod u+w ${HOSTAGENT_TARBALL_EXPANDEDDIR}/opt/pf9/python/lib/libpython2.7.a
+
 # Copy certificates
 # For backward compatibility, CERT_VERSION may be an empty string.
 CERT_VERSION=
 CERTS_DIR=/etc/pf9/certs
-pushd ${CERTS_DIR}
-if ls -vd v* > /dev/null 2>&1; then
-    CERT_VERSION="$(ls -vd v* | tail -n 1)"
-    CERTS_DIR="${CERTS_DIR}/${CERT_VERSION}"
-fi
-popd
-
 mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs
-cp -r ${CERTS_DIR}/hostagent $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/
-chmod 440 $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/hostagent/key.pem
-mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
-cp ${CERTS_DIR}/ca/cert*.pem $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
+
+if [ -z "${HOSTAGENT_SKIP_CERTS}" ]; then
+    pushd ${CERTS_DIR}
+    if ls -vd v* > /dev/null 2>&1; then
+        CERT_VERSION="$(ls -vd v* | tail -n 1)"
+        CERTS_DIR="${CERTS_DIR}/${CERT_VERSION}"
+    fi
+    popd
+
+    cp -r ${CERTS_DIR}/hostagent $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/
+    chmod 440 $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/hostagent/key.pem
+    mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
+    cp ${CERTS_DIR}/ca/cert*.pem $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
+fi
 
 #clean the RPMBUILD dir
 rm -fr $RPMBUILD_DIR
-mkdir $RPMBUILD_DIR
+mkdir -p $RPMBUILD_DIR
 
 # Create the RPM
 HYPERVISOR_TYPE=kvm
-$HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-rpm-build.sh $RPMBUILD_DIR $HOSTAGENT_TARBALL_EXPANDEDDIR $MGMT_FQDN $VERSION $RELEASE $HYPERVISOR_TYPE $AMQP_USER $AMQP_PASS $DU_IS_CONTAINER "${CERT_VERSION}"
+$HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-rpm-build.sh "$RPMBUILD_DIR" "$HOSTAGENT_TARBALL_EXPANDEDDIR" "$MGMT_FQDN" "$VERSION" "$RELEASE" "$HYPERVISOR_TYPE" "$AMQP_USER" "$AMQP_PASS" "$DU_IS_CONTAINER" "${CERT_VERSION}"
 
-# Copy the rpm over to a well known location
-mkdir -p $PRIVATE_FILES_DIR
-cp $HOST_AGENT_RPM $PRIVATE_FILES_DIR
-pushd $PRIVATE_FILES_DIR
-ln -sf $HOST_AGENT_RPM_NAME $HOST_AGENT_RPM_SYMLINK
+if [ -z "${HOSTAGENT_SKIP_CERTS}" ]; then
+    # Copy the rpm over to a well known location
+    mkdir -p $PRIVATE_FILES_DIR
+    cp $HOST_AGENT_RPM $PRIVATE_FILES_DIR
+    pushd $PRIVATE_FILES_DIR
+    ln -sf $HOST_AGENT_RPM_NAME $HOST_AGENT_RPM_SYMLINK
+    popd
+fi
 
-# Create VMWare Gateway RPM
-HYPERVISOR_TYPE=VMWareCluster
-$HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-rpm-build.sh $RPMBUILD_DIR $HOSTAGENT_TARBALL_EXPANDEDDIR $MGMT_FQDN $VERSION $RELEASE $HYPERVISOR_TYPE $AMQP_USER $AMQP_PASS $DU_IS_CONTAINER "${CERT_VERSION}"
+if [ -z "${HOSTAGENT_SKIP_CERTS}" ]; then
+    # Create VMWare Gateway RPM
+    HYPERVISOR_TYPE=VMWareCluster
+    $HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-rpm-build.sh "$RPMBUILD_DIR" "$HOSTAGENT_TARBALL_EXPANDEDDIR" "$MGMT_FQDN" "$VERSION" "$RELEASE" "$HYPERVISOR_TYPE" "$AMQP_USER" "$AMQP_PASS" "$DU_IS_CONTAINER" "${CERT_VERSION}"
 
-cp $HOST_AGENT_RPM $PRIVATE_FILES_DIR/$HOST_AGENT_VMW_RPM_NAME
-pushd $PRIVATE_FILES_DIR
-ln -sf $HOST_AGENT_VMW_RPM_NAME $HOST_AGENT_VMW_RPM_SYMLINK
+    cp $HOST_AGENT_RPM $PRIVATE_FILES_DIR/$HOST_AGENT_VMW_RPM_NAME
+    pushd $PRIVATE_FILES_DIR
+    ln -sf $HOST_AGENT_VMW_RPM_NAME $HOST_AGENT_VMW_RPM_SYMLINK
+    popd
+fi
 
-
-popd
 rm -fr $HOSTAGENT_TARBALL_EXPANDEDDIR
-rm -fr $RPMBUILD_DIR
+
+# clean up build dirs iff we're build on the DU
+if [ -z "${HOSTAGENT_SKIP_CERTS}" ]; then
+    rm -fr $RPMBUILD_DIR
+fi

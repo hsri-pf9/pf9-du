@@ -19,6 +19,10 @@ RPM := $(BLDROOT)/RPMS/$(NAME)-$(PF9_VERSION)-0.22c871a.x86_64.rpm
 MOCK := /usr/bin/mock -r epel-7-x86_64
 BUILD_NUMBER ?= 0
 
+NOCERT_STAGE = $(BLDROOT)/installer-stage
+NOCERT_REDHAT = $(BLDROOT)/platform9-install-redhat.sh
+INSTALLER_SCRIPTS = $(SRCROOT)/du-customize/customize-pf9-installer
+
 build: $(RPM)
 
 $(RPM): $(TARBALL)
@@ -57,6 +61,16 @@ $(STAGING):
 unit-test: $(NETTOOL)
 	(cd "./du-customize/customize-pf9-installer/tests/" && bash ./test_check_os_version.sh)
 	(cd "./du-customize/customize-pf9-installer/tests/" && bash ./test_nettool.sh $<)
+
+installer-nocert: $(NOCERT_REDHAT)
+
+$(NOCERT_REDHAT): nettool
+	rm -rf $(NOCERT_STAGE) && \
+	mkdir -p $(NOCERT_STAGE) && \
+	cp $(NETTOOL) $(NOCERT_STAGE)/ && \
+	cp -r $(INSTALLER_SCRIPTS)/* $(NOCERT_STAGE)/ && \
+	cd $(NOCERT_STAGE) && \
+	DISTROS=redhat HOSTAGENT_SKIP_CERTS=1 INSTALLER_LOCATION=$@ ./build-installer.sh dummy
 
 clean:
 	rm -rf "$(BLDROOT)"

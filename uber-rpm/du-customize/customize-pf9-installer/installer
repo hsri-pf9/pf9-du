@@ -2,7 +2,7 @@
 # Copyright (c) 2015 Platform9 Systems Inc.
 
 # This identifier is replaced by the build script
-DISTRO=__DISTRO__
+DISTRO=${DISTRO:-__DISTRO__}
 source $(dirname $0)/globals.sh
 source $(dirname $0)/wait.sh
 source $(dirname $0)/proxy.sh
@@ -13,6 +13,8 @@ source $(dirname $0)/check_os_distro.sh
 source $(dirname $0)/check_sudoers.sh
 source $(dirname $0)/check_ports.sh
 source $(dirname $0)/check_network.sh
+source $(dirname $0)/keystone-token.sh
+source $(dirname $0)/nocert-packages.sh
 source $(dirname $0)/installer.${DISTRO}
 
 function cleanup()
@@ -34,6 +36,12 @@ function usage()
     echo "--no-ntpd                                                  | Do not install ntpd."
     echo "--extract                                                  | Extract installation files to /tmp/pf9-install-XXXXX and exit."
     echo "--skip-os-check                                            | Do not ask operating system compatibility questions."
+    if ! packages_present ${EXT}; then
+        echo "--controller=<Platform9 controller address>                | Address of the Platform9 region controller, e.g. you.platform9.net or 10.11.12.13 (env:DU_FQDN)."
+        echo "--username=<Platform9 username>                            | Keystone authentication username (env:OS_USERNAME)."
+        echo "--password=<Platform9 password>                            | Keystone authentication password (env:OS_PASSWORD)."
+        echo "--project-name=<Platform9 project name>                    | Keystone project/tenant on which user has admin privileges (env:OS_TENANT_NAME)."
+    fi
     echo "--help                                                     | Display program help."
 }
 
@@ -82,6 +90,18 @@ while getopts ":-:" optchar; do
                     # appliance.
                     VMWARE="true"
                     ;;
+                controller=*)
+                    DU_FQDN="${OPTARG#*=}"
+                    ;;
+                project-name=*)
+                    OS_TENANT_NAME="${OPTARG#*=}"
+                    ;;
+                username=*)
+                    OS_USERNAME="${OPTARG#*=}"
+                    ;;
+                password=*)
+                    OS_PASSWORD="${OPTARG#*=}"
+                    ;;
                 help)
                     usage
                     exit 0
@@ -100,6 +120,9 @@ while getopts ":-:" optchar; do
             ;;
     esac
 done
+
+# to be replaced by the build script, only used when not set with --controller
+DU_FQDN=${DU_FQDN:-__DU_FQDN__}
 
 function check_services_running()
 {
@@ -170,6 +193,31 @@ function pf9_install()
     fi
 }
 
+function require_keystone_credentials() {
+    if [ "$DU_FQDN" == "__DU_FQDN__" ]; then
+        # unset by user AND unset by package build scripts
+        echo "Please provide the Platform9 controller address with --controller" >&2
+        usage >&2
+        return 1
+    elif [ -z "$OS_USERNAME" ]; then
+        echo "Please provide the Platform9 controller username with --username" >&2
+        usage >&2
+        return 1
+    elif [ -z "$OS_TENANT_NAME" ]; then
+        echo "Please provide the Platform9 project/tenant with --project-name" >&2
+        usage >&2
+        return 1
+    elif [ -z "$OS_PASSWORD" ]; then
+        read -s -p "Password for $OS_USERNAME on $DU_FQDN: " OS_PASSWORD
+        echo >&2
+        if [ -z "$OS_PASSWORD" ]; then
+            echo "Password is required." >&2
+            usage >&2
+            return 1
+        fi
+    fi
+}
+
 function pre_install_check()
 {
     # Check if we support this Linux distribution
@@ -203,6 +251,14 @@ function pre_install_check()
 
 function main()
 {
+    if ! packages_present ${EXT}; then
+        require_keystone_credentials || exit 1
+        local token=`keystone_token`
+        if [ -z "${token}" ]; then
+            exit 1
+        fi
+    fi
+
     if [[ "${ASK_PROXY}" == "true" ]]; then
         if [[ "${TTY_AVAILABLE}" == "true" ]]; then
             proxy_ask
@@ -222,8 +278,16 @@ function main()
     distro_install
     check_exit_code_and_generate_support_bundle $?
 
+    if ! packages_present ${EXT}; then
+        download_nocert ${EXT} ${token}
+        check_exit_code_and_generate_support_bundle $?
+    fi
+
     echo "Installing Platform9 host agent"
     pf9_install
+    check_exit_code_and_generate_support_bundle $?
+
+    update_config
     check_exit_code_and_generate_support_bundle $?
 
     if [[ "${VMWARE}" == "true" ]]; then

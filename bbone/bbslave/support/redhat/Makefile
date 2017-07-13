@@ -73,8 +73,14 @@ hostagent-tarball-rpm-redhat:
 	rm -f ${BUILD_DIR}/*.src.rpm
 	$(SRC_ROOT)/sign_packages.sh ${RPM_DIR}/pf9-hostagent-tarball*.rpm
 
+# build a hostagent rpm with no certs, no DU_FQDN and no amqp credentials.
+hostagent-rpm-nocert: hostagent-tarball
+	$(SED_CMD) ${SRC_DIR}/support/redhat/45-customize-hostagent-rpm > ${BUILD_DIR}/45-customize-hostagent-rpm && \
+	chmod +x ${BUILD_DIR}/45-customize-hostagent-rpm && \
+	HOSTAGENT_SKIP_CERTS=1 DU_FQDN='' ${BUILD_DIR}/45-customize-hostagent-rpm '' ''
+
 hostagent-redhat: $(HOSTAGENT_TARBALL) hostagent-tarball-rpm-redhat
-hostagent-redhat: TARGET_DISTRO = redhat
+hostagent-redhat hostagent-rpm-nocert : TARGET_DISTRO = redhat
 
 hostagent-redhat-centos65: redhat-container hostagent-tarball-rpm-redhat
 hostagent-redhat-centos65: TARGET_DISTRO = redhat
