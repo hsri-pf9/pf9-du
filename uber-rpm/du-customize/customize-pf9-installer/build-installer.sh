@@ -7,7 +7,7 @@ set -e -x
 
 # redhat  => Redhat 6.x | CentOS 6.x | Redhat 7.x | CentOS 7.x
 # debian  => Ubuntu 12.04 | Ubuntu 14.04
-DISTROS=(debian redhat)
+DISTROS=${DISTROS:-'debian redhat'}
 
 # template name of the resulting installers
 # Redhat 6.x | CentOS 6.x  => platform9-install-redhat.sh
@@ -50,7 +50,10 @@ function setup_payload()
     local distro_install=${INSTALL_SCRIPT}.${distro}
 
     rm -rf ${PAYLOAD}.${distro}
-    cp -rL ${PACKAGES}.${distro} ${PAYLOAD}.${distro}
+    mkdir -p ${PAYLOAD}.${distro}
+    if [ -z "$HOSTAGENT_SKIP_CERTS" ]; then
+        cp -rL ${PACKAGES}.${distro}/* ${PAYLOAD}.${distro}/
+    fi
     pushd ${PAYLOAD}.${distro}
 
     # copy the main install script
@@ -72,6 +75,8 @@ function setup_payload()
     cp ../check_network.sh  check_network.sh
     cp ../support.common support.common
     cp ../support.${distro} support.${distro}
+    cp ../nocert-packages.sh nocert-packages.sh
+    cp ../keystone-token.sh keystone-token.sh
 
     chmod +x ${INSTALL_SCRIPT}
     tar cf ../${PAYLOAD_TAR}.${distro} ./*
@@ -106,7 +111,7 @@ function main()
 {
     # used for checking DNS resolution
     local du_fqdn=$1
-    for distro in "${DISTROS[@]}"
+    for distro in ${DISTROS}
     do
         echo "Customizing $distro installer for $du_fqdn"
 
