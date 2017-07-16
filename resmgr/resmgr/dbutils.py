@@ -194,11 +194,6 @@ class ResMgrDB(object):
 
         param_vals = {
             'du_fqdn': du_fqdn,
-            'cinder_auth_user': self.config.get("pf9-cindervolume", 'auth_user'),
-            'cinder_auth_pass': self.config.get("pf9-cindervolume", 'auth_pass'),
-            'cinder_db_pass': self.config.get("pf9-cindervolume", 'db_pass'),
-            'cinder_auth_tenant_name': self.config.get("pf9-cindervolume",
-                'auth_tenant_name'),
             'host_id': dict_tokens.HOST_ID_TOKEN,
             'host_relative_amqp_fqdn': dict_tokens.HOST_RELATIVE_AMQP_FQDN_TOKEN,
             'download_protocol': dict_tokens.DOWNLOAD_PROTOCOL,
@@ -206,17 +201,7 @@ class ResMgrDB(object):
             'rabbit_userid' : dict_tokens.RABBIT_USERID_TOKEN,
             'rabbit_password' : dict_tokens.RABBIT_PASSWORD_TOKEN
         }
-        param_vals['ceilometer_auth_user'] = self.config.get("pf9-ceilometer", 'auth_user')
-        param_vals['ceilometer_auth_pass'] = self.config.get("pf9-ceilometer", 'auth_pass')
-        param_vals['ceilometer_auth_tenant_name'] = self.config.get("pf9-ceilometer",
-            'auth_tenant_name')
-        if self.config.has_section('pf9-ha-slave'):
-            param_vals['pf9_ha_slave_auth_user'] = self.config.get(
-                    'pf9-ha-slave', 'auth_user')
-            param_vals['pf9_ha_slave_auth_pass'] = self.config.get(
-                    'pf9-ha-slave', 'auth_password')
-            param_vals['pf9_ha_slave_auth_tenant_name'] = self.config.get(
-                    'pf9-ha-slave', 'auth_tenant_name')
+        # TODO: Move the below stuff out to its own configs
         if self.config.has_section('pf9-neutron-config-agent'):
             param_vals['config_agent_db_pass'] = self.config.get(
                     'pf9-neutron-config-agent', 'db_pass')
