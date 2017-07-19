@@ -250,6 +250,12 @@ class TestProvider(DbTestCase):
         popped = os.environ.pop('PF9_RESMGR_FAIL_EVENT', None)
         self.assertEquals(event_name, popped)
 
+    def test_valid_roles(self):
+        good_role = self._provider.get_role('test-role')
+        self.assertEqual(good_role['test-role']['name'], 'test-role')
+        bad_role = self._provider.get_role('role-missing-config')
+        self.assertEqual(bad_role, None)
+
     def test_add_role_default_config(self):
         host_id = TEST_HOST['id']
         rolename = TEST_ROLE['test-role']['1.0']['role_name']

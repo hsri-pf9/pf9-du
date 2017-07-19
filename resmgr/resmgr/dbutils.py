@@ -255,7 +255,12 @@ class ResMgrDB(object):
 
         for role, role_info in discovered_roles.iteritems():
             for version, version_details in role_info.items():
-                self.save_role_in_db(role, version, version_details)
+                try:
+                    self.save_role_in_db(role, version, version_details)
+                except:
+                    # Skip this role and continue. We do a best effort attempt to
+                    # load roles.
+                    log.exception('Error saving the role %s in DB', role)
 
     def setup_service_config(self):
         """

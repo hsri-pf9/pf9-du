@@ -133,6 +133,9 @@ class DbTestCase(unittest.TestCase):
         test_roles = copy.deepcopy(TEST_ROLE)
         test_roles['test-role-2'] = copy.deepcopy(TEST_ROLE['test-role'])
         test_roles['test-role-2']['1.0']['role_name'] = 'test-roles-2'
+        test_roles['role-missing-config'] = copy.deepcopy(TEST_ROLE['test-role'])
+        test_roles['role-missing-config']['1.0']['role_name'] = 'role-missing-config'
+        test_roles['role-missing-config']['1.0']['config']['test-role']['config']['test_conf']['DEFAULT']['conf2'] = "%(missing.conf.val)s"
         self._load_roles_from_files.return_value = test_roles
 
         # create a tempfile for sqlite
