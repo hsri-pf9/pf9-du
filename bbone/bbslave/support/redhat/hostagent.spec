@@ -86,6 +86,7 @@ elif [ "$1" = "2" ]; then
     # Restart comms in case certs were upgraded
     pf9_service_condrestart pf9-comms
 
+    pf9_enable_service_on_boot pf9-hostagent
     # From the 3.0 release, have this odd workaround to restart hostagent in the
     # background to allow the yum transaction to complete before the restart.
     (sleep 5; . /opt/pf9/pf9-service-functions.sh; pf9_service_restart pf9-hostagent &> /dev/null) &
