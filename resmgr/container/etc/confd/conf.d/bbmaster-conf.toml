@@ -1,0 +1,10 @@
+[template]
+src = 'bbmaster.conf'
+dest = '/etc/pf9/bbmaster.conf'
+owner = 'root'
+mode = '0644'
+keys = [
+    '/services/resmgr/rabbit_users/bbmaster/user',
+    '/services/resmgr/rabbit_users/bbmaster/passwd'
+]
+#reload_cmd = 'supervisorctl restart bbmaster'

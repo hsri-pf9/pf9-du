@@ -1,0 +1,15 @@
+[template]
+src = 'resmgr.conf'
+dest = '/etc/pf9/resmgr.conf'
+owner = 'pf9'
+mode = '0644'
+keys = [
+    '/services/resmgr/db/user',
+    '/services/resmgr/db/password',
+    '/services/resmgr/db/host',
+    '/services/resmgr/db/port',
+    '/services/resmgr/db/name',
+    '/services/resmgr/rabbit_users/resmgr/user',
+    '/services/resmgr/rabbit_users/resmgr/passwd'
+]
+#reload_cmd = 'supervisorctl restart resmgr'

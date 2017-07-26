@@ -1,0 +1,10 @@
+[template]
+src = 'global.conf'
+dest = '/etc/pf9/global.conf'
+owner = 'pf9'
+mode = '0644'
+keys = [
+    '/fqdn',
+    '/region_id'
+]
+#reload_cmd = 'supervisorctl restart resmgr'

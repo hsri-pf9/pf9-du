@@ -1,0 +1,18 @@
+[template]
+src = 'ca-cert.pem'
+dest = '/opt/pf9/www/private/etc/pf9/certs/ca/cert.pem'
+owner = 'root'
+mode = '0644'
+keys = [
+    '/certs/current_version',
+    '/certs/v0/ca/cert',
+    '/certs/v1/ca/cert',
+    '/certs/v2/ca/cert',
+    '/certs/v3/ca/cert',
+    '/certs/v4/ca/cert',
+    '/certs/v5/ca/cert',
+    '/certs/v6/ca/cert',
+    '/certs/v7/ca/cert',
+    '/certs/v8/ca/cert',
+    '/certs/v9/ca/cert'
+]

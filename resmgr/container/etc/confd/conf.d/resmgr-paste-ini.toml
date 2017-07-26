@@ -1,0 +1,11 @@
+[template]
+src = 'resmgr-paste.ini'
+dest = '/etc/pf9/resmgr-paste.ini'
+owner = 'pf9'
+mode = '0644'
+keys = [
+    '/services/resmgr/keystone_user/email',
+    '/services/resmgr/keystone_user/password',
+    '/services/resmgr/keystone_user/project'
+]
+#reload_cmd = 'supervisorctl restart resmgr'

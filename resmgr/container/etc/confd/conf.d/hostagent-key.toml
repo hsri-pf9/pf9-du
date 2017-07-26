@@ -1,0 +1,18 @@
+[template]
+src = 'hostagent-key.pem'
+dest = '/opt/pf9/www/private/etc/pf9/certs/hostagent/key.pem'
+owner = 'root'
+mode = '0644'
+keys = [
+    '/certs/current_version',
+    '/certs/v0/hostagent/key',
+    '/certs/v1/hostagent/key',
+    '/certs/v2/hostagent/key',
+    '/certs/v3/hostagent/key',
+    '/certs/v4/hostagent/key',
+    '/certs/v5/hostagent/key',
+    '/certs/v6/hostagent/key',
+    '/certs/v7/hostagent/key',
+    '/certs/v8/hostagent/key',
+    '/certs/v9/hostagent/key'
+]
