@@ -13,7 +13,7 @@ setup(
     author='',
     author_email='',
     install_requires=[
-        'pika',
+        'pika==0.10.0',
         'netifaces',
         'py-cpuinfo',
         'psutil',
