@@ -15,7 +15,7 @@ setup(
     install_requires=[
         "pecan==1.1.2",
         "requests==2.11.1",
-        "pika"
+        "pika==0.10.0"
     ],
     test_suite='bbmaster',
     zip_safe=False,
