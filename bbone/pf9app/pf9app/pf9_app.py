@@ -14,8 +14,8 @@ from exceptions import ServiceCtrlError, ConfigOperationError
 from app import App, RemoteApp
 
 CFGSCRIPTCMD = "%s /opt/pf9/%s/config"
-SERVICECMD = "sudo service %s %s"
-
+SVC_COMMAND = "sudo service %s %s"
+SYSTEMCTL_COMMAND = "sudo systemctl %s %s"
 
 def prune_pf9_python_path():
     """
@@ -71,6 +71,37 @@ def _run_command_with_custom_pythonpath(command):
     return _run_command(command, run_env=ORIG_PYTHON_PATH)
 
 
+def is_init_service(svc_name):
+    return os.path.isfile(os.path.join('/etc/init.d', svc_name))
+
+
+def service_status_command(svc_name):
+    if is_init_service(svc_name):
+        cmd = SVC_COMMAND % (svc_name, "status")
+    else:
+        cmd = SYSTEMCTL_COMMAND % ("is-active", svc_name)
+
+    return cmd
+
+
+def service_start_command(svc_name):
+    if is_init_service(svc_name):
+        cmd = SVC_COMMAND % (svc_name, "start")
+    else:
+        cmd = SYSTEMCTL_COMMAND % ("start", svc_name)
+
+    return cmd
+
+
+def service_stop_command(svc_name):
+    if is_init_service(svc_name):
+        cmd = SVC_COMMAND % (svc_name, "stop")
+    else:
+        cmd = SYSTEMCTL_COMMAND % ("stop", svc_name)
+
+    return cmd
+
+
 class Pf9App(App):
     """ Implementation of the App Interface for Platform9 apps"""
 
@@ -103,7 +134,7 @@ class Pf9App(App):
         Whether the app is running.
         :rtype: bool
         """
-        cmd = SERVICECMD % (self.app_name, "status")
+        cmd = service_status_command(self.app_name)
         code, out, err = _run_command(cmd)
         self.log.debug("Command %s, code=%d stdout=%s stderr=%s",
                        cmd, code, out, err)
@@ -215,7 +246,7 @@ class Pf9App(App):
         services_dict = {}
         for service_name in self.services:
 
-            cmd = SERVICECMD % (service_name, "status")
+            cmd = service_status_command(service_name)
             code, out, err = _run_command(cmd)
             self.log.debug("Command %s, code=%d stdout=%s stderr=%s",
                 cmd, code, out, err)
@@ -232,7 +263,11 @@ class Pf9App(App):
         :param bool run_state: Whether the service should be running.
         :raises ServiceCtrlError: if the service state change operation fails
         """
-        cmd = SERVICECMD % (service, "start" if run_state else "stop")
+        if run_state:
+            cmd = service_start_command(service)
+        else:
+            cmd = service_stop_command(service)
+
         self.log.info("Setting service state %s.%s. Command: %s",
                       service, self.version, cmd)
         code, out, err = _run_command(cmd)

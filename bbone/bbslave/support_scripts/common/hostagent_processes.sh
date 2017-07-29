@@ -16,3 +16,10 @@ set -x
 service --status-all
 ps aux | grep pf9
 
+# systemd related stuff
+. /opt/pf9/pf9-service-functions.sh
+if ! is_ubuntu_14; then
+    systemctl list-units --all --no-pager
+    systemd-cgls --no-pager
+fi
+

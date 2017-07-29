@@ -463,7 +463,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 log.info('Running command: %s' % command)
                 # If the command involves the hostagent service,
                 # do not capture the stdout due to issues with restarting
-                if command.startswith('sudo service pf9-hostagent '):
+                if command.startswith('sudo service pf9-hostagent ') or \
+                   command == 'sudo systemctl restart pf9-hostagent':
                     stdout = (None,)
                 else:
                     stdout = ()
