@@ -1,0 +1,22 @@
+#!/usr/bin/python
+
+# Copyright (c) 2017 Platform9 systems. All rights reserved
+
+import logging
+import paste.deploy
+import paste.httpserver
+
+pecan_config = '/etc/pf9/resmgr_config.py'
+paste_ini = '/etc/pf9/resmgr-paste.ini'
+
+logging.basicConfig(level=logging.DEBUG,
+                    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+log = logging.getLogger("resmgr-daemon")
+
+def run():
+    log.info('Starting the resource manager.')
+    app = paste.deploy.loadapp('config:%s' % paste_ini,
+                               global_conf = {'config' : pecan_config})
+    paste.httpserver.serve(app, port = 8083)
+
+run()

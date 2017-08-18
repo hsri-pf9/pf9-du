@@ -12,6 +12,7 @@ COPY bblib-sdist.tgz \
      notifier-sdist.tgz \
      rabbitmgmt-sdist.tgz \
      resmgr-sdist.tgz \
+     firkinize-sdist.tgz \
      upper-constraints.txt \
      /root/
 
@@ -22,6 +23,7 @@ RUN pip install bblib-sdist.tgz \
                 notifier-sdist.tgz \
                 rabbitmgmt-sdist.tgz \
                 resmgr-sdist.tgz \
+                firkinize-sdist.tgz \
                 supervisor \
                 -c upper-constraints.txt \
                 setuptools==33.1.1
@@ -33,10 +35,19 @@ RUN curl -L https://github.com/kelseyhightower/confd/releases/download/v0.11.0/c
 
 COPY opt/ /opt/
 COPY etc/ /etc/
+COPY usr/ /usr/
+
+# muster firmware is required for bbmaster
+COPY pf9-muster-wrapper.rpm /root/
+RUN yum install -y pf9-muster-wrapper.rpm
+
+COPY init-region .
+RUN chmod 755 /usr/bin/run-resmgr init-region
 
 # destination dirs for confd-generated config files
-RUN mkdir -p /opt/pf9/www/private/etc/pf9/certs/{ca,hostagent}
+RUN mkdir -p /opt/pf9/www/private/etc/pf9/certs/{ca,hostagent} /var/log/pf9
 
-EXPOSE 8083
+# bbmaster=8082, resmgr=8083
+EXPOSE 8082 8083
 
 CMD /usr/bin/supervisord

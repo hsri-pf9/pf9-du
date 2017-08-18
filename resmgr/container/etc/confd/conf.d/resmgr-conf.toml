@@ -9,7 +9,7 @@ keys = [
     '/services/resmgr/db/host',
     '/services/resmgr/db/port',
     '/services/resmgr/db/name',
-    '/services/resmgr/rabbit_users/resmgr/user',
-    '/services/resmgr/rabbit_users/resmgr/passwd'
+    '/rabbit_broker/users/resmgr/username',
+    '/rabbit_broker/users/resmgr/password'
 ]
 #reload_cmd = 'supervisorctl restart resmgr'

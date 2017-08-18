@@ -31,8 +31,11 @@ $(NOTIFIER_DIST): SETUP_ROOT = $(SRCROOT)/lib/notifier
 RABBIT_DIST = $(STAGE)/rabbitmgmt-sdist.tgz
 $(RABBIT_DIST): SETUP_ROOT = $(SRCROOT)/lib/rabbit
 
+FIRKINIZE_DIST = $(STAGE)/firkinize-sdist.tgz
+$(FIRKINIZE_DIST): SETUP_ROOT = $(abspath $(SRCROOT)/../firkinize)
+
 DISTS = $(RESMGR_DIST) $(BBLIB_DIST) $(BBMASTER_DIST) $(CONFIGUTILS_DIST) \
-        $(NOTIFIER_DIST) $(RABBIT_DIST)
+        $(NOTIFIER_DIST) $(RABBIT_DIST) $(FIRKINIZE_DIST)
 
 dist: $(DISTS)
 
@@ -42,10 +45,20 @@ dist: $(DISTS)
 HOSTAGENT_RPM = $(BLDROOT)/hostagent/redhat-nocert/rpm-build/RPMS/x86_64/pf9-hostagent-$(PF9_VERSION)-$(BUILD_NUMBER).$(GITHASH).x86_64.rpm
 INSTALLER_SCRIPT = $(SRCROOT)/uber-rpm/build/platform9-install-redhat.sh
 
+# make sure firmware artifacts are available
 COMMS_RPM ?= $(shell find $(ARTIFACTS) -name pf9-comms*.rpm)
 ifeq ($(wildcard $(COMMS_RPM)),)
-    $(error No comms rpm available. Either make sure the file is in \
-      $(ARTIFACTS), or set env COMMS_RPM to the path of the file)
+    $(error There must be a pf9-comms rpm in $(ARTIFACTS))
+endif
+
+MUSTER_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-muster-wrapper*.rpm)
+ifeq ($(wildcard $(MUSTER_WRAPPER)),)
+    $(error There must be a pf9-muster-wrapper rpm in $(ARTIFACTS))
+endif
+
+VMW_MGMT_RPM ?= $(shell find $(ARTIFACTS) -name pf9-vmw-mgmt*.rpm)
+ifeq ($(wildcard $(VMW_MGMT_RPM)),)
+    $(error There must be a pf9-vmw-mgmt rpm in $(ARTIFACTS))
 endif
 
 PACKAGELIST = $(STAGE)/opt/pf9/www/private/nocert-packagelist.rpm
@@ -71,9 +84,11 @@ $(INSTALLER_SCRIPT):
 stage: dist $(HOSTAGENT_RPM) $(INSTALLER_SCRIPT) $(PACKAGELIST_RPM)
 	cp -rv $(SRCROOT)/resmgr/container/* $(STAGE)/
 	cp -v $(SRCROOT)/resmgr/upper-constraints.txt $(STAGE)/
+	cp -v $(MUSTER_WRAPPER) $(STAGE)/pf9-muster-wrapper.rpm
 	private=$(STAGE)/opt/pf9/www/private && \
 	mkdir -p $${private} && \
-	cp -v $(HOSTAGENT_RPM) $(INSTALLER_SCRIPT) $(COMMS_RPM) $${private} && \
+	cp -v $(HOSTAGENT_RPM) $(INSTALLER_SCRIPT) $(COMMS_RPM) $(VMW_MGMT_RPM) \
+		  $${private} && \
 	rm -fv $(PACKAGELIST) && \
 	for line in $(PACKAGELIST_LINES); do \
 	    echo $${line} >> $(PACKAGELIST); \

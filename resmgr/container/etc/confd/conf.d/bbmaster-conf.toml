@@ -4,7 +4,7 @@ dest = '/etc/pf9/bbmaster.conf'
 owner = 'root'
 mode = '0644'
 keys = [
-    '/services/resmgr/rabbit_users/bbmaster/user',
-    '/services/resmgr/rabbit_users/bbmaster/passwd'
+    '/rabbit_broker/users/bbmaster/username',
+    '/rabbit_broker/users/bbmaster/password'
 ]
 #reload_cmd = 'supervisorctl restart bbmaster'

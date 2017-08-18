@@ -1,0 +1,209 @@
+#!/usr/bin/env python
+
+# Copyright (c) 2017 Platform9 systems. All rights reserved
+
+# pylint: disable=too-many-locals
+
+import logging
+import random
+import requests
+import string
+import sys
+
+from argparse import ArgumentParser
+from firkinize.configstore.consul import Consul
+from firkinize.database.mysqldb import MySqlDatabase
+from resmgr.migrate_db import migrate_db
+
+logging.basicConfig(level=logging.DEBUG)
+LOG = logging.getLogger(__name__)
+
+RABBIT_PERMISSIONS = {
+    'bbslave': {
+        'config': '^pf9-omnibus-host-.*$',
+        'write': '^(pf9-bbone|pf9-omnibus-host-.*)$',
+        'read': '^(bbslave-q-.*|pf9-omnibus-host-.*)$'
+    },
+    'bbmaster': {
+        'config': '^(pf9-bbone|bbslave-q-.*|bbmaster-q.*)$',
+        'write': '^(pf9-bbone|bbslave-q-.*|bbmaster-q.*)$',
+        'read': '^(pf9-bbone|bbmaster-q.*)$'
+    },
+    'resmgr': {
+        'config': '^(pf9-changes)$',
+        'write': '^(pf9-changes)$',
+        'read': '^$'
+    }
+}
+
+class ResmgrConfig(object):
+
+    def __init__(self, consul, customer_uuid, region_uuid):
+        self._consul = consul
+        self._customer_uuid = customer_uuid
+        self._region_uuid = region_uuid
+
+    def add_keystone_user(self):
+        """
+        Add configuration to both the resmgr and keystone spaces. Will not
+        overwrite existing user parameters. All in a single consul transaction.
+        """
+        # FIXME: The user appears twice because of confd's inability to look
+        # outside its prefix. consul-template will help with this. The keys in
+        # the keystone space should also contain the region name
+        # to distinguish the user from the one associated with resmgr in other
+        # regions, but it doesn't now.
+        keystone_prefix = 'keystone/users/resmgr/'
+        resmgr_prefix = 'regions/%s/services/resmgr/keystone_user/' % \
+                        self._region_uuid
+        with self._consul.prefix('customers/%s' % self._customer_uuid):
+            try:
+                password = self._consul.kv_get('%s/password' % keystone_prefix)
+                LOG.info('Using existing keystone password...')
+            except requests.HTTPError as e:
+                if e.response.status_code == 404:
+                    LOG.info('Generating new keystone password...')
+                    password = random_string()
+                else:
+                    raise
+
+            updates = {}
+            for prefix in [keystone_prefix, resmgr_prefix]:
+                updates[prefix + 'email'] = 'resmgr'
+                updates[prefix + 'password'] = password
+                updates[prefix + 'project'] = 'services'
+                updates[prefix + 'role'] = 'admin'
+            self._consul.kv_put_txn(updates)
+            LOG.info('Added resmgr user')
+
+    def add_rabbit_users(self):
+        """
+        Add configuration to both the resmgr and rabbit spaces
+        """
+        with self._consul.prefix('customers/%s' % self._customer_uuid):
+            updates = {}
+            for username in ['resmgr', 'bbmaster', 'bbslave']:
+                user = 'regions/%s/rabbit_broker/users/%s/' % \
+                         (self._region_uuid, username)
+                try:
+                    password = self._consul.kv_get('%s/password' % user)
+                    LOG.info('Using existing rabbit password for %s', user)
+                except requests.HTTPError as e:
+                    if e.response.status_code == 404:
+                        LOG.info('Generating new rabbit password for %s', user)
+                        password = random_string()
+                    else:
+                        raise
+                updates[user + 'username'] = username
+                updates[user + 'password'] = password
+                updates.update({user + k: v
+                    for (k, v) in RABBIT_PERMISSIONS[username].iteritems()})
+            self._consul.kv_put_txn(updates)
+
+    def add_db(self):
+        """
+        Create the database using the location and admin credentials associated
+        with the dbserver in resmgr's dbserver_key. Also, add a user and grant
+        permissions.
+        """
+        shortname = self._consul.kv_get('customers/%s/shortname' % \
+                                        self._customer_uuid)
+        LOG.info('Creating database for customer %s', shortname)
+        resmgr_prefix = 'customers/%s/regions/%s/services/resmgr' % \
+                        (self._customer_uuid, self._region_uuid)
+        dbserver_key = self._consul.kv_get('%s/dbserver_key' % resmgr_prefix)
+        dbserver = self._consul.kv_get_prefix(dbserver_key)
+        try:
+            host = dbserver['%s/host' % dbserver_key]
+            port = dbserver['%s/port' % dbserver_key]
+            admin_user = dbserver['%s/admin_user' % dbserver_key]
+            admin_pass = dbserver['%s/admin_pass' % dbserver_key]
+        except KeyError as e:
+            LOG.info('The dbserver_key specified for resmgr has missing '
+                     'components, key = %s: %s', dbserver_key, e)
+        dbkey = '%s/db/' % resmgr_prefix
+        try:
+            dbspec = self._consul.kv_get_prefix(dbkey)
+            LOG.info('Found exising database spec in %s: %s', dbkey,
+                {k: v for (k, v) in dbspec.iteritems() if k != 'password'})
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                LOG.info('No resmgr db spec found in %s, generating new...',
+                         dbkey)
+                dbspec = {}
+            else:
+                raise
+
+        # FIXME: region name
+        user = dbspec.get('%suser' % dbkey, 'resmgr_%s' % shortname)
+
+        # FIXME: The schema migration has ALTER statements that hardcode
+        # 'resmgr' as the database name.
+        name = dbspec.get('%sname' % dbkey, 'resmgr')
+        password = dbspec.get('%spassword' % dbkey, random_string())
+
+        db = MySqlDatabase(host, int(port), admin_user, admin_pass)
+        db_created = db.check_create_db(name)
+        grants_updated = db.check_add_grants(name, user, password)
+        final_dbinfo = {
+            'user': user,
+            'password': password,
+            'name': name,
+            'host': host,
+            'port': port
+        }
+        if db_created or grants_updated:
+            LOG.info('Database was updated, updating config store with '
+                     'values: %s',
+                     {k: v for (k, v) in final_dbinfo.iteritems()
+                      if k != 'password'})
+            with self._consul.prefix(dbkey):
+                self._consul.kv_put_txn(final_dbinfo)
+        return final_dbinfo
+
+    @staticmethod
+    def migrate_db(dbinfo):
+        """
+        Create or migrate the database schema. Resmgr's migration logic reads
+        the connection info from resmgr.conf, so we have to create one first.
+        """
+        config = \
+            '[database]\n' \
+            'sqlconnectURI = mysql://%(user)s:%(password)s@' \
+            '%(host)s:%(port)s/%(name)s' % dbinfo
+        with open('/etc/pf9/resmgr.conf', 'w') as f:
+            f.write(config)
+        migrate_db()
+
+def random_string():
+    """
+    16 random numbers and letters, always starts with a letter.
+    """
+    secret_len = 16
+    secret_chars = string.letters + string.digits
+    return ''.join([random.SystemRandom().choice(string.letters)] +
+                   [random.SystemRandom().choice(secret_chars)
+                    for _ in range(secret_len - 1)])
+
+def parse_args():
+    parser = ArgumentParser(description='Initialize keystone for a region')
+    parser.add_argument('--config-url', default='http://localhost:8500',
+        help='Address of the config node, default http://localhost:8500')
+    parser.add_argument('--customer-id',
+        help='The keystone customer id', required=True)
+    parser.add_argument('--region-id',
+        help='The region id for which to bootstrap the keystone endpoint',
+        required=True)
+    return parser.parse_args()
+
+def main():
+    args = parse_args()
+    consul = Consul(args.config_url)
+    config = ResmgrConfig(consul, args.customer_id, args.region_id)
+    config.add_keystone_user()
+    config.add_rabbit_users()
+    dbinfo = config.add_db()
+    config.migrate_db(dbinfo)
+
+if __name__ == '__main__':
+    sys.exit(main())
