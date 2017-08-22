@@ -38,8 +38,13 @@ COPY etc/ /etc/
 COPY usr/ /usr/
 
 # muster firmware is required for bbmaster
-COPY pf9-muster-wrapper.rpm /root/
-RUN yum install -y pf9-muster-wrapper.rpm
+COPY pf9-muster-wrapper-*.rpm /root/pf9-muster-wrapper.rpm
+
+# kube role - we don't care about the rpm packages, but the role json needs
+# to be installed with resmgr.
+COPY pf9-kube-wrapper-*.rpm /root/pf9-kube-wrapper.rpm
+
+RUN yum install -y pf9-kube-wrapper.rpm pf9-muster-wrapper.rpm
 
 COPY init-region .
 RUN chmod 755 /usr/bin/run-resmgr init-region

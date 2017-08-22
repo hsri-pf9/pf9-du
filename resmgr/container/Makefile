@@ -45,10 +45,19 @@ dist: $(DISTS)
 HOSTAGENT_RPM = $(BLDROOT)/hostagent/redhat-nocert/rpm-build/RPMS/x86_64/pf9-hostagent-$(PF9_VERSION)-$(BUILD_NUMBER).$(GITHASH).x86_64.rpm
 INSTALLER_SCRIPT = $(SRCROOT)/uber-rpm/build/platform9-install-redhat.sh
 
-# make sure firmware artifacts are available
+# make sure firmware and role artifacts are available. FIXME: This stuff also
+# appears in the nginx container, from which the files are actually served
+# through the privateweb_privatefiles sni proxy to port 9080 on nginx. They
+# need to be here so that bbmaster knows about them, and so resmgr can load
+# the json config (for 'roles').
 COMMS_RPM ?= $(shell find $(ARTIFACTS) -name pf9-comms*.rpm)
 ifeq ($(wildcard $(COMMS_RPM)),)
     $(error There must be a pf9-comms rpm in $(ARTIFACTS))
+endif
+
+VMW_MGMT_RPM ?= $(shell find $(ARTIFACTS) -name pf9-vmw-mgmt*.rpm)
+ifeq ($(wildcard $(VMW_MGMT_RPM)),)
+    $(error There must be a pf9-vmw-mgmt rpm in $(ARTIFACTS))
 endif
 
 MUSTER_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-muster-wrapper*.rpm)
@@ -56,9 +65,9 @@ ifeq ($(wildcard $(MUSTER_WRAPPER)),)
     $(error There must be a pf9-muster-wrapper rpm in $(ARTIFACTS))
 endif
 
-VMW_MGMT_RPM ?= $(shell find $(ARTIFACTS) -name pf9-vmw-mgmt*.rpm)
-ifeq ($(wildcard $(VMW_MGMT_RPM)),)
-    $(error There must be a pf9-vmw-mgmt rpm in $(ARTIFACTS))
+KUBE_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-kube-wrapper*.rpm)
+ifeq ($(wildcard $(KUBE_WRAPPER)),)
+    $(error There must be a pf9-kubewrapper rpm in $(ARTIFACTS))
 endif
 
 PACKAGELIST = $(STAGE)/opt/pf9/www/private/nocert-packagelist.rpm
@@ -81,10 +90,15 @@ $(HOSTAGENT_RPM):
 $(INSTALLER_SCRIPT):
 	make -C $(SRCROOT)/uber-rpm installer-nocert
 
+# the installer script doesn't really need to be included in the container
+# here, but it does need to be built and provided as an artifact to the
+# nginx container build so it can be served publically from there. Having it
+# here allows us to test hostagent installation without nginx.
+
 stage: dist $(HOSTAGENT_RPM) $(INSTALLER_SCRIPT) $(PACKAGELIST_RPM)
 	cp -rv $(SRCROOT)/resmgr/container/* $(STAGE)/
 	cp -v $(SRCROOT)/resmgr/upper-constraints.txt $(STAGE)/
-	cp -v $(MUSTER_WRAPPER) $(STAGE)/pf9-muster-wrapper.rpm
+	cp -v $(MUSTER_WRAPPER) $(KUBE_WRAPPER) $(STAGE)/
 	private=$(STAGE)/opt/pf9/www/private && \
 	mkdir -p $${private} && \
 	cp -v $(HOSTAGENT_RPM) $(INSTALLER_SCRIPT) $(COMMS_RPM) $(VMW_MGMT_RPM) \
