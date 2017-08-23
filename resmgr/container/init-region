@@ -135,7 +135,7 @@ class ResmgrConfig(object):
                 raise
 
         # FIXME: region name
-        user = dbspec.get('%suser' % dbkey, 'resmgr_%s' % shortname)
+        user = dbspec.get('%suser' % dbkey, 'resmgr')
 
         # FIXME: The schema migration has ALTER statements that hardcode
         # 'resmgr' as the database name.
