@@ -41,9 +41,12 @@ function usage()
         echo "--username=<Platform9 username>                            | Keystone authentication username (env:OS_USERNAME)."
         echo "--password=<Platform9 password>                            | Keystone authentication password (env:OS_PASSWORD)."
         echo "--project-name=<Platform9 project name>                    | Keystone project/tenant on which user has admin privileges (env:OS_TENANT_NAME)."
+        echo "--insecure                                                 | Ignore invalid controller certificate."
     fi
     echo "--help                                                     | Display program help."
 }
+
+CURL_INSECURE=''
 
 while getopts ":-:" optchar; do
     case "${optchar}" in
@@ -102,6 +105,9 @@ while getopts ":-:" optchar; do
                     ;;
                 password=*)
                     OS_PASSWORD="${OPTARG#*=}"
+                    ;;
+                insecure)
+                    CURL_INSECURE='-k'
                     ;;
                 help)
                     usage

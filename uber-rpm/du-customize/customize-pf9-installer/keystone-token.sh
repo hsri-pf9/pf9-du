@@ -35,7 +35,7 @@ function keystone_token() {
              }
          }}
 END_DATA
-    local resp=`curl -si -XPOST -H "$content_type" -d "$body" "$url"`
+    local resp=`curl ${CURL_INSECURE} -si -XPOST -H "$content_type" -d "$body" "$url"`
     local result=$?
     if [ $result -eq 0 ]; then
         local code=`echo $resp |cut -f 2 -d ' '`
@@ -48,7 +48,7 @@ END_DATA
             echo "Response: $resp" >&2
             return 1
         else
-            echo $resp |sed -n 's/^.*X-Subject-Token: \([^\r\n\t ]*\).*/\1/ p'
+            echo $resp |sed -n 's/^.*X-Subject-Token: \([^\r\n\t ]*\).*/\1/I p'
         fi
     else
         echo "Failed to connect to the keystone server on $DU_FQDN" >&2
