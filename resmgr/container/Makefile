@@ -78,6 +78,9 @@ PACKAGELIST_LINES = etc/pf9/certs/hostagent/cert.pem \
                     $(notdir $(HOSTAGENT_RPM)) \
                     $(notdir $(COMMS_RPM))
 
+CONTAINER_TAG ?= latest
+CONTAINER_IMG ?= 514845858982.dkr.ecr.us-west-1.amazonaws.com/pf9-resmgr
+
 $(DISTS):
 	cd $(SETUP_ROOT) && \
 	rm -f dist/* && \
@@ -111,14 +114,14 @@ stage: dist $(HOSTAGENT_RPM) $(INSTALLER_SCRIPT) $(PACKAGELIST_RPM)
 	cat $(PACKAGELIST)
 
 image: stage
-	docker build -t 514845858982.dkr.ecr.us-west-1.amazonaws.com/pf9-resmgr $(STAGE)
+	docker build -t $(CONTAINER_IMG):$(CONTAINER_TAG) $(STAGE)
 
 # This assumes that credentials for the aws tool are configured, either in
 # ~/.aws/config or in AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
 push: image
-	docker push 514845858982.dkr.ecr.us-west-1.amazonaws.com/pf9-resmgr || \
+	docker push $(CONTAINER_IMG):$(CONTAINER_TAG) || \
 	(aws ecr get-login --region=us-west-1 |sh && \
-	 docker push 514845858982.dkr.ecr.us-west-1.amazonaws.com/pf9-resmgr)
+	docker push $(CONTAINER_IMG):$(CONTAINER_TAG))
 
 clean:
 	rm -rf $(STAGE)
