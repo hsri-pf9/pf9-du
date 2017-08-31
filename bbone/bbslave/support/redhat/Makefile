@@ -47,10 +47,10 @@ $(BUILD_DIR)/dockstage:
 $(BUILD_DIR)/dockstage/run-build-in-container.sh: $(BUILD_DIR)/dockstage
 	cp $(SRC_DIR)/run-build-in-container.sh $@
 
-CENTOS65_IMG := builder-registry.platform9.sys:5000/centos65
+CENTOS65_IMG ?= docker-registry.platform9.horse:5000/centos65
 
 redhat-container: $(BUILD_DIR)/dockstage/run-build-in-container.sh
-	sudo docker pull builder-registry.platform9.sys:5000/centos65 && \
+	sudo docker pull $(CENTOS65_IMG) && \
 	sudo docker run -i --rm -a stdout -a stderr \
 		-v $(BUILD_DIR)/dockstage:/dockstage \
 		-v $(SRC_ROOT):/buildroot/pf9-du \
