@@ -18,6 +18,7 @@ def get_addresses_and_names():
     """
     nw_ifs = netifaces.interfaces()
     interface_ips = {}
+    interface_info = {}
 
     ignore_ip_re = re.compile('^(0.0.0.0|127.0.0.1)$')
     ignore_if_re = re.compile('^(q.*-[0-9a-fA-F]{2}|tap.*)$')
@@ -40,11 +41,15 @@ def get_addresses_and_names():
         addrs = netifaces.ifaddresses(iface)
         try:
             if netifaces.AF_INET in addrs:
+                ipv4_details = addrs[netifaces.AF_INET]
+                # Only 1 MAC associated with the interface.
+                mac_addr = addrs[netifaces.AF_LINK][0]['addr']
                 ips = addrs[netifaces.AF_INET]
                 for ip in ips:
                     # Not interested in loopback IPs
                     if not ignore_ip_re.match(ip['addr']):
                         interface_ips[iface] = ip['addr']
+                        interface_info[iface] = {'mac': mac_addr, 'ifaces': ipv4_details}
             else:
                 # move to next interface if this interface doesn't
                 # have IPv4 addresses
@@ -52,7 +57,7 @@ def get_addresses_and_names():
         except KeyError:
             pass
 
-    return {'iface_ip': interface_ips, 'ovs_bridges': ovs_list}
+    return {'iface_ip': interface_ips, 'ovs_bridges': ovs_list, 'iface_info': interface_info}
 
 if __name__ == '__main__':
     out = get_addresses_and_names()
