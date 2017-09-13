@@ -34,7 +34,8 @@ RABBIT_PERMISSIONS = {
     'resmgr': {
         'config': '^(pf9-changes)$',
         'write': '^(pf9-changes)$',
-        'read': '^$'
+        'read': '^$',
+        'tags': 'administrator'
     }
 }
 
