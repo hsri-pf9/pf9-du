@@ -1,5 +1,6 @@
 FROM centos:7
 MAINTAINER rdeuel@platform9.com
+LABEL com.platform9.image-type=du
 
 # python dependencies, apache and shibboleth
 RUN yum install -y mysql-devel python-devel libffi-devel gcc
@@ -56,3 +57,11 @@ RUN mkdir -p /opt/pf9/www/private/etc/pf9/certs/{ca,hostagent} /var/log/pf9
 EXPOSE 8082 8083
 
 CMD /usr/bin/supervisord
+
+ARG VERSION
+LABEL com.platform9.pf9_version=${VERSION}
+ARG BUILD_ID
+LABEL com.platform9.build=${BUILD_ID}
+LABEL com.platform9.version="${VERSION}-${BUILD_ID}"
+ARG BRANCH
+LABEL com.platform9.branch=${BRANCH}

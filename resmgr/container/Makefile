@@ -78,8 +78,10 @@ PACKAGELIST_LINES = etc/pf9/certs/hostagent/cert.pem \
                     $(notdir $(HOSTAGENT_RPM)) \
                     $(notdir $(COMMS_RPM))
 
-CONTAINER_TAG ?= latest
+BUILD_ID := $(BUILD_NUMBER)
 CONTAINER_IMG ?= 514845858982.dkr.ecr.us-west-1.amazonaws.com/pf9-resmgr
+IMAGE_TAG ?= latest
+BRANCH_NAME ?= $(or $(TEAMCITY_BUILD_BRANCH), $(TEAMCITY_BUILD_BRANCH), $(shell git symbolic-ref --short HEAD))
 
 $(DISTS):
 	cd $(SETUP_ROOT) && \
@@ -113,15 +115,25 @@ stage: dist $(HOSTAGENT_RPM) $(INSTALLER_SCRIPT) $(PACKAGELIST_RPM)
 	echo "$(PACKAGELIST):" && \
 	cat $(PACKAGELIST)
 
+$(BLDROOT):
+	mkdir -p $@
+
+$(BLDROOT)/container-tag: $(BLDROOT)
+	echo -ne "$(IMAGE_TAG)" >$@
+
 image: stage
-	docker build -t $(CONTAINER_IMG):$(CONTAINER_TAG) $(STAGE)
+	docker build --rm -t $(CONTAINER_IMG):$(IMAGE_TAG) \
+		--build-arg BUILD_ID=$(BUILD_ID) \
+		--build-arg VERSION=$(PF9_VERSION) \
+		--build-arg BRANCH=$(BRANCH_NAME) \
+		$(STAGE)
 
 # This assumes that credentials for the aws tool are configured, either in
 # ~/.aws/config or in AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
-push: image
-	docker push $(CONTAINER_IMG):$(CONTAINER_TAG) || \
+push: image $(BLDROOT)/container-tag
+	docker push $(CONTAINER_IMG):$(IMAGE_TAG) || \
 	(aws ecr get-login --region=us-west-1 |sh && \
-	docker push $(CONTAINER_IMG):$(CONTAINER_TAG))
+	docker push $(CONTAINER_IMG):$(IMAGE_TAG))
 
 clean:
 	rm -rf $(STAGE)
