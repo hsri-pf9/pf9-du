@@ -80,7 +80,7 @@ PACKAGELIST_LINES = etc/pf9/certs/hostagent/cert.pem \
 
 BUILD_ID := $(BUILD_NUMBER)
 CONTAINER_IMG ?= 514845858982.dkr.ecr.us-west-1.amazonaws.com/pf9-resmgr
-IMAGE_TAG ?= latest
+IMAGE_TAG ?= $(or $(PF9_VERSION), $(PF9_VERSION), "latest")-$(BUILD_ID)
 BRANCH_NAME ?= $(or $(TEAMCITY_BUILD_BRANCH), $(TEAMCITY_BUILD_BRANCH), $(shell git symbolic-ref --short HEAD))
 
 $(DISTS):
