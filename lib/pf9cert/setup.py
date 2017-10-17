@@ -12,7 +12,10 @@ setup(
     description='',
     author='',
     author_email='',
-    install_requires=['pyOpenSSL'],
+    install_requires=[
+        'pyOpenSSL==16.1.0',
+        "cryptography==1.5"
+    ],
     test_suite='pf9cert',
     zip_safe=False,
     include_package_data=True,
