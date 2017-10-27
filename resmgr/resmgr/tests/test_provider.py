@@ -62,6 +62,13 @@ BBONE_HOST = {
     'timestamp_on_du': '2016-09-08 23:16:40.786359'
 }
 
+MISSING_BBONE_HOST = {
+    'host_id': '24bbbc8d-fe3c-4675-a5ab-6940af506cc7',
+    'status': 'missing',
+    'timestamp': '1970-01-01 00:00:00.000000',
+    'timestamp_on_du': '1970-01-01 00:00:00.000000'
+}
+
 BBONE_APPS = {
     "test-role": {
         "version": "1.0",
@@ -907,6 +914,38 @@ class TestProvider(DbTestCase):
 
         # bbmaster still thinks the host is empty
         self._get_backbone_host.return_value = self._empty_host()
+
+        # the host isn't responding, so it should converge, call the
+        # post-deauth-converge hook and finish up.
+        self._bbone.process_hosts()
+        self._assert_event_handler_called('on_deauth_converged')
+
+        # host is gone
+        hosts = self._inventory.get_all_hosts()
+        self.assertFalse(hosts)
+
+    def test_deauth_missing_host(self):
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._add_and_converge_role(rolename)
+
+        # host is not responsive
+        self._responding_within_threshold.return_value = False
+
+        # delete it
+        self._provider.delete_role(host_id, rolename)
+
+        # check that empty config was pushed to bbmaster.
+        self._requests_put.assert_called_with(
+            'http://fake/v1/hosts/1234/apps', '{}')
+
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.DEAUTH_CONVERGING)
+        self._assert_event_handler_called('on_deauth')
+        self._assert_fails_puts_deletes(host_id, 'test-role')
+
+        # bbmaster still thinks the host is empty
+        self._get_backbone_host.return_value = MISSING_BBONE_HOST
 
         # the host isn't responding, so it should converge, call the
         # post-deauth-converge hook and finish up.

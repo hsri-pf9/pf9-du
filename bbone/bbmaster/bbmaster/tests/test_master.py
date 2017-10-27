@@ -272,7 +272,17 @@ class TestBbMaster(FunctionalTest):
         log.info('Desired apps state: %s ' % provider.desired_apps)
         assert insert_fw_apps_config(previous_state, firmware_apps_cfg, host_state=cur_data[0]) == provider.desired_apps[test_host_id]
 
+    def test_remove_apps_from_missing_host(self):
+        from bbmaster.bbone_provider_pf9_pika import provider
+        host_id = 'idontexist'
+        provider.set_host_apps(host_id, {})
+        host_info = provider.get_hosts([host_id])
+        self.assertEquals(1, len(host_info))
+        self.assertEquals('missing', host_info[0]['status'])
 
+        # these are required in resmgr for its 'responding' calculations
+        self.assertTrue(host_info[0]['timestamp'])
+        self.assertTrue(host_info[0]['timestamp_on_du'])
 
 class TestBBMasterBadStatus (FunctionalTest):
 

@@ -6,6 +6,7 @@ This module is a mock implementation of the backbone provider interface.
 """
 
 from bbone_provider import bbone_provider
+from datetime import datetime
 
 class bbone_provider_memory(bbone_provider):
     """Mock provider class. Works off mock data loaded in memory"""
@@ -33,9 +34,14 @@ class bbone_provider_memory(bbone_provider):
         Update the desired app config of the host.
         """
         if id not in self.hosts:
+            # timestamps are required in resmgr for its 'responding' calculation
+            a_long_time_ago = \
+                datetime.fromtimestamp(0).strftime("%Y-%m-%d %H:%M:%S.%f")
             self.hosts[id] = {
                 'host_id': id,
-                'status': 'missing'
+                'status': 'missing',
+                'timestamp': a_long_time_ago,
+                'timestamp_on_du': a_long_time_ago
             }
         self.desired_apps[id] = apps_config
 

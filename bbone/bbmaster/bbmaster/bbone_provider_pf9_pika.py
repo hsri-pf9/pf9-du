@@ -83,8 +83,15 @@ class bbone_provider_pf9(bbone_provider_memory):
         Sets the desired apps configuration for a particular host
         """
         with self.lock:
-            previous_desired_apps = self.desired_apps.get(id)
-            host_state = self.hosts[id]
+            if self.hosts.has_key(id):
+                previous_desired_apps = self.desired_apps.get(id)
+                host_state = self.hosts[id]
+            else:
+                # bbmaster has never seen this host, assume it has no apps.
+                # this will put it in the 'missing' state in apps config.
+                previous_desired_apps = None
+                host_state = {'apps':{}}
+
             # Send host state so as to determine if its an appliance or not
             insert_fw_apps_config(desired_apps, self.firmware_apps_config,
                                   host_state=host_state)

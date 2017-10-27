@@ -795,7 +795,10 @@ class BbonePoller(object):
             status_time_on_du = datetime.datetime.strptime(host_info['timestamp_on_du'],
                                                            "%Y-%m-%d %H:%M:%S.%f")
 
-            hostname = host_info['info']['hostname']
+            try:
+                hostname = host_info['info']['hostname']
+            except KeyError:
+                hostname = None
             _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
             _hosts_extension_data[host] = host_info.get('extensions', '')
 
@@ -826,7 +829,7 @@ class BbonePoller(object):
                 # Active hosts but we need to change the configuration
                 try:
                     if self.rolemgr.received_since_last_push(host, host_info) and \
-                       host_status not in ('ok', 'retrying', 'converging'):
+                       host_status not in ('ok', 'retrying', 'converging', 'missing'):
                         # put the roles that were converging into the failed state and
                         # continue to other hosts
                         self._fail_role_converge(host)
@@ -863,7 +866,7 @@ class BbonePoller(object):
                                                             needs_hostid_subst=False,
                                                             needs_rabbit_subst=False)
                     self._update_role_status(host, host_info)
-                    if authorized_hosts[host]['hostname'] != hostname:
+                    if hostname and authorized_hosts[host]['hostname'] != hostname:
                         self.db_handle.update_host_hostname(host, hostname)
                         self.notifier.publish_notification('change', 'host', host)
 
@@ -878,7 +881,7 @@ class BbonePoller(object):
                 _unauthorized_host_status_time_on_du[host] = status_time_on_du
                 # TODO: Is there a need to update the unauthorized hosts with more data
                 # returned from bbone?
-                if _unauthorized_hosts[host]['info']['hostname'] != hostname:
+                if hostname and _unauthorized_hosts[host]['info']['hostname'] != hostname:
                     _unauthorized_hosts[host]['info']['hostname'] = hostname
                     self.notifier.publish_notification('change', 'host', host)
 
