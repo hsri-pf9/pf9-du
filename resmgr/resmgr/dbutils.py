@@ -6,6 +6,7 @@
 
 __author__ = 'Platform9'
 
+import ConfigParser
 import copy
 import datetime
 import glob
@@ -167,6 +168,15 @@ class ResMgrDB(object):
         """
         self.config = config
         self.connectstr = config.get('database', 'sqlconnectURI')
+        self.db_connection_options = {}
+
+        # Override SQLAlchemy default pool size if defined
+        try:
+            self.db_connection_options['pool_size'] = config.getint('database', 'pool_size')
+        except ConfigParser.NoOptionError as excp:
+            log.info(('No database connection pool_size configured. '
+                      'Using SQLAlchemy default pool_size.'))
+
         self.session_maker = sessionmaker(bind=self.dbengine)
         # Populate/Update the roles table, if needed.
         log.info('Setting up roles in the database')
@@ -381,7 +391,8 @@ class ResMgrDB(object):
         global engineHandle
 
         if not engineHandle:
-            engineHandle = create_engine(self.connectstr)
+            engineHandle = create_engine(self.connectstr,
+                                         **self.db_connection_options)
 
         return engineHandle
 
