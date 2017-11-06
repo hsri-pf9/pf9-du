@@ -27,6 +27,7 @@ for logger in 'requests', 'urllib3', 'iso8601':
     logging.getLogger(logger).setLevel(logging.WARNING)
 
 log = logging.getLogger('du-ctl')
+log.setLevel(logging.INFO)
 
 _bbmaster_endpoint = 'http://localhost:8082/v1/hosts'
 _resmgr_endpoint = 'http://localhost:8083/v1'
@@ -162,6 +163,12 @@ def _add_format_arguent(parser):
                         dest='format',
                         help='Format, valid values are json/table')
 
+def _add_debug_argument(parser):
+    parser.add_argument("--debug",
+                        action='store_true',
+                        dest='debug',
+                        help='Write debug level logs to stdout')
+
 def _build_host_parser(subparsers):
     """
     Build subparser for host related operations
@@ -212,6 +219,7 @@ def _build_parsers():
     Build the command line parser hierarchy based on the control script actions
     """
     _add_format_arguent(_parser)
+    _add_debug_argument(_parser)
     subparsers = _parser.add_subparsers(help='sub-commands',
                                         dest='subparser')
     _build_role_parser(subparsers)
@@ -223,6 +231,8 @@ def _process_cmd(args):
     Does the work of the command.
     :param args: command line args parsed from argparse
     """
+    if args.debug:
+        log.setLevel(logging.DEBUG)
     if args.subparser == 'hostagent':
         if args.agent_subparser == 'update':
             if not (args.host_id and args.agent_version and args.agent_url):
@@ -328,7 +338,7 @@ def _get_bundles(bundle_dir):
     try:
         bundle_dir_list = os.listdir(bundle_dir)
     except OSError:
-        log.exception("Could not access bundle dir: %s" % bundle_dir)
+        log.debug("Could not access bundle dir: %s" % bundle_dir, exc_info=True)
         return bundles
     for bundle_name in bundle_dir_list:
         bundle = os.path.join(bundle_dir, bundle_name)
