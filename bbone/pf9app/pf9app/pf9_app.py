@@ -14,7 +14,7 @@ from exceptions import ServiceCtrlError, ConfigOperationError
 from app import App, RemoteApp
 
 CFGSCRIPTCMD = "%s /opt/pf9/%s/config"
-SVC_COMMAND = "sudo service %s %s"
+SVC_COMMAND = "sudo /etc/init.d/%s %s"
 SYSTEMCTL_COMMAND = "sudo systemctl %s %s"
 
 def prune_pf9_python_path():

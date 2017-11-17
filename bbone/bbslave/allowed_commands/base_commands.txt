@@ -1,3 +1,4 @@
 ^sudo service pf9-[-\w]+ (stop|start|status|restart)$
+^sudo /etc/init.d/pf9-[-\w]+ (stop|start|status|restart)$
 ^sudo systemctl (stop|start|status|restart) pf9-[-\w]+$
 ^rm -rf /var/cache/pf9apps/\*$

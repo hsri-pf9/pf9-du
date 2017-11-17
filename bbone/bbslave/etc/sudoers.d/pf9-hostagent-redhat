@@ -3,6 +3,7 @@ pf9	ALL = NOPASSWD: /opt/pf9/hostagent/bin/pf9-yum install /var/cache/pf9apps/*.
           NOPASSWD: /opt/pf9/hostagent/bin/pf9-yum erase pf9-*, \
           NOPASSWD: /bin/df -kh, \
           NOPASSWD: /sbin/service pf9-*, \
+          NOPASSWD: /etc/init.d/pf9-*, \
           NOPASSWD: /usr/bin/systemctl is-active pf9-*, \
           NOPASSWD: /usr/bin/systemctl start pf9-*, \
           NOPASSWD: /usr/bin/systemctl stop pf9-*, \
