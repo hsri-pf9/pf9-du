@@ -199,7 +199,8 @@ class ResMgrDB(object):
             'download_protocol': dict_tokens.DOWNLOAD_PROTOCOL,
             'download_port': dict_tokens.DOWNLOAD_PORT,
             'rabbit_userid' : dict_tokens.RABBIT_USERID_TOKEN,
-            'rabbit_password' : dict_tokens.RABBIT_PASSWORD_TOKEN
+            'rabbit_password' : dict_tokens.RABBIT_PASSWORD_TOKEN,
+            'rabbit_transport_url' : dict_tokens.RABBIT_TRANSPORT_URL
         }
         # TODO: Move the below stuff out to its own configs
         if self.config.has_section('pf9-neutron-config-agent'):
@@ -903,8 +904,10 @@ class ResMgrDB(object):
             # Maps roles to token maps
             token_role_map = {}
             for credential in host.rabbit_credentials:
+                transport_url = "rabbit://%s:%s@localhost:5673/" % (credential.userid,credential.password)
                 token_role_map[credential.rolename] = {dict_tokens.RABBIT_USERID_TOKEN : credential.userid,
-                                                       dict_tokens.RABBIT_PASSWORD_TOKEN : credential.password}
+                                                       dict_tokens.RABBIT_PASSWORD_TOKEN : credential.password,
+                                                       dict_tokens.RABBIT_TRANSPORT_URL : transport_url}
 
         for app in dictionary:
             # The role that provides the app
