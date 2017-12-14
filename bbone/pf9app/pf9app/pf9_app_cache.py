@@ -80,6 +80,14 @@ class Pf9AppCache(AppCache):
         :raises DownloadFailed: when downloading the file fails
         """
         self.log.info("Downloading file %s to %s", srcurl, destfile)
+        originaldir, originalfilename = os.path.split(os.path.abspath(destfile))
+        tmp_file_name = originalfilename + ".incomplete"
+        self.log.info("Writing to the .incomplete file %s. "
+                      "This will be renamed back to original "
+                      "file once the download is successfully complete " % (tmp_file_name))
+        #create a .incomplete file to write the contents. This will be renamed
+        #to original file once the download is successfully complete
+        tmpdst = os.path.join(originaldir, tmp_file_name)
         content_length = None
         try:
             with contextlib.closing(requests.get(srcurl,
@@ -94,7 +102,7 @@ class Pf9AppCache(AppCache):
                     msg = 'Could not determine the size of the file being downloaded.'
                     self.log.error(msg)
                     raise DownloadFailed(msg)
-                with open(destfile, "w") as wf:
+                with open(tmpdst, "w") as wf:
                     # Source files (rpms) could be huge,download them in chunks
                     for chunk in response.iter_content(DOWNLOAD_CHUNK_SIZE):
                         wf.write(chunk)
@@ -102,9 +110,11 @@ class Pf9AppCache(AppCache):
             self.log.error("Downloading %s failed: %s", srcurl, e)
             raise DownloadFailed(str(e))
 
-        if not self._file_sizes_match(destfile, content_length):
+        if not self._file_sizes_match(tmpdst, content_length):
             raise DownloadFailed("Downloaded file doesn't match expected size.")
-
+        #rename the .incomplete file
+        self.log.info("Renaming %s to %s" % (tmp_file_name, originalfilename))
+        os.rename(tmpdst, destfile)
         self.log.info("Downloaded file %s to %s", srcurl, destfile)
 
 
