@@ -92,9 +92,6 @@ elif [ "$1" = "2" ]; then
     fi
 
     pf9_enable_service_on_boot pf9-hostagent
-    # From the 3.0 release, have this odd workaround to restart hostagent in the
-    # background to allow the yum transaction to complete before the restart.
-    ( (set -x; date; sleep 5; pkill pf9-hostd || true; systemctl restart pf9-hostagent ) &>> /var/log/pf9/hostagent-install.log) &
 fi
 
 %preun
