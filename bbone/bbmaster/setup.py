@@ -16,7 +16,8 @@ setup(
         "pecan==1.1.2",
         "requests==2.11.1",
         "pika==0.10.0",
-        "cryptography==1.5"
+        "cryptography==1.5",
+	"webob==1.7.4"
     ],
     test_suite='bbmaster',
     zip_safe=False,
