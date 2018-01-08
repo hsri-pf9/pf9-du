@@ -4,7 +4,6 @@ from ConfigParser import ConfigParser
 from janitor.nova_cleanup import NovaCleanup
 from janitor.glance_cleanup import GlanceCleanup
 from janitor.network_cleanup import NetworkCleanup
-from janitor.alarms import AlarmsManager
 
 import os
 import logging
@@ -91,7 +90,6 @@ def serve(config_file):
             nova_obj = NovaCleanup(conf=cfg)
             glance_obj = GlanceCleanup(conf=cfg)
             nw_obj = NetworkCleanup(conf=cfg)
-            alarm_obj = AlarmsManager(conf=cfg)
             break
         except Exception as e:
             LOG.error('Unexpected error during init: %s', e)
@@ -103,7 +101,6 @@ def serve(config_file):
     while True:
         try:
             glance_obj.cleanup()
-            alarm_obj.manage()
             # pshanbhag:
             # See IAAS-5438. To avoid janitor triggering a VM network cleanup, we
             # will temporarily make janitor do nothing on Neutron setups. This can
