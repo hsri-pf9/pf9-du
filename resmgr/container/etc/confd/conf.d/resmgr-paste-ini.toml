@@ -4,6 +4,8 @@ dest = '/etc/pf9/resmgr-paste.ini'
 owner = 'pf9'
 mode = '0644'
 keys = [
+    '/services/resmgr/keystone_uris/keystone',
+    '/services/resmgr/keystone_uris/keystone_admin',
     '/services/resmgr/keystone_user/email',
     '/services/resmgr/keystone_user/password',
     '/services/resmgr/keystone_user/project'

@@ -55,6 +55,17 @@ class ResmgrConfig(object):
         self._customer_uuid = customer_uuid
         self._region_uuid = region_uuid
 
+    def copy_keystone_uris(self):
+        keystone_prefix = 'keystone/uris/'
+        resmgr_prefix = 'regions/%s/services/resmgr/keystone_uris/' % \
+                        self._region_uuid
+        updates = {}
+        with self._consul.prefix('customers/%s' % self._customer_uuid):
+            for key in ['keystone', 'keystone_admin']:
+                val = self._consul.kv_get('%s/%s' % (keystone_prefix, key))
+                updates[resmgr_prefix + key] = val
+            self._consul.kv_put_txn(updates)
+
     def add_keystone_user(self):
         """
         Add configuration to both the resmgr and keystone spaces. Will not
@@ -215,6 +226,7 @@ def main():
     consul = Consul(args.config_url)
     config = ResmgrConfig(consul, args.customer_id, args.region_id)
     config.add_keystone_user()
+    config.copy_keystone_uris()
     config.add_rabbit_users()
     dbinfo = config.add_db()
     config.migrate_db(dbinfo)
