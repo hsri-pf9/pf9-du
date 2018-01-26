@@ -19,6 +19,20 @@ change_file_permissions() {
     chmod 0550 /opt/pf9/hostagent/pf9-hostagent-prestart.sh
 }
 
+fix_muster_deb_scripts() {
+    # Workaround for IAAS-8635
+    if `head -n 1 /var/lib/dpkg/info/pf9-muster.postinst | grep -q 'after_upgrade() {'`
+    then
+        cp /opt/pf9/hostagent/muster_IAAS-8635_patch/pf9-muster-after-install.sh /var/lib/dpkg/info/pf9-muster.postinst
+        chmod 0755 /var/lib/dpkg/info/pf9-muster.postinst
+    fi
+    if `head -n 1 /var/lib/dpkg/info/pf9-muster.prerm | grep -q 'before_remove() {'`
+    then
+        cp /opt/pf9/hostagent/muster_IAAS-8635_patch/pf9-muster-before-remove.sh /var/lib/dpkg/info/pf9-muster.prerm
+        chmod 0755 /var/lib/dpkg/info/pf9-muster.prerm
+    fi
+}
+
 . /opt/pf9/pf9-service-functions.sh
 pf9_setup_service_files pf9-hostagent /opt/pf9/hostagent/pf9-hostagent-systemd /opt/pf9/hostagent/pf9-hostagent-deb-init
 
@@ -38,6 +52,9 @@ elif [ "$script_step" = "configure" ]; then
     # During an upgrade, hostagent files are reverted to the default owner and
     # group. So, permissions must be reassigned.
     change_file_permissions
+
+    fix_muster_deb_scripts
+
     # Restart comms in case certs were upgraded
     if [ -f /etc/init.d/pf9-comms ]; then
         service pf9-comms condrestart
