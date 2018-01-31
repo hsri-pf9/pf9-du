@@ -30,7 +30,7 @@ RUN pip install bblib-sdist.tgz \
                 setuptools==33.1.1
 
 # install confd
-RUN curl -L https://github.com/kelseyhightower/confd/releases/download/v0.11.0/confd-0.11.0-linux-amd64 >/root/confd \
+RUN curl -L https://github.com/kelseyhightower/confd/releases/download/v0.15.0/confd-0.15.0-linux-amd64 >/root/confd \
  && chmod 755 /root/confd \
  && mkdir -p /var/log/confd
 
@@ -65,3 +65,5 @@ LABEL com.platform9.build=${BUILD_ID}
 LABEL com.platform9.version="${VERSION}-${BUILD_ID}"
 ARG BRANCH
 LABEL com.platform9.branch=${BRANCH}
+ARG APP_METADATA
+LABEL com.platform9.app_metadata=${APP_METADATA}

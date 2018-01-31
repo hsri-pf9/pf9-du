@@ -55,6 +55,21 @@ class ResmgrConfig(object):
         self._customer_uuid = customer_uuid
         self._region_uuid = region_uuid
 
+    def add_keystone_endpoint(self):
+        key = 'customers/%s/regions/%s/fqdn' % (self._customer_uuid,
+                                                self._region_uuid)
+        fqdn = self._consul.kv_get(key)
+        url = 'https://%s/resmgr' % fqdn
+        prefix = 'customers/%s/keystone/endpoints/%s/resmgr/' % (
+            self._customer_uuid, self._region_uuid)
+        updates = {
+            prefix + 'type': 'resmgr',
+            prefix + 'internal_url': url,
+            prefix + 'admin_url': url,
+            prefix + 'public_url': url
+        }
+        self._consul.kv_put_txn(updates)
+
     def copy_keystone_uris(self):
         keystone_prefix = 'keystone/uris/'
         resmgr_prefix = 'regions/%s/services/resmgr/keystone_uris/' % \
@@ -225,6 +240,7 @@ def main():
     args = parse_args()
     consul = Consul(args.config_url)
     config = ResmgrConfig(consul, args.customer_id, args.region_id)
+    config.add_keystone_endpoint()
     config.add_keystone_user()
     config.copy_keystone_uris()
     config.add_rabbit_users()

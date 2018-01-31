@@ -39,6 +39,9 @@ DISTS = $(RESMGR_DIST) $(BBLIB_DIST) $(BBMASTER_DIST) $(CONFIGUTILS_DIST) \
 
 dist: $(DISTS)
 
+Y2J = $(SRCROOT)/resmgr/container/y2j.py
+APP_METADATA = $(SRCROOT)/resmgr/container/app_metadata.yaml
+
 # FIXME - Do NOT copy paste the logic below if we add deb support. Come up with
 # a way to parameterize it!
 
@@ -102,6 +105,7 @@ $(INSTALLER_SCRIPT):
 
 stage: dist $(HOSTAGENT_RPM) $(INSTALLER_SCRIPT) $(PACKAGELIST_RPM)
 	cp -rv $(SRCROOT)/resmgr/container/* $(STAGE)/
+	python $(Y2J) $(APP_METADATA) > $(STAGE)/app_metadata.json
 	cp -v $(SRCROOT)/resmgr/upper-constraints.txt $(STAGE)/
 	cp -v $(MUSTER_WRAPPER) $(KUBE_WRAPPER) $(STAGE)/
 	private=$(STAGE)/opt/pf9/www/private && \
@@ -126,6 +130,7 @@ image: stage
 		--build-arg BUILD_ID=$(BUILD_ID) \
 		--build-arg VERSION=$(PF9_VERSION) \
 		--build-arg BRANCH=$(BRANCH_NAME) \
+		--build-arg APP_METADATA=`cat app_metadata.json` \
 		$(STAGE)
 
 # This assumes that credentials for the aws tool are configured, either in

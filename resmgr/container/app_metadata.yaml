@@ -1,0 +1,20 @@
+---
+name: resmgr
+endpoints:
+- name: bbmaster
+  port: 8082
+- name: resmgr
+  port: 8083
+  httpPath: "/resmgr"
+  rewritePath: "/"
+- name: private
+  port: 8083
+  httpPath: "/private"
+  rewritePath: "/static"
+- name: resmgr-internal
+  port: 8083
+egresses:
+- endpoint: broker
+  localPort: 5672
+- endpoint: rabbitmq-mgmt
+  localPort: 15672
