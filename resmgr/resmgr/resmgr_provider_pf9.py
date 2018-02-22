@@ -1,4 +1,4 @@
-# Copyright 2014 Platform9 Systems Inc.
+# Copyright 2018 Platform9 Systems Inc.
 # All Rights Reserved
 
 __author__ = 'Platform9'
@@ -113,6 +113,7 @@ def _update_custom_role_settings(app_info, role_settings, roles):
                     app_info_temp[setting_name] = role_settings[role_name][setting_name]
                 else:
                     app_info_temp[setting_name] = ''
+
 
 def _load_role_confd_files(role_metadata_location, config):
     confd = os.path.join(role_metadata_location, 'conf.d')
@@ -471,10 +472,16 @@ class RolesMgr(object):
                 continue
 
             event_spec = app_details['du_config']['auth_events']
+            # Replace __HOST_CONFIG__ sections in auth_event section with app
+            # config for the host. This should be done last so that app config
+            # is populated with the customizable settings and host ID
+            host_app_config = app_details.get('config', {})
+            token_map = {dict_tokens.HOST_CONFIG: host_app_config}
+            updated_event_spec = dict_subst.substitute(event_spec, token_map)
 
-            events_type = event_spec.get('type', None)
+            events_type = updated_event_spec.get('type', None)
             if events_type == 'python':
-                self._run_python_event(event_method, event_spec)
+                self._run_python_event(event_method, updated_event_spec)
             else:
                 log.warn('Unknown auth_events type \'%s\'.', events_type)
 

@@ -1,4 +1,4 @@
-# Copyright 2014 Platform9 Systems Inc.
+# Copyright 2018 Platform9 Systems Inc.
 # All Rights Reserved.
 
 HOST_ID_TOKEN = '__HOST_ID__'
@@ -8,3 +8,4 @@ DOWNLOAD_PORT = '%(download_port)s'
 RABBIT_USERID_TOKEN = '__RABBIT_USERID__'
 RABBIT_PASSWORD_TOKEN = '__RABBIT_PASSWORD__'
 RABBIT_TRANSPORT_URL = '__RABBIT_TRANSPORT_URL__'
+HOST_CONFIG = '__HOST_CONFIG__'

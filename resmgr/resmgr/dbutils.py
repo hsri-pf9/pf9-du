@@ -195,6 +195,7 @@ class ResMgrDB(object):
         param_vals = {
             'du_fqdn': du_fqdn,
             'host_id': dict_tokens.HOST_ID_TOKEN,
+            'host_config': dict_tokens.HOST_CONFIG,
             'host_relative_amqp_fqdn': dict_tokens.HOST_RELATIVE_AMQP_FQDN_TOKEN,
             'download_protocol': dict_tokens.DOWNLOAD_PROTOCOL,
             'download_port': dict_tokens.DOWNLOAD_PORT,
