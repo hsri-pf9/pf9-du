@@ -27,7 +27,7 @@ function create_appliance {
     VMDK_SIZE=$(stat -c '%s' ${vmdk_name})
     ISO_SIZE=$(stat -c '%s' ${iso_name})
     # Add correct VMDK and ISO size to OVF
-    sed -e "s/__VMDK_SIZE__/${VMDK_SIZE}/" -e "s/__ISO_SIZE__/${ISO_SIZE}/" ${ova_short_name}-template.ovf > ${ova_short_name}.ovf
+    sed -e "s/__VMDK_NAME__/${vmdk_name}/" -e "s/__VMDK_SIZE__/${VMDK_SIZE}/" -e "s/__ISO_SIZE__/${ISO_SIZE}/" ${ova_short_name}-template.ovf > ${ova_short_name}.ovf
     rm -f ${ova_short_name}-template.ovf
     # Create a manifest file
     openssl sha1 ${vmdk_name} ${ova_short_name}.ovf ${iso_name} > ${ova_short_name}.mf
@@ -54,7 +54,7 @@ MGMT_FQDN=${MGMT_FQDN:-${DU_FQDN}}
 CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOT_DIR=$CURR_DIR/../
 
-APPLIANCE_DISK_NAME=platform9-vmware-appliance-v2-disk1.vmdk
+APPLIANCE_DISK_NAME=pf9app-7.4-template-disk1.vmdk
 INSTALLER_FILENAME=platform9-install-redhat.sh
 INSTALLER_PATH=${PRIVATE_FILES_DIR}/${INSTALLER_FILENAME}
 CUSTOMIZE_SCRIPT_DIR=/opt/pf9/du-customize/vmw_scripts
