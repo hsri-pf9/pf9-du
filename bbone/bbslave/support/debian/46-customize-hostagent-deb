@@ -1,10 +1,8 @@
 #!/bin/sh
 # Copyright (c) 2014 Platform9 Systems Inc.
 
-# This script creates the host-agent rpm by expanding the tar file
+# This script creates the host-agent deb by expanding the tar file
 # followed by a call to embedded rpm build file
-# The RPM can be acccessed by the following URLS:
-# hostagent: http://<ip>/hostagent/pf9-hostagent-1.0.0-1.x86_64.rpm
 
 
 set -v
@@ -28,13 +26,27 @@ RELEASE=${HOST_AGENT_RELEASE:-${RELEASE}}
 MGMT_FQDN=${MGMT_FQDN:-${DU_FQDN}}
 DU_IS_CONTAINER=${DU_IS_CONTAINER:-"false"}
 
-CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOT_DIR=$CURR_DIR/../
-HOSTAGENT_TARBALL=$ROOT_DIR/hostagent-tarball/debian/pf9-hostagent.tar.gz
-RPMBUILD_DIR=$ROOT_DIR/hostagent-tarball/debian/deb-build
+HOSTAGENT_SKIP_CERTS=${HOSTAGENT_SKIP_CERTS:-''}
 
-HOST_AGENT_RPM_NAME=pf9-hostagent-$VERSION-$RELEASE.x86_64.deb
-HOST_AGENT_RPM=$RPMBUILD_DIR/RPMS/x86_64/$HOST_AGENT_RPM_NAME
+ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+
+# When HOSTAGENT_SKIP_CERTS is true, we're building in teamcity, not as part
+# of ansible DU configuration. In this case, the DU address, rabbit creds and
+# certs aren't included in the build. Also, the location of the tarball and
+# destination rpm is different.
+if [ -n "${HOSTAGENT_SKIP_CERTS}" ]; then
+    DU_FQDN=''
+    HOSTAGENT_TARBALL=${ROOT_DIR}/debian/pf9-hostagent.tar.gz
+    DEBBUILD_DIR=${ROOT_DIR}/debian-nocert/deb-build
+else
+    HOSTAGENT_TARBALL=$ROOT_DIR/hostagent-tarball/debian/pf9-hostagent.tar.gz
+    DEBBUILD_DIR=$ROOT_DIR/hostagent-tarball/debian/deb-build
+fi
+
+HOST_AGENT_DEB_NAME=pf9-hostagent-$VERSION-$RELEASE.x86_64.deb
+HOST_AGENT_DEBBUILD_DIR=$DEBBUILD_DIR/DEBS/x86_64
+HOST_AGENT_DEB=$HOST_AGENT_DEBBUILD_DIR/$HOST_AGENT_DEB_NAME
+HOST_AGENT_DEB_SYMLINK=pf9-hostagent.x86_64.deb
 PRIVATE_FILES_DIR=$ROOT_DIR/www/private
 
 # Create a temporary directory to expand the tarball
@@ -47,23 +59,45 @@ tar -xzf $HOSTAGENT_TARBALL -C $HOSTAGENT_TARBALL_EXPANDEDDIR
 # For backward compatibility, CERT_VERSION may be an empty string.
 CERT_VERSION=
 CERTS_DIR=/etc/pf9/certs
-pushd ${CERTS_DIR}
-if ls -vd v* > /dev/null 2>&1; then
-    CERT_VERSION="$(ls -vd v* | tail -n 1)"
-    CERTS_DIR="${CERTS_DIR}/${CERT_VERSION}"
-fi
-popd
 
 mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs
-cp -r ${CERTS_DIR}/hostagent $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/
-chmod 440 $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/hostagent/key.pem
-mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
-cp ${CERTS_DIR}/ca/cert*.pem $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
 
-#clean the RPMBUILD dir
-rm -fr $RPMBUILD_DIR
-mkdir $RPMBUILD_DIR
+if [ -z  "${HOSTAGENT_SKIP_CERTS}" ]; then
+    pushd ${CERTS_DIR}
+    if ls -vd v* > /dev/null 2>&1; then
+        CERT_VERSION="$(ls -vd v* | tail -n 1)"
+        CERTS_DIR="${CERTS_DIR}/${CERT_VERSION}"
+    fi
+    popd
+
+    cp -r ${CERTS_DIR}/hostagent $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/
+    chmod 440 $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/hostagent/key.pem
+    mkdir -p $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
+    cp ${CERTS_DIR}/ca/cert*.pem $HOSTAGENT_TARBALL_EXPANDEDDIR/etc/pf9/certs/ca
+fi
+
+mkdir -p $HOST_AGENT_DEBBUILD_DIR
 
 # Create the DEB
-$HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-deb-build.sh $RPMBUILD_DIR $HOSTAGENT_TARBALL_EXPANDEDDIR $MGMT_FQDN $VERSION $RELEASE $AMQP_USER $AMQP_PASS $DU_IS_CONTAINER "${CERT_VERSION}"
+$HOSTAGENT_TARBALL_EXPANDEDDIR/hostagent-deb-build.sh "$HOST_AGENT_DEBBUILD_DIR" "$HOSTAGENT_TARBALL_EXPANDEDDIR" "$MGMT_FQDN" "$VERSION" "$RELEASE" "$AMQP_USER" "$AMQP_PASS" "$DU_IS_CONTAINER" "${CERT_VERSION}"
+
+if [ -z "${HOSTAGENT_SKIP_CERTS}" ]; then
+    # Copy deb to a well known location
+    mkdir -p $PRIVATE_FILES_DIR
+    cp $HOST_AGENT_DEB $PRIVATE_FILES_DIR
+    pushd $PRIVATE_FILES_DIR
+    ln -sf $HOST_AGENT_DEB_NAME $HOST_AGENT_DEB_SYMLINK
+    popd
+fi
+
+rm -fr $HOSTAGENT_TARBALL_EXPANDEDDIR
+
+echo ${HOSTAGENT_TARBALL_EXPANDEDDIR}
+echo ${HOSTAGENT_SKIP_CERTS}
+echo ${DEBBUILD_DIR}
+
+#clean the DEBBUILD dir
+if [ -z "${HOSTAGENT_SKIP_CERTS}" ]; then
+    rm -fr $DEBBUILD_DIR
+fi
 

@@ -9,7 +9,7 @@
 set -e
 set -v
 
-RPMBUILD_DIR="$1"
+DEBBUILD_DIR="$1"
 TARBALL_EXPANDED_LOCATION="$2"
 HOST_IP="$3"
 VERSION="$4"
@@ -21,9 +21,8 @@ CERT_VERSION="$9"
 
 # The directory where the build is done
 SPEC_FILE_DIR=`mktemp -d -t pf9-XXX`
-PRIVATE_FILES_DIR=/opt/pf9/www/private
 DEB_FILE_NAME=pf9-hostagent-$VERSION-$RELEASE.x86_64.deb
-DEB_FILE=$PRIVATE_FILES_DIR/$DEB_FILE_NAME
+DEB_FILE=$DEBBUILD_DIR/$DEB_FILE_NAME
 HOST_AGENT_DEB_SYMLINK=pf9-hostagent.x86_64.deb
 
 # Remove after-install.sh and hostagent-deb-build from the BUILD_DIR
@@ -38,8 +37,6 @@ sed -i -e "s/CHANGE_TO_YOUR_AMQP_PASS/$AMQP_PASS/" $TARBALL_EXPANDED_LOCATION/et
 sed -i -e "s/CHANGE_TO_YOUR_DU_IS_CONTAINER_FLAG/$DU_IS_CONTAINER/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 sed -i -e "s/CHANGE_TO_YOUR_CERT_VERSION/$CERT_VERSION/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 
-mkdir -p $PRIVATE_FILES_DIR
-
 fpm -t deb -s dir --provides "pf9-hostagent" --provides "pf9-bbslave" -d "sudo" \
         -d "python-setuptools" -d "iptables-persistent" -d "python-apt" --after-install $SPEC_FILE_DIR/after-install.sh \
         --after-remove $SPEC_FILE_DIR/after-remove.sh --before-remove $SPEC_FILE_DIR/before-remove.sh \
@@ -47,7 +44,3 @@ fpm -t deb -s dir --provides "pf9-hostagent" --provides "pf9-bbslave" -d "sudo" 
         -v $VERSION-$RELEASE -p $DEB_FILE -n pf9-hostagent --description "Platform9 host agent" \
         --force -C $TARBALL_EXPANDED_LOCATION .
 
-# Symlink the rpm to a well known location
-pushd $PRIVATE_FILES_DIR
-ln -sf $DEB_FILE_NAME $HOST_AGENT_DEB_SYMLINK
-popd

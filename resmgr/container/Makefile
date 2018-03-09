@@ -47,7 +47,9 @@ APP_METADATA_JSON = $(STAGE)/app_metadata.json
 # a way to parameterize it!
 
 HOSTAGENT_RPM = $(BLDROOT)/hostagent/redhat-nocert/rpm-build/RPMS/x86_64/pf9-hostagent-$(PF9_VERSION)-$(BUILD_NUMBER).$(GITHASH).x86_64.rpm
-INSTALLER_SCRIPT = $(SRCROOT)/uber-rpm/build/platform9-install-redhat.sh
+HOSTAGENT_DEB = $(BLDROOT)/hostagent/debian-nocert/deb-build/DEBS/x86_64/pf9-hostagent-$(PF9_VERSION)-$(BUILD_NUMBER).$(GITHASH).x86_64.deb
+REDHAT_INSTALLER_SCRIPT = $(SRCROOT)/uber-rpm/build/platform9-install-redhat.sh
+DEBIAN_INSTALLER_SCRIPT = $(SRCROOT)/uber-rpm/build/platform9-install-debian.sh
 
 # make sure firmware and role artifacts are available. FIXME: This stuff also
 # appears in the nginx container, from which the files are actually served
@@ -57,6 +59,11 @@ INSTALLER_SCRIPT = $(SRCROOT)/uber-rpm/build/platform9-install-redhat.sh
 COMMS_RPM ?= $(shell find $(ARTIFACTS) -name pf9-comms*.rpm)
 ifeq ($(wildcard $(COMMS_RPM)),)
     $(error There must be a pf9-comms rpm in $(ARTIFACTS))
+endif
+
+COMMS_DEB ?= $(shell find $(ARTIFACTS) -name pf9-comms*.deb)
+ifeq ($(wildcard $(COMMS_DEB)),)
+    $(error There must be a pf9-comms deb in $(ARTIFACTS))
 endif
 
 VMW_MGMT_RPM ?= $(shell find $(ARTIFACTS) -name pf9-vmw-mgmt*.rpm)
@@ -74,13 +81,17 @@ ifeq ($(wildcard $(KUBE_WRAPPER)),)
     $(error There must be a pf9-kubewrapper rpm in $(ARTIFACTS))
 endif
 
-PACKAGELIST = $(STAGE)/opt/pf9/www/private/nocert-packagelist.rpm
-PACKAGELIST_LINES = etc/pf9/certs/hostagent/cert.pem \
-                    etc/pf9/certs/hostagent/key.pem \
-                    etc/pf9/certs/ca/cert.pem \
-                    etc/pf9/hostagent.conf \
-                    $(notdir $(HOSTAGENT_RPM)) \
-                    $(notdir $(COMMS_RPM))
+PACKAGELIST_RPM = $(STAGE)/opt/pf9/www/private/nocert-packagelist.rpm
+PACKAGELIST_DEB = $(STAGE)/opt/pf9/www/private/nocert-packagelist.deb
+PACKAGELIST_LINES_COMMON = etc/pf9/certs/hostagent/cert.pem \
+                           etc/pf9/certs/hostagent/key.pem \
+                           etc/pf9/certs/ca/cert.pem \
+                           etc/pf9/hostagent.conf
+PACKAGELIST_LINES_RPM = $(notdir $(HOSTAGENT_RPM)) \
+                        $(notdir $(COMMS_RPM))
+
+PACKAGELIST_LINES_DEB = $(notdir $(HOSTAGENT_DEB)) \
+                        $(notdir $(COMMS_DEB))
 
 BUILD_ID := $(BUILD_NUMBER)
 CONTAINER_IMG ?= 514845858982.dkr.ecr.us-west-1.amazonaws.com/pf9-resmgr
@@ -96,29 +107,44 @@ $(DISTS):
 $(HOSTAGENT_RPM):
 	make -C $(SRCROOT)/bbone/bbslave/support/redhat hostagent-rpm-nocert
 
-$(INSTALLER_SCRIPT):
-	make -C $(SRCROOT)/uber-rpm installer-nocert
+$(HOSTAGENT_DEB):
+	make -C $(SRCROOT)/bbone/bbslave/support/debian hostagent-deb-nocert
+
+$(REDHAT_INSTALLER_SCRIPT):
+	make -C $(SRCROOT)/uber-rpm redhat-installer-nocert
+
+$(DEBIAN_INSTALLER_SCRIPT):
+	make -C $(SRCROOT)/uber-rpm debian-installer-nocert
 
 # the installer script doesn't really need to be included in the container
 # here, but it does need to be built and provided as an artifact to the
 # nginx container build so it can be served publically from there. Having it
 # here allows us to test hostagent installation without nginx.
 
-stage: dist $(HOSTAGENT_RPM) $(INSTALLER_SCRIPT) $(PACKAGELIST_RPM)
+stage: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT)
 	cp -rv $(SRCROOT)/resmgr/container/* $(STAGE)/
 	python $(Y2J) $(APP_METADATA_YAML) > $(APP_METADATA_JSON)
 	cp -v $(SRCROOT)/resmgr/upper-constraints.txt $(STAGE)/
 	cp -v $(MUSTER_WRAPPER) $(KUBE_WRAPPER) $(STAGE)/
 	private=$(STAGE)/opt/pf9/www/private && \
 	mkdir -p $${private} && \
-	cp -v $(HOSTAGENT_RPM) $(INSTALLER_SCRIPT) $(COMMS_RPM) $(VMW_MGMT_RPM) \
+	cp -v $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT) $(COMMS_RPM) $(COMMS_DEB) $(VMW_MGMT_RPM) \
 		  $${private} && \
-	rm -fv $(PACKAGELIST) && \
-	for line in $(PACKAGELIST_LINES); do \
-	    echo $${line} >> $(PACKAGELIST); \
+	rm -fv $(PACKAGELIST_RPM) && \
+	for line in $(PACKAGELIST_LINES_COMMON); do \
+		echo $${line} >> $(PACKAGELIST_RPM); \
+		echo $${line} >> $(PACKAGELIST_DEB); \
 	done && \
-	echo "$(PACKAGELIST):" && \
-	cat $(PACKAGELIST)
+	for line in $(PACKAGELIST_LINES_RPM); do \
+		echo $${line} >> $(PACKAGELIST_RPM); \
+	done && \
+	for line in $(PACKAGELIST_LINES_DEB); do \
+		echo $${line} >> $(PACKAGELIST_DEB); \
+	done && \
+	echo "$(PACKAGELIST_RPM):" && \
+	cat $(PACKAGELIST_RPM) &&\
+	echo "$(PACKAGELIST_DEB):" && \
+	cat $(PACKAGELIST_DEB)
 
 $(BLDROOT):
 	mkdir -p $@
