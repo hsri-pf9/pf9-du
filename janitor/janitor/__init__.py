@@ -108,7 +108,10 @@ def serve(config_file):
             # sarun: We are not going to do nova, nova  network cleanup.
             # Opening  up glance cleanup.
             if not neutron_present:
-                nova_obj.cleanup()
+                # Cleaning up of instances and nova service records is handled
+                # in resmgr auth events, therefore disabling nova cleanup in
+                # janitor
+                # nova_obj.cleanup()
                 nw_obj.cleanup()
         except (exceptions.ConnectionError, urllib_exceptions.ProtocolError) as e:
             LOG.info('Connection error: {err}, will retry in a bit'.format(err=e))
