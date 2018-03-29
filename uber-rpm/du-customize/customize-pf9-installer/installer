@@ -31,6 +31,7 @@ function usage()
     echo "Options:"
     echo "--proxy=[<protocol>][<username>:<password>@]<host>:<port>  | Setup HTTP(S) proxy with <host> and <port> as the proxy host and port respectively."
     echo "                                                           | <protocol> defaults to http. <username> and <password> are optional."
+    echo "--no-project                                               | Do not ask project name"
     echo "--no-proxy                                                 | Do not ask proxy configuration."
     echo "--ntpd                                                     | Install ntpd."
     echo "--no-ntpd                                                  | Do not install ntpd."
@@ -52,6 +53,9 @@ while getopts ":-:" optchar; do
     case "${optchar}" in
         -)
             case "${OPTARG}" in
+                no-project)
+                    DONT_ASK_PROJECT="true"
+                    ;;
                 no-proxy)
                     ASK_PROXY="false"
                     SETUP_PROXY="false"
@@ -203,15 +207,20 @@ function require_keystone_credentials() {
         echo "Please provide the Platform9 controller address with --controller" >&2
         usage >&2
         return 1
-    elif [ -z "$OS_USERNAME" ]; then
+    fi
+    if [ -z "$OS_USERNAME" ]; then
         echo "Please provide the Platform9 controller username with --username" >&2
         usage >&2
         return 1
-    elif [ -z "$OS_TENANT_NAME" ]; then
-        echo "Please provide the Platform9 project/tenant with --project-name" >&2
-        usage >&2
-        return 1
-    elif [ -z "$OS_PASSWORD" ]; then
+    fi
+    if [ -z "$DONT_ASK_PROJECT" ]; then
+        if [ -z "$OS_TENANT_NAME" ]; then
+            echo "Please provide the Platform9 project/tenant with --project-name" >&2
+            usage >&2
+            return 1
+        fi
+    fi
+    if [ -z "$OS_PASSWORD" ]; then
         read -s -p "Password for $OS_USERNAME on $DU_FQDN: " OS_PASSWORD
         echo >&2
         if [ -z "$OS_PASSWORD" ]; then

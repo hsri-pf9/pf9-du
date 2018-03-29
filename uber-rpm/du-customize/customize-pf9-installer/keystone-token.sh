@@ -14,9 +14,10 @@
 function keystone_token() {
     local url="https://$DU_FQDN/keystone/v3/auth/tokens"
     local content_type="Content-Type: application/json"
-    local body
-    read -d '' body <<END_DATA
-         {"auth": {
+    local auth
+    local scope
+    read -d '' auth <<END_DATA
+         "auth": {
              "identity": {
                  "methods": ["password"],
                  "password": {
@@ -26,16 +27,20 @@ function keystone_token() {
                          "password": "$OS_PASSWORD"
                      }
                  }
-             },
-             "scope": {
-                 "project": {
-                     "name": "$OS_TENANT_NAME",
-                     "domain": { "id": "default" }
-                 }
              }
-         }}
+         }
 END_DATA
-    local resp=`curl ${CURL_INSECURE} -si -XPOST -H "$content_type" -d "$body" "$url"`
+    if [ -z "$DONT_ASK_PROJECT" ]; then
+        read -d '' scope <<END_DATA
+                 ,"scope": {
+                     "project": {
+                         "name": "$OS_TENANT_NAME",
+                         "domain": { "id": "default" }
+                     }
+                 }
+END_DATA
+    fi
+    local resp=`curl ${CURL_INSECURE} -si -XPOST -H "$content_type" -d "{${auth}${scope}}" "$url"`
     local result=$?
     if [ $result -eq 0 ]; then
         local code=`echo $resp |cut -f 2 -d ' '`
