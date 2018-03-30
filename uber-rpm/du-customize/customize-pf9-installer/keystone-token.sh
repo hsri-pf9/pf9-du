@@ -28,7 +28,6 @@ function keystone_token() {
                      }
                  }
              }
-         }
 END_DATA
     if [ -z "$DONT_ASK_PROJECT" ]; then
         read -d '' scope <<END_DATA
@@ -40,7 +39,7 @@ END_DATA
                  }
 END_DATA
     fi
-    local resp=`curl ${CURL_INSECURE} -si -XPOST -H "$content_type" -d "{${auth}${scope}}" "$url"`
+    local resp=`curl ${CURL_INSECURE} -si -XPOST -H "$content_type" -d "{${auth}${scope}}}" "$url"`
     local result=$?
     if [ $result -eq 0 ]; then
         local code=`echo $resp |cut -f 2 -d ' '`
