@@ -55,3 +55,30 @@ function update_config() {
         echo "No configuration found, no updates."
     fi
 }
+
+function get_certs_from_vouch() {
+    if [ -z "$1" ]; then
+        echo "get_certs_from_vouch(): arg1: keystone token" >&2
+        return 1
+    fi
+    if [ -z "$2" ]; then
+        echo "get_certs_from_vouch(): arg2: host_id" >&2
+    fi
+
+    echo 'Checking for per-host certificate signing...'
+    local host_certs=/opt/pf9/hostagent/bin/host-certs
+    local return_code=0
+    local vouch_args="--vouch-url https://${DU_FQDN}/vouch --keystone-token $1"
+    if $host_certs can-sign ${vouch_args}; then
+        local hostname=$(hostname) || true
+        if [ -n "${hostname}" ]; then
+            common_name=${hostname}-
+        fi
+        common_name=${common_name}$2
+        echo "Using certificate common name = ${common_name}."
+        $host_certs refresh ${vouch_args} --common-name ${common_name} || return_code=$?
+    else
+        echo "Certificate signing is not available on ${DU_FQDN}, keeping original certificate/key."
+    fi
+    return $return_code
+}

@@ -40,22 +40,12 @@ END_DATA
 END_DATA
     fi
     local resp=`curl ${CURL_INSECURE} -si -XPOST -H "$content_type" -d "{${auth}${scope}}}" "$url"`
-    local result=$?
-    if [ $result -eq 0 ]; then
-        local code=`echo $resp |cut -f 2 -d ' '`
-        if [ -z "$code" ]; then
-            echo "Bad response from keystone server: $resp" >&2
-            return 1
-        elif [ $code -ne 201 ]; then
-            echo "Bad response from keystone server:" >&2
-            echo "Code: $code" >&2
-            echo "Response: $resp" >&2
-            return 1
-        else
-            echo $resp |sed -n 's/^.*X-Subject-Token: \([^\r\n\t ]*\).*/\1/I p'
-        fi
-    else
-        echo "Failed to connect to the keystone server on $DU_FQDN" >&2
+    local token=`echo $resp |sed -n 's/^.*X-Subject-Token: \([^\r\n\t ]*\).*/\1/I p'`
+    if [ -z "${token}" ]; then
+        echo "Failed to authenticate with the keystone server on $DU_FQDN, response:" >&2
+        echo ${resp} >&2
         return 1
+    else
+        echo ${token}
     fi
 }

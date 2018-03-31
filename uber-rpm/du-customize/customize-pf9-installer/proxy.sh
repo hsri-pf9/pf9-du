@@ -42,13 +42,13 @@ function _ask_proxy_settings()
     echo
 
     while true; do
-        read -p "proxy url: " PROXY_URL
+        read -p "proxy url: " PROXY_FULL_URL
 
-        if [[ -z "${PROXY_URL}" ]]; then
+        if [[ -z "${PROXY_FULL_URL}" ]]; then
             echo "Skipping proxy setup since the proxy url is not set."
             SETUP_PROXY="false"
         else
-            PROXY_URL=($(./nettool urlparse "${PROXY_URL}"))
+            PROXY_URL=($(./nettool urlparse "${PROXY_FULL_URL}"))
 
             if [[ $? != 0 ]]; then
                 echo

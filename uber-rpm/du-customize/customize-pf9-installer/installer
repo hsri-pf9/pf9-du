@@ -61,6 +61,7 @@ while getopts ":-:" optchar; do
                     SETUP_PROXY="false"
                     ;;
                 proxy=*)
+                    PROXY_FULL_URL="${OPTARG#*=}"
                     PROXY_URL=($(./nettool urlparse "${OPTARG#*=}"))
                     if [[ $? != 0 ]]; then
                         echo "Error parsing proxy url"
@@ -262,19 +263,45 @@ function pre_install_check()
     echo
 }
 
+function get_or_create_host_id()
+{
+    local host_id_conf=/etc/pf9/host_id.conf
+    mkdir -p $(dirname ${host_id_conf})
+    if [ -f "${host_id_conf}" ]; then
+        local host_id=$(sed -n 's/^ *host_id *= *\([A-Fa-f0-9-]*\) *$/\1/ p' ${host_id_conf})
+    else
+        local host_id=`uuidgen`
+        echo -n "[hostagent]\nhost_id = ${host_id}" > ${host_id_conf}
+        chown pf9:pf9group ${host_id_conf}
+    fi
+    echo -n ${host_id}
+}
+
+function add_proxy_to_env()
+{
+    if [ -n "${PROXY_FULL_URL}" ]; then
+        export http_proxy=${PROXY_FULL_URL}
+        export https_proxy=${PROXY_FULL_URL}
+        export no_proxy=localhost,127.0.0.1
+    fi
+}
+
 function main()
 {
+    if [[ "${ASK_PROXY}" == "true" ]]; then
+        if [[ "${TTY_AVAILABLE}" == "true" ]]; then
+            proxy_ask
+        fi
+    fi
+
+    # proxy settings are available for the rest of the installation.
+    add_proxy_to_env
+
     if ! packages_present ${EXT}; then
         require_keystone_credentials || exit 1
         local token=`keystone_token`
         if [ -z "${token}" ]; then
             exit 1
-        fi
-    fi
-
-    if [[ "${ASK_PROXY}" == "true" ]]; then
-        if [[ "${TTY_AVAILABLE}" == "true" ]]; then
-            proxy_ask
         fi
     fi
 
@@ -300,7 +327,15 @@ function main()
     pf9_install
     check_exit_code_and_generate_support_bundle $?
 
+    if [[ "${SETUP_PROXY}" == "true" ]]; then
+        proxy_setup
+    fi
+
     update_config
+    check_exit_code_and_generate_support_bundle $?
+
+    local host_id=$(get_or_create_host_id)
+    get_certs_from_vouch ${token} ${host_id}
     check_exit_code_and_generate_support_bundle $?
 
     if [[ "${VMWARE}" == "true" ]]; then
@@ -309,10 +344,6 @@ function main()
 
     # this directory shouldn't exist, but just in case
     rm -rf /var/opt/pf9/hostagent
-
-    if [[ "${SETUP_PROXY}" == "true" ]]; then
-        proxy_setup
-    fi
 
     start_services
     check_services_running

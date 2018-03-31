@@ -26,6 +26,11 @@ VENV_INSTALL_CMD = $(VENV_DIR)/bin/python setup.py install
 PF9APP_DIR := $(SRC_ROOT)/bbone/pf9app
 BBLIBCOMMON_DIR := $(SRC_ROOT)/bbone/lib
 CONFIGUTILS_DIR := $(SRC_ROOT)/lib/configutils
+HOSTAGENT_DEPS = setuptools==33.1.1 \
+                 $(CONFIGUTILS_DIR) \
+                 $(PF9APP_DIR) \
+                 $(BBLIBCOMMON_DIR) \
+                 $(SRC_DIR)
 SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(PF9_VERSION)/"
 
 PYTHON_DOWNLOAD_URL := netsvc/yum-repo-frozen/hostagent-components/python.tgz
@@ -50,13 +55,12 @@ $(VENV_DIR): $(PYTHON_DIR)
 	mkdir -p $@
 	cd $@ && \
 	virtualenv -p ../python/bin/python $@
-	cd $(CONFIGUTILS_DIR) && $(VENV_INSTALL_CMD)
-	cd $(PF9APP_DIR) && $(VENV_INSTALL_CMD)
-	cd $(BBLIBCOMMON_DIR) && $(VENV_INSTALL_CMD)
-	cd $(SRC_DIR) && $(VENV_INSTALL_CMD)
+	curl https://bootstrap.pypa.io/get-pip.py |$(VENV_DIR)/bin/python -
+	$(VENV_DIR)/bin/pip install $(HOSTAGENT_DEPS)
 	# Inherit global packages to use 'yum' or 'apt' which are not on PyPi
 	rm -f $(VENV_DIR)/lib/python$(PYTHON_VERSION)/no-global-site-packages.txt
 	cp $(SRC_DIR)/scripts/pf9-hostagent-$(TARGET_DISTRO) $(VENV_DIR)/bin/pf9-hostagent
+	cp $(SRC_DIR)/bin/host-certs* $(VENV_DIR)/bin/
 	cp $(SRC_DIR)/scripts/run_support_scripts.sh $(VENV_DIR)/bin
 	cp $(SRC_DIR)/scripts/openport.py $(VENV_DIR)/bin
 	cp $(SRC_DIR)/service_scripts/pf9-service-functions.sh $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/

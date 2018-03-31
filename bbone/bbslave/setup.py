@@ -19,7 +19,8 @@ setup(
         'psutil',
         'pf9app',
         'bbcommon',
-        'configutils'
+        'configutils',
+        'cryptography'
     ],
     test_suite='bbslave',
     zip_safe=False,
