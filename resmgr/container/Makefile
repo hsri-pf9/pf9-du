@@ -88,7 +88,8 @@ PACKAGELIST_LINES_COMMON = etc/pf9/certs/hostagent/cert.pem \
                            etc/pf9/certs/ca/cert.pem \
                            etc/pf9/hostagent.conf
 PACKAGELIST_LINES_RPM = $(notdir $(HOSTAGENT_RPM)) \
-                        $(notdir $(COMMS_RPM))
+                        $(notdir $(COMMS_RPM)) \
+			$(notdir $(VMW_MGMT_RPM))
 
 PACKAGELIST_LINES_DEB = $(notdir $(HOSTAGENT_DEB)) \
                         $(notdir $(COMMS_DEB))
