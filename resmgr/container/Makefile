@@ -81,6 +81,26 @@ ifeq ($(wildcard $(KUBE_WRAPPER)),)
     $(error There must be a pf9-kubewrapper rpm in $(ARTIFACTS))
 endif
 
+OSTACKHOST_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-ostackhost-wrapper*.rpm)
+ifeq ($(wildcard $(OSTACKHOST_WRAPPER)),)
+    $(error There must be a pf9-ostackhost-wrapper rpm in $(ARTIFACTS))
+endif
+
+GLANCE_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-glance-wrapper*.rpm)
+ifeq ($(wildcard $(GLANCE_WRAPPER)),)
+    $(error There must be a pf9-glance-wrapper rpm in $(ARTIFACTS))
+endif
+
+NEUTRON_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-neutron-app-wrapper*.rpm)
+ifeq ($(wildcard $(NEUTRON_WRAPPER)),)
+    $(error There must be a pf9-neutron-app-wrapper rpm in $(ARTIFACTS))
+endif
+
+CINDER_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-cindervolume-wrapper*.rpm)
+ifeq ($(wildcard $(CINDER_WRAPPER)),)
+    $(error There must be a pf9-cindervolume-wrapper rpm in $(ARTIFACTS))
+endif
+
 PACKAGELIST_RPM = $(STAGE)/opt/pf9/www/private/nocert-packagelist.rpm
 PACKAGELIST_DEB = $(STAGE)/opt/pf9/www/private/nocert-packagelist.deb
 PACKAGELIST_LINES_COMMON = etc/pf9/certs/hostagent/cert.pem \
@@ -126,7 +146,7 @@ stage: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIA
 	cp -rv $(SRCROOT)/resmgr/container/* $(STAGE)/
 	python $(Y2J) $(APP_METADATA_YAML) > $(APP_METADATA_JSON)
 	cp -v $(SRCROOT)/resmgr/upper-constraints.txt $(STAGE)/
-	cp -v $(MUSTER_WRAPPER) $(KUBE_WRAPPER) $(STAGE)/
+	cp -v $(MUSTER_WRAPPER) $(KUBE_WRAPPER) $(OSTACKHOST_WRAPPER) $(GLANCE_WRAPPER) $(NEUTRON_WRAPPER) $(CINDER_WRAPPER) $(STAGE)/
 	private=$(STAGE)/opt/pf9/www/private && \
 	mkdir -p $${private} && \
 	cp -v $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT) $(COMMS_RPM) $(COMMS_DEB) $(VMW_MGMT_RPM) \

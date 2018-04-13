@@ -45,13 +45,21 @@ COPY pf9-muster-wrapper-*.rpm /root/pf9-muster-wrapper.rpm
 # to be installed with resmgr.
 COPY pf9-kube-wrapper-*.rpm /root/pf9-kube-wrapper.rpm
 
-RUN yum install -y pf9-kube-wrapper.rpm pf9-muster-wrapper.rpm
+# wrapper packages for PMO services
+COPY pf9-ostackhost-wrapper-*.rpm /root/pf9-pmo-ostackhost-wrapper.rpm
+COPY pf9-glance-wrapper-*.rpm /root/pf9-pmo-glance-wrapper.rpm
+COPY pf9-neutron-app-wrapper-*.rpm /root/pf9-pmo-neutron-app-wrapper.rpm
+COPY pf9-cindervolume-wrapper-*.rpm /root/pf9-pmo-cindervolume-wrapper.rpm
+
+# install wrapper packages
+RUN yum install -y pf9-kube-wrapper.rpm pf9-muster-wrapper.rpm pf9-pmo-*-wrapper.rpm
 
 COPY init-region .
 RUN chmod 755 /usr/bin/run-resmgr init-region
 
 # destination dirs for confd-generated config files
 RUN mkdir -p /opt/pf9/www/private/etc/pf9/certs/{ca,hostagent} /var/log/pf9
+RUN mkdir -p /etc/pf9/resmgr_roles/conf.d
 
 # bbmaster=8082, resmgr=8083
 EXPOSE 8082 8083
