@@ -56,7 +56,12 @@ $(VENV_DIR): $(PYTHON_DIR)
 	cd $@ && \
 	virtualenv -p ../python/bin/python $@
 	curl https://bootstrap.pypa.io/get-pip.py |$(VENV_DIR)/bin/python -
-	$(VENV_DIR)/bin/pip install $(HOSTAGENT_DEPS)
+	$(VENV_DIR)/bin/pip install setuptools==33.1.1
+	
+	# the option to build_ext forces binary components to link statically to libpython
+	$(VENV_DIR)/bin/pip install --global-option=build_ext \
+	                            --global-option="--library-dirs=$(PYTHON_DIR)/lib" \
+	                            $(HOSTAGENT_DEPS)
 	# Inherit global packages to use 'yum' or 'apt' which are not on PyPi
 	rm -f $(VENV_DIR)/lib/python$(PYTHON_VERSION)/no-global-site-packages.txt
 	cp $(SRC_DIR)/scripts/pf9-hostagent-$(TARGET_DISTRO) $(VENV_DIR)/bin/pf9-hostagent
