@@ -184,9 +184,10 @@ image: stage
 # This assumes that credentials for the aws tool are configured, either in
 # ~/.aws/config or in AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
 push: image $(BLDROOT)/container-tag
-	docker push $(CONTAINER_IMG):$(IMAGE_TAG) || \
-	(aws ecr get-login --region=us-west-1 |sh && \
-	docker push $(CONTAINER_IMG):$(IMAGE_TAG))
+	(docker push $(CONTAINER_IMG):$(IMAGE_TAG) || \
+	(aws ecr get-login --region=us-west-1 --no-include-email |sh && \
+	docker push $(CONTAINER_IMG):$(IMAGE_TAG))) && \
+	docker rmi $(CONTAINER_IMG):$(IMAGE_TAG)
 
 clean:
 	rm -rf $(STAGE)
