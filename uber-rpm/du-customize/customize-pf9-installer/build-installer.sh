@@ -77,6 +77,7 @@ function setup_payload()
     cp ../support.${distro} support.${distro}
     cp ../nocert-packages.sh nocert-packages.sh
     cp ../keystone-token.sh keystone-token.sh
+    cp ../comms_config.sh comms_config.sh
 
     chmod +x ${INSTALL_SCRIPT}
     tar cf ../${PAYLOAD_TAR}.${distro} ./*
