@@ -14,13 +14,12 @@ setup(
     author_email='',
     install_requires=[
         'pika==0.10.0',
-        'netifaces',
-        'py-cpuinfo',
-        'psutil',
+        'netifaces==0.10.6',
+        'py-cpuinfo==4.0.0',
+        'psutil==5.4.5',
         'pf9app',
         'bbcommon',
-        'configutils',
-        'cryptography'
+        'configutils'
     ],
     test_suite='bbslave',
     zip_safe=False,

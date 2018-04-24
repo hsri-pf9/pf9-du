@@ -54,11 +54,11 @@ $(PYTHON_DIR): $(HOSTAGENT_TARBALL_SRCDIR)
 $(VENV_DIR): $(PYTHON_DIR)
 	mkdir -p $@
 	cd $@ && \
-	virtualenv -p ../python/bin/python $@
-	curl https://bootstrap.pypa.io/get-pip.py |$(VENV_DIR)/bin/python -
-	$(VENV_DIR)/bin/pip install setuptools==33.1.1
-	
-	# the option to build_ext forces binary components to link statically to libpython
+	virtualenv -p ../python/bin/python $@ && \
+	curl https://bootstrap.pypa.io/get-pip.py |$(VENV_DIR)/bin/python - && \
+	$(VENV_DIR)/bin/pip install setuptools==33.1.1 && \
+	$(VENV_DIR)/bin/pip list && \
+	$(VENV_DIR)/bin/pip install cryptography==2.1.4 && \
 	$(VENV_DIR)/bin/pip install --global-option=build_ext \
 	                            --global-option="--library-dirs=$(PYTHON_DIR)/lib" \
 	                            $(HOSTAGENT_DEPS)

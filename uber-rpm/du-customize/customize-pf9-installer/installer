@@ -335,6 +335,8 @@ function main()
     update_config
     check_exit_code_and_generate_support_bundle $?
 
+    configure_comms
+
     local host_id=$(get_or_create_host_id)
     get_certs_from_vouch ${token} ${host_id}
     check_exit_code_and_generate_support_bundle $?
@@ -346,7 +348,6 @@ function main()
     # this directory shouldn't exist, but just in case
     rm -rf /var/opt/pf9/hostagent
 
-    configure_comms
     start_services
     check_services_running
 
