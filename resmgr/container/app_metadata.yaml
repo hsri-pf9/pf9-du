@@ -18,6 +18,8 @@
     localPort: 5672
   - endpoint: rabbitmq-mgmt
     localPort: 15672
+  - endpoint: keystone-internal
+    localPort: 8080
   logfiles:
   - path: "/var/log/pf9/resmgr.log"
   - path: "/var/log/pf9/bbmaster.log"
