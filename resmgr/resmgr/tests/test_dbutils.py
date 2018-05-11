@@ -22,11 +22,22 @@ class TestDb(DbTestCase):
     def tearDown(self):
         super(TestDb, self).tearDown()
 
-    def test_add_host_with_customizable_role(self):
+    def _associate_role(self, rolename, customizable_params,
+                        rabbit_user, rabbit_pass):
         self._db.insert_update_host(TEST_HOST['id'],
                                     TEST_HOST['details'],
-                                    'test-role',
-                                    {'customizable_key': 'customizable_value'})
+                                    rolename,
+                                    customizable_params)
+        self._db.associate_role_to_host(TEST_HOST['id'], rolename)
+        self._db.associate_rabbit_credentials_to_host(TEST_HOST['id'],
+                                                      rolename,
+                                                      rabbit_user,
+                                                      rabbit_pass)
+
+    def test_add_host_with_customizable_role(self):
+        self._associate_role('test-role',
+                             {'customizable_key': 'customizable_value'},
+                             'rabbit', 'p@55wd')
         host_id = TEST_HOST['id']
         deets = self._db.query_host_and_app_details()
         self.assertEquals(1, len(deets))
@@ -35,12 +46,10 @@ class TestDb(DbTestCase):
                           deets[host_id]['role_settings'])
 
     def test_add_role(self):
-        self._db.insert_update_host(TEST_HOST['id'],
-                                    TEST_HOST['details'],
-                                    'test-role',
-                                    {'customizable_key': 'customizable_value'})
+        self._associate_role('test-role',
+                             {'customizable_key': 'customizable_value'},
+                             'rabbit', 'p@55wd')
         host_id = TEST_HOST['id']
-        self._db.associate_role_to_host(host_id, 'test-role')
         deets = self._db.query_host_and_app_details(include_deauthed_roles=True)
         self.assertEquals(1, len(deets))
         self.assertEquals(role_states.NOT_APPLIED,
@@ -65,14 +74,14 @@ class TestDb(DbTestCase):
     def test_upgrade_role(self):
 
         # setup host with test-role 1.0 fully applied
-        self._db.insert_update_host(TEST_HOST['id'],
-                                    TEST_HOST['details'],
-                                    'test-role',
-                                    {'customizable_key': 'customizable_value'})
+        self._associate_role('test-role',
+                             {'customizable_key': 'customizable_value'},
+                             'rabbit', 'p@55wd')
+        self._associate_role('test-role-2',
+                             {'customizable_key': 'customizable_value'},
+                             'rabbit', 'p@55wd')
         host_id = TEST_HOST['id']
 
-        self._db.associate_role_to_host(host_id, 'test-role')
-        self._db.associate_role_to_host(host_id, 'test-role-2')
         deets = self._db.query_host_and_app_details(include_deauthed_roles=True)
         self.assertEquals(1, len(deets))
         self.assertEquals(role_states.NOT_APPLIED,
@@ -130,13 +139,10 @@ class TestDb(DbTestCase):
                           deets[host_id]['role_states']['test-role_2.0'])
 
     def test_remove_role(self):
-        self._db.insert_update_host(TEST_HOST['id'],
-                                    TEST_HOST['details'],
-                                    'test-role',
-                                    {'customizable_key': 'customizable_value'})
+        self._associate_role('test-role',
+                             {'customizable_key': 'customizable_value'},
+                             'rabbit', 'p@55wd')
         host_id = TEST_HOST['id']
-        self._db.associate_role_to_host(host_id, 'test-role')
-
         deets = self._db.query_host_and_app_details(include_deauthed_roles=True)
         self.assertEquals(1, len(deets))
         self.assertEquals(role_states.NOT_APPLIED,
@@ -150,12 +156,10 @@ class TestDb(DbTestCase):
         self.assertEquals({}, deets[host_id]['role_states'])
 
     def test_update_role_state(self):
+        self._associate_role('test-role',
+                             {'customizable_key': 'customizable_value'},
+                             'rabbit', 'p@55wd')
         host_id = TEST_HOST['id']
-        self._db.insert_update_host(TEST_HOST['id'],
-                                    TEST_HOST['details'],
-                                    'test-role',
-                                    {'customizable_key': 'customizable_value'})
-        self._db.associate_role_to_host(host_id, 'test-role')
         result = self._db.advance_role_state(host_id, 'test-role',
                                              role_states.APPLIED,
                                              role_states.START_EDIT)
@@ -174,12 +178,10 @@ class TestDb(DbTestCase):
                           deets[host_id]['role_states']['test-role_1.0'])
 
     def test_move_new_state(self):
+        self._associate_role('test-role',
+                             {'customizable_key': 'customizable_value'},
+                             'rabbit', 'p@55wd')
         host_id = TEST_HOST['id']
-        self._db.insert_update_host(TEST_HOST['id'],
-                                    TEST_HOST['details'],
-                                    'test-role',
-                                    {'customizable_key': 'customizable_value'})
-        self._db.associate_role_to_host(host_id, 'test-role')
         result = self._db.advance_role_state(host_id, 'test-role',
                                              role_states.NOT_APPLIED,
                                              role_states.START_APPLY)
@@ -195,12 +197,10 @@ class TestDb(DbTestCase):
                           deets[host_id]['role_states']['test-role_1.0'])
 
     def test_move_new_state_fail(self):
+        self._associate_role('test-role',
+                             {'customizable_key': 'customizable_value'},
+                             'rabbit', 'p@55wd')
         host_id = TEST_HOST['id']
-        self._db.insert_update_host(TEST_HOST['id'],
-                                    TEST_HOST['details'],
-                                    'test-role',
-                                    {'customizable_key': 'customizable_value'})
-        self._db.associate_role_to_host(host_id, 'test-role')
         result = self._db.advance_role_state(host_id, 'test-role',
                                              role_states.NOT_APPLIED,
                                              role_states.START_APPLY)
@@ -217,13 +217,13 @@ class TestDb(DbTestCase):
                           deets[host_id]['role_states']['test-role_1.0'])
 
     def test_get_all_role_associations(self):
+        self._associate_role('test-role',
+                             {'customizable_key': 'customizable_value'},
+                             'rabbit', 'p@55wd')
+        self._associate_role('test-role-2',
+                             {'customizable_key': 'customizable_value'},
+                             'rabbit', 'p@55wd')
         host_id = TEST_HOST['id']
-        self._db.insert_update_host(TEST_HOST['id'],
-                                    TEST_HOST['details'],
-                                    'test-role',
-                                    {'customizable_key': 'customizable_value'})
-        self._db.associate_role_to_host(host_id, 'test-role')
-        self._db.associate_role_to_host(host_id, 'test-role-2')
         assocs = self._db.get_all_role_associations(host_id)
         self.assertTrue(assocs)
         self.assertEquals(['test-role', 'test-role-2'],

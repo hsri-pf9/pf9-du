@@ -2,7 +2,7 @@
 # All Rights Reserved.
 
 # pylint: disable=too-few-public-methods,too-many-public-methods
-# pylint: disable=bad-indentation
+# pylint: disable=bad-indentation,bare-except,no-else-return
 
 __author__ = 'Platform9'
 
@@ -22,7 +22,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
 
-from resmgr import role_states, dict_tokens, dict_subst
+from resmgr import role_states, dict_subst
 from resmgr.exceptions import HostNotFound, HostConfigFailed, RoleNotFound
 
 
@@ -173,44 +173,139 @@ class ResMgrDB(object):
         self.setup_roles()
         self.setup_service_config()
 
-    def _setup_config(self, config):
+    @staticmethod
+    def _replace_legacy_tokens(app_config_str):
         """
-        Sets up the configuration data for a role
-        :param dict config: config structure as a JSON object
-        :return: Configuration data after value substitutions
-        :rtype: dict
+        Previous versions of resource manager used string substitution with
+        tokens like __HOST_ID__. These may still be in the role spec in the
+        resource manager database. Replace them here with python format
+        tokens.
         """
-
-        # The params that can be substituted in a config string can either be
-        # (1) part of the environment variables for the DU
-        # (2) part of a predefined set of name, values.
-        config_str = json.dumps(config)
-        os_vars = os.environ
-
-        # TODO: Make this dynamic. May be read in from some file?
-        # Note: host_id becomes __HOST_ID__ token in the DB.
-        #       At run-time, it gets replaced with each host's ID
-        du_fqdn = self.config.get("DEFAULT", "DU_FQDN")
-
-        param_vals = {
-            'du_fqdn': du_fqdn,
-            'host_id': dict_tokens.HOST_ID_TOKEN,
-            'host_config': dict_tokens.HOST_CONFIG,
-            'host_relative_amqp_fqdn': dict_tokens.HOST_RELATIVE_AMQP_FQDN_TOKEN,
-            'download_protocol': dict_tokens.DOWNLOAD_PROTOCOL,
-            'download_port': dict_tokens.DOWNLOAD_PORT,
-            'rabbit_userid' : dict_tokens.RABBIT_USERID_TOKEN,
-            'rabbit_password' : dict_tokens.RABBIT_PASSWORD_TOKEN,
-            'rabbit_transport_url' : dict_tokens.RABBIT_TRANSPORT_URL
+        legacy_tokens = {
+            '__HOST_ID__': '%(host_id)s',
+            '__RABBIT_USERID__': '%(rabbit_userid)s',
+            '__RABBIT_PASSWORD__': '%(rabbit_password)s',
+            '__RABBIT_TRANSPORT_URL__': '%(rabbit_transport_url)s',
+            '__HOST_CONFIG__': '%(host_config)s'
         }
-        # TODO: Move the below stuff out to its own configs
-        if self.config.has_section('pf9-neutron-config-agent'):
-            param_vals['config_agent_db_pass'] = self.config.get(
-                    'pf9-neutron-config-agent', 'db_pass')
-        os_vars.update(param_vals)
-        os_vars.update(self._flat_config())
-        out = config_str % os_vars
-        return json.loads(out)
+
+        for underscore_token, py_token in legacy_tokens.iteritems():
+            app_config_str = app_config_str.replace(underscore_token, py_token)
+        return app_config_str
+
+    def _get_rabbit_credential_params(self, host_id, role_name):
+        """
+        Look up the rabbit credentials for (host, role) combination. If found
+        return in a dictionary like
+        {
+            'rabbit_userid': 'exampleuser',
+            'rabbit_password': 'examplepass',
+            'rabbit_transport_url': \
+                'rabbit://exampleuser:examplepass@localhost:5673/'
+        }
+        If not found return an empty dictionary.
+        """
+        with self.dbsession() as session:
+            rows = session.query(RabbitCredential).filter_by(host_id=host_id,
+                                                             rolename=role_name
+                                                             ).all()
+        if not rows:
+            log.warn('No rabbit credentials exist for host %s, role %s.',
+                     host_id, role_name)
+            return {}
+        elif len(rows) > 1:
+            log.warn('Multiple rabbit credentials exist for host %s, role %s. '
+                     'Choosing first entry', host_id, role_name)
+        creds = rows[0]
+        return {
+            'rabbit_userid': creds.userid,
+            'rabbit_password': creds.password,
+            'rabbit_transport_url': 'rabbit://%s:%s@localhost:5673/' % \
+                                    (creds.userid, creds.password)
+        }
+
+    def _flat_config(self):
+        ret = {}
+        for item in self.config.defaults().iteritems():
+            ret['DEFAULT.%s' % item[0]] = item[1]
+        for section in self.config.sections():
+            for item in self.config.items(section):
+                ret['%s.%s' % (section, item[0])] = item[1]
+        return ret
+
+    def _substitute_host_role_params(self, host_id, rolename, app_specs):
+        """
+        Gather all the parameters that need to be plugged into a host role
+        spec. This is used as a helper for query_host_and_app_details.
+        Any future changes to substitution should stay here.
+        """
+        params = os.environ.copy()
+        params.update(self._flat_config())
+        params.update(self._get_rabbit_credential_params(host_id, rolename))
+        params['host_id'] = host_id
+
+        # These are replaced in hostagent
+        params.update({
+            'download_protocol': '%(download_protocol)s',
+            'host_relative_amqp_fqdn': '%(host_relative_amqp_fqdn)s',
+            'download_port': '%(download_port)s'
+        })
+
+        # this might show up as part of an endpoint spec
+        params['project_id'] = '%(project_id)s'
+
+        # this will be replaced with dict_subst below
+        host_config_placeholder = '__HOST_CONFIG__'
+        params['host_config'] = host_config_placeholder
+
+        new_app_specs = {}
+        for appname, config in app_specs.iteritems():
+            config_string = json.dumps(config)
+            config_string = self._replace_legacy_tokens(config_string)
+            config_string = config_string % params
+            new_app_specs[appname] = json.loads(config_string)
+
+            # add the host configuration to the du_config events if needed
+            new_app_specs[appname] = dict_subst.substitute(
+                    new_app_specs[appname],
+                    {host_config_placeholder: new_app_specs[appname]['config']})
+        return new_app_specs
+
+    def _validate_role_config(self, role_spec):
+        """
+        Make sure that all the values needed to configure a role are available.
+        Use dummy host_id and rabbit credentials (which won't be known until
+        the role is actually applied to a host) and attempt to render the
+        config. Raise a KeyError on failure. Run this before we load the role
+        into the database.
+        """
+        params = os.environ.copy()
+        params.update(self._flat_config())
+        params.update({
+            'rabbit_userid': 'dummy_user',
+            'rabbit_password': 'dummy_password',
+            'rabbit_transport_url': 'http://dummy:dummy@dummy'
+        })
+        params['host_id'] = 'dummy_hostid'
+        params['host_config'] = 'dummy_host_config'
+
+        # These are replaced in hostagent
+        params.update({
+            'download_protocol': '%(download_protocol)s',
+            'host_relative_amqp_fqdn': '%(host_relative_amqp_fqdn)s',
+            'download_port': '%(download_port)s'
+        })
+
+        # this might show up as part of an endpoint spec
+        params['project_id'] = '%(project_id)s'
+
+        # check it
+        role_string = json.dumps(role_spec)
+        role_string = self._replace_legacy_tokens(role_string)
+        role_string % params
+
+        # return if ok
+        return role_spec
 
     def _load_roles_from_files(self):
         """
@@ -222,15 +317,15 @@ class ResMgrDB(object):
         metadata = {}
         file_pattern = '%s/*/*/*.json' % self.config.get('resmgr',
                                                          'role_metadata_location')
-        for file in glob.glob(file_pattern):
-            with open(file) as fp:
+        for filename in glob.glob(file_pattern):
+            with open(filename) as fp:
                 try:
                     # Each file should represent data for one version of a role
                     data = json.load(fp)
                     if not isinstance(data, dict):
                         # Skip this metadata file and move on to the next file
                         log.error('Invalid role metadata file %s, data is not '
-                                  'of expected dict format. Ignoring it', file)
+                                  'of expected dict format. Ignoring it', filename)
                         continue
                     role_name = data['role_name']
                     role_version = data['role_version']
@@ -243,7 +338,7 @@ class ResMgrDB(object):
                     else:
                         metadata[role_name][role_version] = data
                 except:
-                    log.exception('Error loading the role metadata file %s', file)
+                    log.exception('Error loading the role metadata file %s', filename)
                     # Skip this metadata file and continue
                     continue
         return metadata
@@ -259,7 +354,7 @@ class ResMgrDB(object):
             for version, version_details in role_info.items():
                 try:
                     self.save_role_in_db(role, version, version_details)
-                except:
+                except KeyError:
                     # Skip this role and continue. We do a best effort attempt to
                     # load roles.
                     log.exception('Error saving the role %s in DB', role)
@@ -294,7 +389,8 @@ class ResMgrDB(object):
 
         return engineHandle
 
-    def _has_uncommitted_changes(self, session):
+    @staticmethod
+    def _has_uncommitted_changes(session):
         """
         Method to check if a session has pending changes. Pending changes can
         be new, modified or deleted objects corresponding to the DB state.
@@ -365,8 +461,8 @@ class ResMgrDB(object):
                 default_settings[default_setting_name] = default_setting['default']
         return default_settings
 
-
-    def _update_settings_with_defaults(self, settings, default_settings, role_name):
+    @staticmethod
+    def _update_settings_with_defaults(settings, default_settings, role_name):
         """
         Update with defaults if they were not overwritten
         """
@@ -510,14 +606,18 @@ class ResMgrDB(object):
         :param dict details: Details of role
         """
         role_id = '%s_%s' % (name, version)
+        desiredconfig = self._validate_role_config(details['config'])
+        customizable_settings = self._validate_role_config(
+                                    details['customizable_settings'])
+
         new_role = Role(id=role_id,
                         rolename=name,
                         version=version,
                         displayname=details['display_name'],
                         description=details['description'],
-                        desiredconfig=self._setup_config(details['config']),
+                        desiredconfig=desiredconfig,
                         active=True,
-                        customizable_settings=self._setup_config(details['customizable_settings']),
+                        customizable_settings=customizable_settings,
                         rabbit_permissions=details['rabbit_permissions'])
 
         with self.dbsession() as session:
@@ -562,7 +662,8 @@ class ResMgrDB(object):
 
         return result
 
-    def _build_host_attributes(self, host_details, fetch_role_ids):
+    @staticmethod
+    def _build_host_attributes(host_details, fetch_role_ids):
         """
         Internal utility method that builds a host dict object
         :param list roles: list of all roles for the host
@@ -696,7 +797,11 @@ class ResMgrDB(object):
                 for role_assoc in host.roles:
                     if include_deauthed_roles or \
                        role_states.role_is_authed(role_assoc.current_state):
-                        assigned_apps.update(role_assoc.role.desiredconfig)
+                        desiredconfig = self._substitute_host_role_params(
+                                host.id,
+                                role_assoc.role.rolename,
+                                role_assoc.role.desiredconfig)
+                        assigned_apps.update(desiredconfig)
                     current_role_states[role_assoc.role_id] = \
                                         role_assoc.current_state
 
@@ -754,7 +859,6 @@ class ResMgrDB(object):
                 log.exception('DB error while associating host %s with role %s',
                               host_id, role_name)
                 raise
-                return False
 
     def associate_rabbit_credentials_to_host(self,
                                              host_id,
@@ -885,47 +989,6 @@ class ResMgrDB(object):
         session.commit()
         session.close()
         return entity
-
-    def substitute_rabbit_credentials(self, dictionary, host_id):
-        """
-        Replaces Rabbit credential tokens in a dictionary with actual credentials
-        """
-        def app_to_role():
-            """
-            Return the role that is in the token_role_map, and
-            provides the specified app.
-            Assumes that no host will have two roles that provide the same app.
-            """
-            for role, apps in role_app_map.iteritems():
-                if app in apps and role in token_role_map:
-                    return role
-
-        with self.dbsession() as session:
-            host = session.query(Host).filter_by(id=host_id).first()
-            # Maps roles to token maps
-            token_role_map = {}
-            for credential in host.rabbit_credentials:
-                transport_url = "rabbit://%s:%s@localhost:5673/" % (credential.userid,credential.password)
-                token_role_map[credential.rolename] = {dict_tokens.RABBIT_USERID_TOKEN : credential.userid,
-                                                       dict_tokens.RABBIT_PASSWORD_TOKEN : credential.password,
-                                                       dict_tokens.RABBIT_TRANSPORT_URL : transport_url}
-
-        for app in dictionary:
-            # The role that provides the app
-            role = app_to_role()
-            if role not in token_role_map:
-                log.error('Did not find rabbit credentials for role %s', role)
-                continue
-            dictionary[app] = dict_subst.substitute(dictionary[app], token_role_map[role])
-
-    def _flat_config(self):
-        ret = {}
-        for item in self.config.defaults().iteritems():
-            ret['DEFAULT.%s' % item[0]] = item[1]
-        for section in self.config.sections():
-            for item in self.config.items(section):
-                ret['%s.%s' % (section, item[0])] = item[1]
-        return ret
 
     def set_service_config(self, service_name, config_script_path, settings):
         """

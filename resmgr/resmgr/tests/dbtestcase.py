@@ -42,6 +42,11 @@ conf1 = conf1_value
 param1 = param1_value
 param2 = param2_value
 
+[test-role-2]
+conf1 = conf1_value
+param1 = param1_value
+param2 = param2_value
+
 [backbone]
 endpointURI = http://fake
 requestWaitPeriod = 30
@@ -94,14 +99,20 @@ TEST_ROLE = {
                             "params": {
                                 "param1": "%(test-role.param1)s",
                                 "param2": "%(test-role.param2)s",
-                                "host_id": "%(host_id)s"
+                                "host_id": "%(host_id)s",
+                                "host_config": "%(host_config)s"
                             }
                         }
                      },
                      "config": {
                          "test_conf": {
                              "DEFAULT": {
-                                 "conf1": "%(test-role.conf1)s"
+                                 "conf1": "%(test-role.conf1)s",
+                                 "rabbit_user": "%(rabbit_userid)s",
+                                 "rabbit_password": "%(rabbit_password)s",
+                                 "rabbit_transport_url": "%(rabbit_transport_url)s",
+                                 "legacy_rabbit_transport_url": "__RABBIT_TRANSPORT_URL__",
+                                 "endpoint_spec": "http://something/%(project_id)s"
                              },
                              "customizable_section": {}
                          }
@@ -132,7 +143,10 @@ class DbTestCase(unittest.TestCase):
                 self._patchobj(dbutils.ResMgrDB, '_load_roles_from_files')
         test_roles = copy.deepcopy(TEST_ROLE)
         test_roles['test-role-2'] = copy.deepcopy(TEST_ROLE['test-role'])
-        test_roles['test-role-2']['1.0']['role_name'] = 'test-roles-2'
+        test_roles['test-role-2']['1.0']['role_name'] = 'test-role-2'
+        # change app_name
+        test_roles['test-role-2']['1.0']['config']['test-role-2'] = \
+            test_roles['test-role-2']['1.0']['config'].pop('test-role')
         test_roles['role-missing-config'] = copy.deepcopy(TEST_ROLE['test-role'])
         test_roles['role-missing-config']['1.0']['role_name'] = 'role-missing-config'
         test_roles['role-missing-config']['1.0']['config']['test-role']['config']['test_conf']['DEFAULT']['conf2'] = "%(missing.conf.val)s"

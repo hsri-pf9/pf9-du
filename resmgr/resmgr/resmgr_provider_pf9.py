@@ -29,7 +29,7 @@ import subprocess
 
 from bbcommon.utils import is_satisfied_by
 from Queue import Queue, Empty
-from resmgr import dict_subst, dict_tokens, role_states
+from resmgr import role_states
 from resmgr.dbutils import ResMgrDB, role_app_map
 from resmgr.exceptions import *
 from resmgr.resmgr_provider import ResMgrProvider
@@ -69,15 +69,6 @@ def call_remote_service(url):
     except requests.exceptions.RequestException as e:
         log.error('GET call on %s failed', url)
         raise BBMasterNotFound(e)
-
-
-def substitute_host_id(dictionary, host_id):
-    """
-    Replaces host ID tokens in a dictionary with actual host ID
-    """
-    token_map = {dict_tokens.HOST_ID_TOKEN: host_id}
-    return dict_subst.substitute(dictionary, token_map)
-
 
 def _update_custom_role_settings(app_info, role_settings, roles):
     """
@@ -245,25 +236,18 @@ class RolesMgr(object):
         Filter out the app configuration that is not needed
         by the host.
         """
-        for app_name, app_spec in app_info.iteritems():
+        for _, app_spec in app_info.iteritems():
             if 'du_config' in app_spec:
                 del app_spec['du_config']
 
-    def push_configuration(self, host_id, app_info,
-                           needs_hostid_subst=True,
-                           needs_rabbit_subst=True):
+    def push_configuration(self, host_id, app_info):
         """
         Push app configuration to backbone service
         :param str host_id: host identifier
         :param dict app_info: app information that needs to be set in the configuration
-        :param bool needs_hostid_subst: replace host ID tokens with actual host ID
         :raises HostConfigFailed: if setting the configuration fails or times out
         :raises BBMasterNotFound: if communication to the backbone fails
         """
-        if needs_hostid_subst:
-            app_info = substitute_host_id(app_info, host_id)
-        if needs_rabbit_subst:
-            self.db_handler.substitute_rabbit_credentials(app_info, host_id)
         self._filter_host_configuration(app_info)
         log.info('Applying configuration %s to %s', app_info, host_id)
         url = "%s/v1/hosts/%s/apps" % (self.bb_url, host_id)
@@ -339,7 +323,7 @@ class RolesMgr(object):
         role_settings = host_details[host_id]['role_settings']
         roles = db.query_roles_for_host(host_id)
         _update_custom_role_settings(app_info, role_settings, roles)
-        return substitute_host_id(app_info, host_id)
+        return app_info
 
     def move_to_preauth_state(self, host_id, rolename, current_state):
         """
@@ -472,16 +456,9 @@ class RolesMgr(object):
                 continue
 
             event_spec = app_details['du_config']['auth_events']
-            # Replace __HOST_CONFIG__ sections in auth_event section with app
-            # config for the host. This should be done last so that app config
-            # is populated with the customizable settings and host ID
-            host_app_config = app_details.get('config', {})
-            token_map = {dict_tokens.HOST_CONFIG: host_app_config}
-            updated_event_spec = dict_subst.substitute(event_spec, token_map)
-
-            events_type = updated_event_spec.get('type', None)
+            events_type = event_spec.get('type', None)
             if events_type == 'python':
-                self._run_python_event(event_method, updated_event_spec)
+                self._run_python_event(event_method, event_spec)
             else:
                 log.warn('Unknown auth_events type \'%s\'.', events_type)
 
@@ -857,14 +834,11 @@ class BbonePoller(object):
                         # Check if desired app status in result is same as app status
                         # in DB
                         # TODO: Cross check if this is intended design
-                        expected_cfg = substitute_host_id(
-                            authorized_hosts[host]['apps_config'],
-                            host)
+                        expected_cfg = authorized_hosts[host]['apps_config']
                         role_settings = authorized_hosts[host]['role_settings']
                         roles = self.rolemgr.db_handler.query_roles_for_host(host)
                         if roles:
                             _update_custom_role_settings(expected_cfg, role_settings, roles)
-                            self.db_handle.substitute_rabbit_credentials(expected_cfg, host)
                         if self.rolemgr.received_since_last_push(host, host_info) and \
                            host_status == 'ok' and \
                            is_satisfied_by(expected_cfg, host_info['apps']):
@@ -873,9 +847,7 @@ class BbonePoller(object):
                             log.debug('Pushing new configuration for %s, config: %s. '
                                       'Expected config %s', host, host_config,
                                       expected_cfg)
-                            self.rolemgr.push_configuration(host, expected_cfg,
-                                                            needs_hostid_subst=False,
-                                                            needs_rabbit_subst=False)
+                            self.rolemgr.push_configuration(host, expected_cfg)
                     self._update_role_status(host, host_info)
                     if hostname and authorized_hosts[host]['hostname'] != hostname:
                         self.db_handle.update_host_hostname(host, hostname)
@@ -1221,9 +1193,12 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         self.bbone_poller.wake_up()
 
-    def random_string_generator(self, len=16):
-        return "".join([random.choice(string.ascii_letters + string.digits) for _ in
-                xrange(len)])
+    def _random_rabbit_creds(self, len=16):
+        return tuple(
+            "".join([random.choice(string.ascii_letters + string.digits)
+                     for i in xrange(len)])
+            for j in xrange(2)
+        )
 
     def create_rabbit_credentials(self, host_id, role_name):
         """
@@ -1242,8 +1217,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             rabbit_user = credential.userid
             rabbit_password = credential.password
         else:
-            rabbit_user = self.random_string_generator()
-            rabbit_password = self.random_string_generator()
+            rabbit_user, rabbit_password = self._random_rabbit_creds()
         self._rabbit_mgmt_cl.create_user(rabbit_user, rabbit_password)
         active_role = self.res_mgr_db.query_role(role_name)
         permissions = active_role.rabbit_permissions

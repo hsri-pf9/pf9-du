@@ -51,7 +51,7 @@ BBONE_HOST = {
         }
     },
     'host_agent': {'status': 'running', 'version': u'2.2.0-1463.5ae865b'},
-    'host_id': '24bbbc8d-fe3c-4675-a5ab-6940af506cc7',
+    'host_id': TEST_HOST['id'],
     'hypervisor_info': {'hypervisor_type': 'kvm'},
     'info': {
         'arch': 'x86_64',
@@ -65,11 +65,15 @@ BBONE_HOST = {
 }
 
 MISSING_BBONE_HOST = {
-    'host_id': '24bbbc8d-fe3c-4675-a5ab-6940af506cc7',
+    'host_id': TEST_HOST['id'],
     'status': 'missing',
     'timestamp': '1970-01-01 00:00:00.000000',
     'timestamp_on_du': '1970-01-01 00:00:00.000000'
 }
+
+RABBIT_USER = 'bugs'
+RABBIT_PASS = 'whatsupdoc'
+RABBIT_URL = 'rabbit://%s:%s@localhost:5673/' % (RABBIT_USER, RABBIT_PASS)
 
 BBONE_APPS = {
     "test-role": {
@@ -78,7 +82,12 @@ BBONE_APPS = {
         "config": {
             "test_conf": {
                 "DEFAULT": {
-                    "conf1": "conf1_value"
+                    "conf1": "conf1_value",
+                    "rabbit_user": RABBIT_USER,
+                    "rabbit_password": RABBIT_PASS,
+                    "rabbit_transport_url": RABBIT_URL,
+                    "legacy_rabbit_transport_url": RABBIT_URL,
+                    "endpoint_spec": "http://something/%(project_id)s"
                 },
                 "customizable_section": {
                     "customizable_key": "default value for customizable_key"
@@ -126,6 +135,10 @@ class TestProvider(DbTestCase):
         self._delete_rabbit_user = self._patchobj(RabbitMgmtClient,
                                                   'delete_user')
         self._patchobj(RabbitMgmtClient, 'set_permissions')
+
+        self._random_rabbit_creds = \
+            self._patchobj(ResMgrPf9Provider, '_random_rabbit_creds')
+        self._random_rabbit_creds.return_value = (RABBIT_USER, RABBIT_PASS)
 
         # FIXME: check service config
         self._patchobj(ResMgrPf9Provider, 'run_service_config')
@@ -186,14 +199,41 @@ class TestProvider(DbTestCase):
                                                            rolename)
         self.assertEquals(state, role_assoc.current_state)
 
-    @staticmethod
-    def _assert_event_handler_called(event_name):
+    def _lookup_rabbit_creds(self,
+                          host_id=TEST_HOST['id'],
+                          rolename='test-role'):
+        creds = self._db.query_rabbit_credentials(host_id=host_id,
+                                                  rolename=rolename)[0]
+        transport_url = 'rabbit://%s:%s@localhost:5673/' % \
+                            (creds.userid, creds.password)
+        return (creds.userid, creds.password, transport_url)
+
+    def _assert_event_handler_called(self, event_name, rolename='test-role'):
+        """
+        This may be called post-deauth, in which case the rabbit creds
+        are gone from the DB. Use the mocked, hardcode RABBIT_USER,
+        RABBIT_PASS and RABBIT_URL instead of querying for them.
+        """
         events = sys.modules['test_auth_events']
         method = getattr(events, event_name)
+        host_config = {
+            u'test_conf': {
+                u'DEFAULT': {
+                    u'conf1': u'conf1_value',
+                    u'rabbit_user': RABBIT_USER,
+                    u'rabbit_password': RABBIT_PASS,
+                    u'rabbit_transport_url': RABBIT_URL,
+                    u'legacy_rabbit_transport_url': RABBIT_URL,
+                    u'endpoint_spec': 'http://something/%(project_id)s'
+                },
+                u'customizable_section': {}
+            }
+        }
         method.assert_called_once_with(logger=provider_logger,
                                        param1='param1_value',
                                        param2='param2_value',
-                                       host_id = TEST_HOST['id'])
+                                       host_id = TEST_HOST['id'],
+                                       host_config=host_config)
 
     def _assert_event_handler_not_called(self, event_name):
         events = sys.modules['test_auth_events']
@@ -366,7 +406,11 @@ class TestProvider(DbTestCase):
         self._provider.add_role(host_id, 'test-role-2', {})
         self._bbone.process_hosts()
         self._assert_fails_puts_deletes(host_id, 'test-role')
-        self._get_backbone_host.return_value = self._converged_host()
+
+        # augment our canned host response to include both roles
+        converged = self._converged_host()
+        converged['apps']['test-role-2'] = converged['apps']['test-role']
+        self._get_backbone_host.return_value = converged
         self._bbone.process_hosts()
         authed_host = self._inventory.get_authorized_host(host_id)
         self.assertEqual('ok', authed_host.get('role_status'))
@@ -399,7 +443,13 @@ class TestProvider(DbTestCase):
                           hosts_in_db[0]['roles'])
 
         # cleanup's still in process on the host.
-        self._get_backbone_host.return_value = self._converging_host()
+        converging = copy.deepcopy(converged)
+        del converging['apps']['test-role']
+        converging['desired_apps'] = converging.pop('apps')
+        converging['status'] = 'converging'
+        timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+        converging['timestamp'] = converging['timestamp_on_du'] = timestamp
+        self._get_backbone_host.return_value = converging
         self._bbone.process_hosts()
         hosts = self._inventory.get_all_hosts()
         self.assertEquals(1, len(hosts))
@@ -414,7 +464,10 @@ class TestProvider(DbTestCase):
         self._assert_fails_puts_deletes(host_id, 'test-role')
 
         # our pretend host has converged
-        self._get_backbone_host.return_value = self._converged_host()
+        del converged['apps']['test-role']
+        timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+        converged['timestamp'] = converged['timestamp_on_du'] = timestamp
+        self._get_backbone_host.return_value = converged
         self._bbone.process_hosts()
         authed_host = self._inventory.get_authorized_host(host_id)
         self.assertEqual('ok', authed_host.get('role_status'))
@@ -1075,7 +1128,6 @@ class TestProvider(DbTestCase):
     def test_iaas_8990(self):
         # start the poller with a short poll interval
         pollthread = threading.Thread(target=self._bbone.run)
-        pollthread.daemon = True
 
         # this is backup of thread.start() that's mocked by setUp
         self._real_thread_start(pollthread)
@@ -1159,18 +1211,14 @@ class TestProvider(DbTestCase):
     def _unauthed_host():
         return copy.deepcopy(BBONE_HOST)
 
-    @staticmethod
-    def _converging_host(old_timestamp=False):
-        return TestProvider._host_info('desired_apps', 'converging',
-                                       old_timestamp)
+    def _converging_host(self, old_timestamp=False):
+        return self._host_info('desired_apps', 'converging', old_timestamp)
 
-    @staticmethod
-    def _converged_host(old_timestamp=False):
-        return TestProvider._host_info('apps', 'ok', old_timestamp)
+    def _converged_host(self, old_timestamp=False):
+        return self._host_info('apps', 'ok', old_timestamp)
 
-    @staticmethod
-    def _failed_host(old_timestamp=False):
-        return TestProvider._host_info('desired_apps', 'failed', old_timestamp)
+    def _failed_host(self, old_timestamp=False):
+        return self._host_info('desired_apps', 'failed', old_timestamp)
 
     @staticmethod
     def _empty_host(old_timestamp=False):
@@ -1183,10 +1231,16 @@ class TestProvider(DbTestCase):
             host['timestamp_on_du'] = timestamp
         return host
 
-    @staticmethod
-    def _host_info(apps_key, host_status, old_timestamp):
+    def _host_info(self, apps_key, host_status, old_timestamp):
         host = copy.deepcopy(BBONE_HOST)
         apps = copy.deepcopy(BBONE_APPS)
+        rabbit_creds = self._lookup_rabbit_creds(BBONE_HOST['host_id'],
+                                                 'test-role')
+        apps['test-role']['config']['test_conf']['DEFAULT'].update({
+            'rabbit_user': rabbit_creds[0],
+            'rabbit_password': rabbit_creds[1],
+            'rabbit_transport_url': rabbit_creds[2]
+        })
         host.update({apps_key: apps})
         host['status'] = host_status
         if not old_timestamp:
