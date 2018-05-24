@@ -8,9 +8,11 @@ import json
 import logging
 import mock
 import os
+import random
 import requests
 import sys
 import threading
+import time
 
 from datetime import datetime
 from rabbit import RabbitMgmtClient
@@ -130,6 +132,7 @@ class TestProvider(DbTestCase):
 
         # don't start the BbonePoller in a thread. The tests will call
         # process_hosts directly when appropriate.
+        self._real_thread_start = threading.Thread.start
         self._patchobj(threading.Thread, 'start')
 
         # reset the provider global state
@@ -229,6 +232,7 @@ class TestProvider(DbTestCase):
     def _add_and_converge_role(self, rolename):
         host_id = TEST_HOST['id']
         self._provider.add_role(host_id, rolename, {})
+        self._bbone.process_hosts()
         self._assert_event_handler_called('on_auth')
         self._assert_role_state(host_id, rolename,
                                 role_states.AUTH_CONVERGING)
@@ -267,6 +271,7 @@ class TestProvider(DbTestCase):
         host_id = TEST_HOST['id']
         rolename = TEST_ROLE['test-role']['1.0']['role_name']
         self._provider.add_role(host_id, rolename, {})
+        self._bbone.process_hosts()
 
         self._assert_role_state(host_id, 'test-role',
                                 role_states.AUTH_CONVERGING)
@@ -274,7 +279,7 @@ class TestProvider(DbTestCase):
         self._assert_fails_puts_deletes(host_id, 'test-role')
 
         # check the config that got pushed to bbmaster
-        self._requests_put.assert_called_once_with(
+        self._requests_put.assert_called_with(
             'http://fake/v1/hosts/1234/apps',
             match_dict_to_jsonified(BBONE_PUSH))
 
@@ -324,6 +329,7 @@ class TestProvider(DbTestCase):
 
         # delete it
         self._provider.delete_role(host_id, rolename)
+        self._bbone.process_hosts()
 
         # check that empty config was pushed to bbmaster.
         self._requests_put.assert_called_with(
@@ -358,6 +364,7 @@ class TestProvider(DbTestCase):
         host_id = TEST_HOST['id']
         self._provider.add_role(host_id, 'test-role', {})
         self._provider.add_role(host_id, 'test-role-2', {})
+        self._bbone.process_hosts()
         self._assert_fails_puts_deletes(host_id, 'test-role')
         self._get_backbone_host.return_value = self._converged_host()
         self._bbone.process_hosts()
@@ -372,6 +379,7 @@ class TestProvider(DbTestCase):
 
         # delete the first one
         self._provider.delete_role(host_id, 'test-role')
+        self._bbone.process_hosts()
         self._assert_role_state(host_id, 'test-role',
                                 role_states.DEAUTH_CONVERGING)
         self._assert_fails_puts_deletes(host_id, 'test-role')
@@ -431,6 +439,7 @@ class TestProvider(DbTestCase):
 
         # re-PUT the role
         self._provider.add_role(host_id, rolename, {})
+        self._bbone.process_hosts()
         self._assert_role_state(host_id, 'test-role',
                                 role_states.AUTH_CONVERGING)
         self._assert_fails_puts_deletes(host_id, 'test-role')
@@ -479,6 +488,7 @@ class TestProvider(DbTestCase):
         # re-PUT the role with new configurable param
         new_role_params ={'customizable_key': 'new value for customizable_key'}
         self._provider.add_role(host_id, rolename, new_role_params)
+        self._bbone.process_hosts()
         self._assert_role_state(host_id, 'test-role',
                                 role_states.AUTH_CONVERGING)
         self._assert_fails_puts_deletes(host_id, 'test-role')
@@ -564,6 +574,7 @@ class TestProvider(DbTestCase):
 
         # add and converge the role. The end state should be AUTH_EROR
         self._provider.add_role(host_id, rolename, {})
+        self._bbone.process_hosts()
         self._get_backbone_host.return_value = self._converged_host()
         self._bbone.process_hosts()
         self._assert_role_state(host_id, rolename, role_states.AUTH_ERROR)
@@ -571,6 +582,7 @@ class TestProvider(DbTestCase):
         # now try to recover
         self._unfail_auth_event('on_auth_converged')
         self._provider.add_role(host_id, rolename, {})
+        self._bbone.process_hosts()
         self._assert_role_state(host_id, rolename, role_states.AUTH_CONVERGING)
         self._get_backbone_host.return_value = self._converged_host()
         self._bbone.process_hosts()
@@ -584,6 +596,7 @@ class TestProvider(DbTestCase):
         # start deauth, on_deauth_converged event will put us in DEAUTH_ERROR
         self._fail_auth_event('on_deauth_converged')
         self._provider.delete_role(host_id, rolename)
+        self._bbone.process_hosts()
         self._get_backbone_host.return_value = self._empty_host()
         self._bbone.process_hosts()
         self._assert_role_state(host_id, rolename, role_states.DEAUTH_ERROR)
@@ -595,6 +608,7 @@ class TestProvider(DbTestCase):
         # now try to recover with a delete
         self._unfail_auth_event('on_deauth_converged')
         self._provider.delete_role(host_id, rolename)
+        self._bbone.process_hosts()
         self._assert_role_state(host_id, rolename,
                                 role_states.DEAUTH_CONVERGING)
         self._get_backbone_host.return_value = self._empty_host()
@@ -614,6 +628,7 @@ class TestProvider(DbTestCase):
 
         # delete the host and converge it
         self._provider.delete_host(host_id)
+        self._bbone.process_hosts()
 
         # host should be there until converged
         self.assertTrue(self._inventory.get_all_hosts(),
@@ -758,6 +773,8 @@ class TestProvider(DbTestCase):
             push_configuration.side_effect = RuntimeError()
             with self.assertRaises(RuntimeError):
                 self._provider.add_role(host_id, 'test-role', {})
+                self._bbone.process_hosts()
+
 
         # on_auth should have run, and we should be in PRE_AUTH
         self._assert_event_handler_called('on_auth')
@@ -793,6 +810,7 @@ class TestProvider(DbTestCase):
             push_configuration.side_effect = RuntimeError()
             with self.assertRaises(RuntimeError):
                 self._provider.delete_role(host_id, 'test-role')
+                self._bbone.process_hosts()
 
         # on_deauth should have run, and we should be in PRE_DEAUTH
         self._assert_event_handler_called('on_deauth')
@@ -823,6 +841,7 @@ class TestProvider(DbTestCase):
         host_id = TEST_HOST['id']
         rolename = TEST_ROLE['test-role']['1.0']['role_name']
         self._provider.add_role(host_id, rolename, {})
+        self._bbone.process_hosts()
         self._assert_event_handler_called('on_auth')
         self._assert_role_state(host_id, rolename,
                                 role_states.AUTH_CONVERGING)
@@ -861,6 +880,7 @@ class TestProvider(DbTestCase):
 
         # delete the host and converge it
         self._provider.delete_role(host_id, rolename)
+        self._bbone.process_hosts()
         self._assert_event_handler_called('on_deauth')
         self._assert_role_state(host_id, rolename,
                                 role_states.DEAUTH_CONVERGING)
@@ -902,15 +922,13 @@ class TestProvider(DbTestCase):
 
         # delete it
         self._provider.delete_role(host_id, rolename)
+        self._assert_event_handler_called('on_deauth')
+        self._assert_fails_puts_deletes(host_id, 'test-role')
+        self._bbone.process_hosts()
 
         # check that empty config was pushed to bbmaster.
         self._requests_put.assert_called_with(
             'http://fake/v1/hosts/1234/apps', '{}')
-
-        self._assert_role_state(host_id, 'test-role',
-                                role_states.DEAUTH_CONVERGING)
-        self._assert_event_handler_called('on_deauth')
-        self._assert_fails_puts_deletes(host_id, 'test-role')
 
         # bbmaster still thinks the host is empty
         self._get_backbone_host.return_value = self._empty_host()
@@ -934,18 +952,17 @@ class TestProvider(DbTestCase):
 
         # delete it
         self._provider.delete_role(host_id, rolename)
+        self._assert_event_handler_called('on_deauth')
+        self._assert_fails_puts_deletes(host_id, 'test-role')
+
+        # the host isn't responding, so it should converge, call the
+        # post-deauth-converge hook and finish up.
+        self._get_backbone_host.return_value = MISSING_BBONE_HOST
+        self._bbone.process_hosts()
 
         # check that empty config was pushed to bbmaster.
         self._requests_put.assert_called_with(
             'http://fake/v1/hosts/1234/apps', '{}')
-
-        self._assert_role_state(host_id, 'test-role',
-                                role_states.DEAUTH_CONVERGING)
-        self._assert_event_handler_called('on_deauth')
-        self._assert_fails_puts_deletes(host_id, 'test-role')
-
-        # bbmaster still thinks the host is empty
-        self._get_backbone_host.return_value = MISSING_BBONE_HOST
 
         # the host isn't responding, so it should converge, call the
         # post-deauth-converge hook and finish up.
@@ -974,6 +991,7 @@ class TestProvider(DbTestCase):
         host_id = TEST_HOST['id']
         rolename = TEST_ROLE['test-role']['1.0']['role_name']
         self._provider.add_role(host_id, rolename, {})
+        self._bbone.process_hosts()
         self._assert_event_handler_called('on_auth')
         self._assert_role_state(host_id, rolename,
                                 role_states.AUTH_CONVERGING)
@@ -984,6 +1002,7 @@ class TestProvider(DbTestCase):
 
         # delete it
         self._provider.delete_role(host_id, rolename)
+        self._bbone.process_hosts()
 
         # check that empty config was pushed to bbmaster.
         self._requests_put.assert_called_with(
@@ -1035,6 +1054,7 @@ class TestProvider(DbTestCase):
 
         # delete it
         self._provider.delete_role(host_id, rolename)
+        self._bbone.process_hosts()
 
         # check that empty config was pushed to bbmaster.
         self._requests_put.assert_called_with(
@@ -1051,6 +1071,83 @@ class TestProvider(DbTestCase):
         # host is gone
         hosts = self._inventory.get_all_hosts()
         self.assertFalse(hosts)
+
+    def test_iaas_8990(self):
+        # start the poller with a short poll interval
+        pollthread = threading.Thread(target=self._bbone.run)
+        pollthread.daemon = True
+
+        # this is backup of thread.start() that's mocked by setUp
+        self._real_thread_start(pollthread)
+
+        # add and converge the role at v1.0
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        self._provider.add_role(host_id, rolename, {})
+        self._assert_event_handler_called('on_auth')
+        time.sleep(2)
+        self._assert_role_state(host_id, rolename,
+                                role_states.AUTH_CONVERGING)
+
+        # it should converge in one iteration of the poller
+        self._get_backbone_host.return_value = self._converged_host()
+        time.sleep(2)
+        self._assert_role_state(host_id, rolename,
+                                role_states.APPLIED)
+        authed_host = self._inventory.get_authorized_host(host_id)
+        self.assertEqual('ok', authed_host.get('role_status'))
+
+        # upgrade from 1.0 to 1.50 by 0.01 at random intervals
+        random.seed()
+        for i in xrange(1, 50):
+            new_version = '1.%0.2d' % i
+            LOG.info('upgrading to %s', new_version)
+            new_role = {
+                'test-role': {
+                    new_version: copy.deepcopy(TEST_ROLE['test-role']['1.0'])
+                }
+            }
+            new_role['test-role'][new_version]['role_version'] = new_version
+            new_role['test-role'][new_version][
+                     'config']['test-role']['version'] = new_version
+            self._load_roles_from_files.return_value = new_role
+            self._db.setup_roles()
+
+            # re-PUT the role
+            self._provider.add_role(host_id, rolename, {})
+
+            # add_role wakes up the poller and it starts converging
+            time.sleep(1)
+            self._assert_role_state(host_id, rolename,
+                                    role_states.AUTH_CONVERGING)
+
+            converged = self._converged_host()
+            converged['apps']['test-role']['version'] = new_version
+            self._get_backbone_host.return_value = converged
+
+            # check the config that got pushed to bbmaster
+            push = copy.deepcopy(BBONE_PUSH)
+            push['test-role']['version'] = new_version
+            self._requests_put.assert_called_with(
+                    'http://fake/v1/hosts/1234/apps',
+                    match_dict_to_jsonified(push))
+            # one more iteration and it should complete
+            time.sleep(2)
+            authed_host = self._inventory.get_authorized_host(host_id)
+            self.assertEqual('ok', authed_host.get('role_status'))
+            self.assertEqual(['test-role'], authed_host.get('roles'))
+
+            roles = self._db.query_roles_for_host(host_id)
+            self.assertEquals(1, len(roles))
+            self.assertEquals('test-role_%s' % new_version, roles[0].id)
+            self.assertEquals(new_version, roles[0].version)
+            self._assert_role_state(host_id, 'test-role', role_states.APPLIED)
+
+            # random sleep between .25 and 2.25 seconds
+            delay = 0.25 + 2 * random.random()
+            time.sleep(delay)
+        self._bbone.stop()
+        pollthread.join()
 
     @staticmethod
     def _plain_http_response(code):

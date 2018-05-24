@@ -21,7 +21,6 @@ import notifier
 import json
 import os
 import threading
-import time
 import rabbit
 import random
 import requests
@@ -29,6 +28,7 @@ import string
 import subprocess
 
 from bbcommon.utils import is_satisfied_by
+from Queue import Queue, Empty
 from resmgr import dict_subst, dict_tokens, role_states
 from resmgr.dbutils import ResMgrDB, role_app_map
 from resmgr.exceptions import *
@@ -639,6 +639,9 @@ class BbonePoller(object):
         self.converging_non_responsive_host_timeout = datetime.timedelta(
                                             seconds=converging_non_responsive_host_threshold)
 
+        # allows us to wake up the bbone poller on demand
+        self._command_queue = Queue()
+
     def _responding_within_threshold(self,
                                     status_time,
                                     threshold=None):
@@ -789,7 +792,7 @@ class BbonePoller(object):
         """
         for host in host_ids:
             with _role_update_lock:
-                self._recover_unexpected_role_states(host)
+                self._advance_from_transient_state(host)
             try:
                 host_info = self._get_backbone_host(host)
             except BBMasterNotFound:
@@ -846,6 +849,7 @@ class BbonePoller(object):
                         self._finish_role_converge(host)
                     else:
                         cfg_key = 'apps' if host_status == 'ok' else 'desired_apps'
+                        host_config = host_info.get(cfg_key, {})
                         # if host_status is 'ok'
                         # Check if app status in the DB is same as the app config
                         # in the result
@@ -865,9 +869,9 @@ class BbonePoller(object):
                            host_status == 'ok' and \
                            is_satisfied_by(expected_cfg, host_info['apps']):
                             self._finish_role_converge(host)
-                        elif not is_satisfied_by(expected_cfg, host_info[cfg_key]):
+                        elif not is_satisfied_by(expected_cfg, host_config):
                             log.debug('Pushing new configuration for %s, config: %s. '
-                                      'Expected config %s', host, host_info[cfg_key],
+                                      'Expected config %s', host, host_config,
                                       expected_cfg)
                             self.rolemgr.push_configuration(host, expected_cfg,
                                                             needs_hostid_subst=False,
@@ -930,11 +934,15 @@ class BbonePoller(object):
                 log.info('Moved role %s on host %s to the %s state',
                          role.rolename, host_id, role_states.DEAUTH_ERROR)
 
-    def _recover_unexpected_role_states(self, host_id):
+    def _advance_from_transient_state(self, host_id):
         """
-        handle the possibility that resmgr crashed and left a role somewhere
-        in a transient state. If so, move it to a point that it can be handled
-        by add/delete, or in _process_existing_hosts.
+        Move the state machine forward to a point where it's either waiting
+        for status from a host, or at a terminal state. This comes into effect
+        either after a new API request to add/delete a role, or when the resmgr
+        is restarted after a crash that leaves a role in a transient state.
+        From here, the state machine can be moved forward by add/delete if it's
+        in a terminal state, or by _process_existing_hosts when new info is
+        pulled from a host.
         FIXME: With a bit more refactoring, this could handle the whole state
                machine.
         """
@@ -1030,13 +1038,26 @@ class BbonePoller(object):
             # Get the host ids that backbone is aware of
             try:
                 self.process_hosts()
+                command = self._command_queue.get(block=True,
+                                                  timeout=self.poll_interval)
+                if command == 'stop':
+                    log.debug('Stopping bbone poller')
+                    break
+                elif command == 'wake':
+                    log.debug('Running bbone poll after a request')
+            except Empty:
+                log.debug('Running bbone poller again after %d seconds',
+                          self.poll_interval)
             except:
                 # Ensure that this poller will never go down.
                 # Log and continue
                 log.exception('Poller encountered an error')
-            # Sleep for the poll interval
-            time.sleep(self.poll_interval)
 
+    def wake_up(self):
+        self._command_queue.put('wake')
+
+    def stop(self):
+        self._command_queue.put('stop')
 
 class ResMgrPf9Provider(ResMgrProvider):
     """
@@ -1062,6 +1083,9 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         # Setup a thread to poll backbone state regularly to detect changes to
         # hosts.
+        # FIXME: The provider loop is now controlled with a command Queue. Add
+        # a sighandler to send a 'stop' to the poller and join the thread
+        # rather than making it a daemon.
         self.bbone_poller = BbonePoller(config, self.res_mgr_db,
                                         self.roles_mgr, notifier)
         t = threading.Thread(target=self.bbone_poller.run)
@@ -1193,7 +1217,9 @@ class ResMgrPf9Provider(ResMgrProvider):
 
         # Clear out all the roles
         for role in self.res_mgr_db.query_roles_for_host(host_id):
-            self.delete_role(host_id, role.rolename)
+            self.delete_role(host_id, role.rolename, wake_poller=False)
+
+        self.bbone_poller.wake_up()
 
     def random_string_generator(self, len=16):
         return "".join([random.choice(string.ascii_letters + string.digits) for _ in
@@ -1361,16 +1387,20 @@ class ResMgrPf9Provider(ResMgrProvider):
             # run the on_auth event
             self.roles_mgr.move_to_preauth_state(host_id, role_name,
                                                  curr_role_state)
-            # push the config to bbmaster.
-            self.roles_mgr.move_to_auth_converging_state(host_id, role_name)
+            # wake up the poller to start moving through the state machine.
+            self.bbone_poller.wake_up()
 
             notifier.publish_notification('change', 'host', host_id)
 
-    def delete_role(self, host_id, role_name):
+    def delete_role(self, host_id, role_name, wake_poller=True):
         """
         Disassociates a role from a host.
         :param str host_id: ID of the host
         :param str role_name: Name of the role
+        :param bool wake_poller: Wake up the bbone poller. When deleting a
+            host with multiple roles, set this to False, then call
+            poller.wake_up() explicitly after all the role deletes have been
+            registered in the DB.
         :raises RoleNotFound: if the role is not present
         :raises HostNotFound: if the host is not present
         :raises HostConfigFailed: if setting the configuration fails or times out
@@ -1407,9 +1437,9 @@ class ResMgrPf9Provider(ResMgrProvider):
             # run the on_deauth event
             self.roles_mgr.move_to_pre_deauth_state(host_id, role_name,
                                                     curr_role_state)
-
-            # remove rabbit credentials and push the new config
-            self.roles_mgr.move_to_deauth_converging_state(host_id, role_name)
+            # wake up the poller to start moving through the state machine.
+            if wake_poller:
+                self.bbone_poller.wake_up()
 
         notifier.publish_notification('change', 'host', host_id)
 

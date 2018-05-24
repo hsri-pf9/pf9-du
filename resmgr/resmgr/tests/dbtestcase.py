@@ -46,7 +46,7 @@ param2 = param2_value
 endpointURI = http://fake
 requestWaitPeriod = 30
 requestTimeout = 30
-pollInterval = 30
+pollInterval = 1
 
 [amqp]
 username = rabbituser
