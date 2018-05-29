@@ -13,7 +13,6 @@ bbm_conf = os.environ.get('BBMASTER_CONFIG_FILE',
 bbm_config.read(bbm_conf)
 
 
-@property
 def is_isv():
     """
     Whether the service is running in an ISV setup or not
@@ -28,7 +27,7 @@ def insert_app_config(desired_apps, muster_cfg, host_state=None):
     compatibility across firmware apps.
     Inserts the specified pf9-muster configuration into the supplied dictionary.
     """
-    if is_isv:
+    if not is_isv():
         if type(desired_apps) is dict:
             desired_apps['pf9-muster'] = muster_cfg
     return desired_apps
