@@ -475,6 +475,7 @@ class RolesMgr(object):
         Run a method from the python module whose path is in event_spec. Will
         only raise DuConfigError.
         """
+        log.debug('_run_python_event with event method: %s', event_method)
         module_path = event_spec.get('module_path', None)
         if not module_path:
             log.warn('No auth events module_path specified in app_config.')
@@ -492,6 +493,8 @@ class RolesMgr(object):
                 module_name = os.path.splitext(
                         os.path.basename(module_path))[0]
                 module = imp.load_source(module_name, module_path)
+                log.debug('about to invoke method %s of module %s',
+                         event_method, module_path)
                 if hasattr(module, event_method):
                     method = getattr(module, event_method)
                     # Pass resmgr logger object to auth_event handler method
@@ -565,13 +568,33 @@ class HostInventoryMgr(object):
 
         # Add unauthorized hosts into the result
         log.debug('Looking up unauthorized hosts')
+        iaas_9086_hosts = []
         with _host_lock:
             for id in _unauthorized_hosts.iterkeys():
+                if id in result:
+                    iaas_9086_hosts.append(id)
+                    continue
                 host = _unauthorized_hosts[id]
                 host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
                 host['extensions'] = _hosts_extension_data.get(host['id'], '')
                 host['message'] = _hosts_message_data.get(host['id'], '')
                 result[host['id']] = host
+            for id in iaas_9086_hosts:
+                log.debug('handling IAAS-9086 for host %s' % id)
+                _unauthorized_hosts.pop(id, None)
+                _unauthorized_host_status_time.pop(id, None)
+                _unauthorized_host_status_time_on_du.pop(id, None)
+
+        if iaas_9086_hosts:
+            iaas_9086_url = os.getenv('IAAS_9086_WEBHOOK_URL')
+            if iaas_9086_url:
+                payload = {
+                    "text": "IAAS-9086 detected on hosts %s" % iaas_9086_hosts
+                }
+                try:
+                    requests.post(iaas_9086_url, json=payload)
+                except:
+                    log.warn('warning: failed to post to %s', iaas_9086_url)
 
         return result
 
