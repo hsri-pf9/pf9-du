@@ -38,21 +38,13 @@ COPY opt/ /opt/
 COPY etc/ /etc/
 COPY usr/ /usr/
 
-# muster firmware is required for bbmaster
-COPY pf9-muster-wrapper-*.rpm /root/pf9-muster-wrapper.rpm
-
-# kube role - we don't care about the rpm packages, but the role json needs
+# all required rpms
+# we don't care about non firmware rpm packages, but the role json needs
 # to be installed with resmgr.
-COPY pf9-kube-wrapper-*.rpm /root/pf9-kube-wrapper.rpm
-
-# wrapper packages for PMO services
-COPY pf9-ostackhost-wrapper-*.rpm /root/pf9-pmo-ostackhost-wrapper.rpm
-COPY pf9-glance-wrapper-*.rpm /root/pf9-pmo-glance-wrapper.rpm
-COPY pf9-neutron-app-wrapper-*.rpm /root/pf9-pmo-neutron-app-wrapper.rpm
-COPY pf9-cindervolume-wrapper-*.rpm /root/pf9-pmo-cindervolume-wrapper.rpm
+COPY pf9-*-wrapper-*.rpm /root/
 
 # install wrapper packages
-RUN yum install -y pf9-kube-wrapper.rpm pf9-muster-wrapper.rpm pf9-pmo-*-wrapper.rpm
+RUN yum install -y pf9-*-wrapper-*.rpm
 
 COPY init-region .
 RUN chmod 755 /usr/bin/run-resmgr init-region

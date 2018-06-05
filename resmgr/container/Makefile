@@ -82,24 +82,9 @@ ifeq ($(wildcard $(KUBE_WRAPPER)),)
 endif
 
 OSTACKHOST_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-ostackhost-wrapper*.rpm)
-ifeq ($(wildcard $(OSTACKHOST_WRAPPER)),)
-    $(error There must be a pf9-ostackhost-wrapper rpm in $(ARTIFACTS))
-endif
-
 GLANCE_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-glance-wrapper*.rpm)
-ifeq ($(wildcard $(GLANCE_WRAPPER)),)
-    $(error There must be a pf9-glance-wrapper rpm in $(ARTIFACTS))
-endif
-
 NEUTRON_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-neutron-app-wrapper*.rpm)
-ifeq ($(wildcard $(NEUTRON_WRAPPER)),)
-    $(error There must be a pf9-neutron-app-wrapper rpm in $(ARTIFACTS))
-endif
-
 CINDER_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-cindervolume-wrapper*.rpm)
-ifeq ($(wildcard $(CINDER_WRAPPER)),)
-    $(error There must be a pf9-cindervolume-wrapper rpm in $(ARTIFACTS))
-endif
 
 PACKAGELIST_RPM = $(STAGE)/opt/pf9/www/private/nocert-packagelist.rpm
 PACKAGELIST_DEB = $(STAGE)/opt/pf9/www/private/nocert-packagelist.deb
@@ -116,7 +101,8 @@ PACKAGELIST_LINES_DEB = $(notdir $(HOSTAGENT_DEB)) \
 
 BUILD_ID := $(BUILD_NUMBER)
 CONTAINER_IMG ?= 514845858982.dkr.ecr.us-west-1.amazonaws.com/pf9-resmgr
-IMAGE_TAG ?= $(or $(PF9_VERSION), $(PF9_VERSION), "latest")-$(BUILD_ID)
+IMAGE_TAG ?= $(or $(PF9_VERSION), "latest")-$(BUILD_ID)
+IMAGE_K8S_ONLY_TAG ?= $(or $(PF9_VERSION), "latest")-$(BUILD_ID)-k8sonly
 BRANCH_NAME ?= $(or $(TEAMCITY_BUILD_BRANCH), $(TEAMCITY_BUILD_BRANCH), $(shell git symbolic-ref --short HEAD))
 
 $(DISTS):
@@ -137,6 +123,25 @@ $(REDHAT_INSTALLER_SCRIPT):
 $(DEBIAN_INSTALLER_SCRIPT):
 	make -C $(SRCROOT)/uber-rpm debian-installer-nocert
 
+check-ostack-pkgs:
+	if [[ -z $(OSTACKHOST_WRAPPER) ]]; then \
+		echo "There must be a pf9-ostackhost-mgmt rpm in $(ARTIFACTS)"; \
+		exit 1; \
+	fi;
+	if [[ -z $(GLANCE_WRAPPER) ]]; then \
+		echo "There must be a pf9-glance-wrapper rpm in $(ARTIFACTS)"; \
+		exit 1; \
+	fi;
+	if [[ -z $(NEUTRON_WRAPPER) ]]; then \
+		echo "There must be a pf9-neutron-app-wrapper rpm in $(ARTIFACTS)"; \
+		exit 1; \
+	fi;
+	if [[ -z $(CINDER_WRAPPER) ]]; then \
+		echo "There must be a pf9-cindervolume-wrapper rpm in $(ARTIFACTS)"; \
+		exit 1; \
+	fi;
+
+
 # the installer script doesn't really need to be included in the container
 # here, but it does need to be built and provided as an artifact to the
 # nginx container build so it can be served publically from there. Having it
@@ -146,11 +151,11 @@ stage: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIA
 	cp -rv $(SRCROOT)/resmgr/container/* $(STAGE)/
 	python $(Y2J) $(APP_METADATA_YAML) > $(APP_METADATA_JSON)
 	cp -v $(SRCROOT)/resmgr/upper-constraints.txt $(STAGE)/
-	cp -v $(MUSTER_WRAPPER) $(KUBE_WRAPPER) $(OSTACKHOST_WRAPPER) $(GLANCE_WRAPPER) $(NEUTRON_WRAPPER) $(CINDER_WRAPPER) $(STAGE)/
+	cp -v $(MUSTER_WRAPPER) $(KUBE_WRAPPER) $(STAGE)/
 	private=$(STAGE)/opt/pf9/www/private && \
 	mkdir -p $${private} && \
-	cp -v $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT) $(COMMS_RPM) $(COMMS_DEB) $(VMW_MGMT_RPM) \
-		  $${private} && \
+	cp -v $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT) $(COMMS_RPM) $(COMMS_DEB) \
+		  $(VMW_MGMT_RPM) $${private} && \
 	rm -fv $(PACKAGELIST_RPM) && \
 	for line in $(PACKAGELIST_LINES_COMMON); do \
 		echo $${line} >> $(PACKAGELIST_RPM); \
@@ -170,24 +175,42 @@ stage: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIA
 $(BLDROOT):
 	mkdir -p $@
 
-$(BLDROOT)/container-tag: $(BLDROOT)
-	echo -ne "$(IMAGE_TAG)" >$@
-
-image: stage
-	docker build --rm -t $(CONTAINER_IMG):$(IMAGE_TAG) \
+# Expects the image tag to be passed in as an argument
+# Example: $(call image_build, "a.b.c.d")
+define image_build
+	docker build --rm -t $(CONTAINER_IMG):$(1) \
 		--build-arg BUILD_ID=$(BUILD_ID) \
 		--build-arg VERSION=$(PF9_VERSION) \
 		--build-arg BRANCH=$(BRANCH_NAME) \
 		--build-arg APP_METADATA=`cat $(APP_METADATA_JSON)` \
 		$(STAGE)
+endef
+
+image: check-ostack-pkgs stage
+	cp -v $(OSTACKHOST_WRAPPER) $(GLANCE_WRAPPER) $(NEUTRON_WRAPPER) $(CINDER_WRAPPER) $(STAGE)
+	$(call image_build,$(IMAGE_TAG))
+
+image-k8s-only: stage
+	$(call image_build,$(IMAGE_K8S_ONLY_TAG))
 
 # This assumes that credentials for the aws tool are configured, either in
 # ~/.aws/config or in AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
-push: image $(BLDROOT)/container-tag
-	(docker push $(CONTAINER_IMG):$(IMAGE_TAG) || \
+# Expects the image tag to be passed in as an argument
+# Example: $(call image_push, "a.b.c.d")
+define image_push
+	(docker push $(CONTAINER_IMG):$(1) || \
 	(aws ecr get-login --region=us-west-1 --no-include-email |sh && \
-	docker push $(CONTAINER_IMG):$(IMAGE_TAG))) && \
-	docker rmi $(CONTAINER_IMG):$(IMAGE_TAG)
+	docker push $(CONTAINER_IMG):$(1))) && \
+	docker rmi $(CONTAINER_IMG):$(1) && \
+	mkdir -p $(BLDROOT) && \
+	echo -ne "$(1)" >$(BLDROOT)/container-tag
+endef
+
+push: image
+	$(call image_push,$(IMAGE_TAG))
+
+push-k8s-only: image-k8s-only
+	$(call image_push,$(IMAGE_K8S_ONLY_TAG))
 
 clean:
 	rm -rf $(STAGE)
