@@ -29,7 +29,7 @@ import subprocess
 
 from bbcommon.utils import is_satisfied_by
 from Queue import Queue, Empty
-from resmgr import role_states
+from resmgr import role_states, dict_subst
 from resmgr.dbutils import ResMgrDB, role_app_map
 from resmgr.exceptions import *
 from resmgr.resmgr_provider import ResMgrProvider
@@ -456,6 +456,11 @@ class RolesMgr(object):
                 continue
 
             event_spec = app_details['du_config']['auth_events']
+
+            # add the host configuration to the du_config events if needed
+            host_config = app_config.get(role_name, {}).get('config', {})
+            event_spec = dict_subst.substitute(event_spec,
+                    {'__HOST_CONFIG__': host_config})
             events_type = event_spec.get('type', None)
             if events_type == 'python':
                 self._run_python_event(event_method, event_spec)

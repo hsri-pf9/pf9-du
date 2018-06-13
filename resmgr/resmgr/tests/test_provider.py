@@ -208,7 +208,8 @@ class TestProvider(DbTestCase):
                             (creds.userid, creds.password)
         return (creds.userid, creds.password, transport_url)
 
-    def _assert_event_handler_called(self, event_name, rolename='test-role'):
+    def _assert_event_handler_called(self, event_name, rolename='test-role',
+                custom_value='default value for customizable_key'):
         """
         This may be called post-deauth, in which case the rabbit creds
         are gone from the DB. Use the mocked, hardcode RABBIT_USER,
@@ -226,7 +227,9 @@ class TestProvider(DbTestCase):
                     u'legacy_rabbit_transport_url': RABBIT_URL,
                     u'endpoint_spec': 'http://something/%(project_id)s'
                 },
-                u'customizable_section': {}
+                u'customizable_section': {
+                    u'customizable_key': custom_value
+                }
             }
         }
         method.assert_called_once_with(logger=provider_logger,
@@ -539,12 +542,14 @@ class TestProvider(DbTestCase):
         self._add_and_converge_role(rolename)
 
         # re-PUT the role with new configurable param
-        new_role_params ={'customizable_key': 'new value for customizable_key'}
+        custom_value = 'new value for customizable_key'
+        new_role_params ={'customizable_key': custom_value}
         self._provider.add_role(host_id, rolename, new_role_params)
         self._bbone.process_hosts()
         self._assert_role_state(host_id, 'test-role',
                                 role_states.AUTH_CONVERGING)
         self._assert_fails_puts_deletes(host_id, 'test-role')
+        self._assert_event_handler_called('on_auth', custom_value=custom_value)
 
         # check the config that got pushed to bbmaster
         push = copy.deepcopy(BBONE_PUSH)
@@ -738,9 +743,9 @@ class TestProvider(DbTestCase):
         with mock.patch.object(self._provider.roles_mgr,
                 'move_to_preauth_state') as move_to_preauth_state:
             move_to_preauth_state.side_effect = RuntimeError()
+            custom_value = 'new value for customizable_key'
             with self.assertRaises(RuntimeError):
-                new_role_params ={'customizable_key':
-                                  'new value for customizable_key'}
+                new_role_params ={'customizable_key': custom_value}
                 self._provider.add_role(host_id, rolename, new_role_params)
 
         # we should be in START_EDIT now
@@ -751,7 +756,7 @@ class TestProvider(DbTestCase):
         self._bbone.process_hosts()
 
         # it should run on_auth, and push the new app
-        self._assert_event_handler_called('on_auth')
+        self._assert_event_handler_called('on_auth', custom_value=custom_value)
         push = copy.deepcopy(BBONE_PUSH)
         push['test-role']['config']['test_conf']['customizable_section'
             ].update(new_role_params)
@@ -911,8 +916,8 @@ class TestProvider(DbTestCase):
                                 role_states.AUTH_CONVERGED)
 
         # make sure we're locked out
-        new_role_params ={'customizable_key':
-                          'new value for customizable_key'}
+        custom_value = 'new value for customizable_key'
+        new_role_params = {'customizable_key': custom_value}
         with self.assertRaises(RoleUpdateConflict):
             self._provider.add_role(host_id, rolename,
                                     new_role_params)
@@ -922,7 +927,8 @@ class TestProvider(DbTestCase):
         self._bbone.process_hosts()
 
         # runs on_auth_converged and finishes up.
-        self._assert_event_handler_called('on_auth_converged')
+        self._assert_event_handler_called('on_auth_converged',
+                                          custom_value=custom_value)
         self._assert_role_state(host_id, 'test-role',
                                 role_states.APPLIED)
 
@@ -950,8 +956,8 @@ class TestProvider(DbTestCase):
                                 role_states.DEAUTH_CONVERGED)
 
         # make sure we're locked out
-        new_role_params ={'customizable_key':
-                          'new value for customizable_key'}
+        custom_value = 'new value for customizable_key'
+        new_role_params ={'customizable_key': custom_value}
         with self.assertRaises(RoleUpdateConflict):
             self._provider.add_role(host_id, rolename,
                                     new_role_params)
@@ -961,7 +967,8 @@ class TestProvider(DbTestCase):
         self._bbone.process_hosts()
 
         # runs on_deauth_converged, removes the role and host
-        self._assert_event_handler_called('on_deauth_converged')
+        self._assert_event_handler_called('on_deauth_converged',
+                                          custom_value=custom_value)
         hosts = self._inventory.get_all_hosts()
         self.assertFalse(hosts)
 

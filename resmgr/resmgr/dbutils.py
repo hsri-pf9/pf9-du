@@ -22,7 +22,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
 
-from resmgr import role_states, dict_subst
+from resmgr import role_states
 from resmgr.exceptions import HostNotFound, HostConfigFailed, RoleNotFound
 
 
@@ -254,9 +254,9 @@ class ResMgrDB(object):
         # this might show up as part of an endpoint spec
         params['project_id'] = '%(project_id)s'
 
-        # this will be replaced with dict_subst below
-        host_config_placeholder = '__HOST_CONFIG__'
-        params['host_config'] = host_config_placeholder
+        # this will be replaced with dict_subst when we call the auth
+        # event
+        params['host_config'] = '__HOST_CONFIG__'
 
         new_app_specs = {}
         for appname, config in app_specs.iteritems():
@@ -265,10 +265,6 @@ class ResMgrDB(object):
             config_string = config_string % params
             new_app_specs[appname] = json.loads(config_string)
 
-            # add the host configuration to the du_config events if needed
-            new_app_specs[appname] = dict_subst.substitute(
-                    new_app_specs[appname],
-                    {host_config_placeholder: new_app_specs[appname]['config']})
         return new_app_specs
 
     def _validate_role_config(self, role_spec):
