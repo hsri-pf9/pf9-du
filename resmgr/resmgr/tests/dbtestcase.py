@@ -1,9 +1,11 @@
 # Copyright (c) 2016 Platform9 Systems Inc. All Rights Reserved.
 
 import copy
+import json
 import logging
 import mock
 import os
+import requests
 import tempfile
 import unittest
 
@@ -132,6 +134,15 @@ TEST_HOST = {
         'os_info': 'centos'
     }
 }
+
+def http_response(code, headers=None, body=None):
+    resp = requests.Response()
+    resp.status_code = code
+    if headers:
+        resp.headers.update(headers)
+    if body:
+        resp.raw = StringIO(json.dumps(body))
+    return resp
 
 class DbTestCase(unittest.TestCase):
 

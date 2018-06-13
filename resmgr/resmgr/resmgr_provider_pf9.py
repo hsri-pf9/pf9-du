@@ -26,6 +26,8 @@ import random
 import requests
 import string
 import subprocess
+import tempfile
+import urlparse
 
 from bbcommon.utils import is_satisfied_by
 from Queue import Queue, Empty
@@ -33,6 +35,7 @@ from resmgr import role_states, dict_subst
 from resmgr.dbutils import ResMgrDB, role_app_map
 from resmgr.exceptions import *
 from resmgr.resmgr_provider import ResMgrProvider
+from resmgr.consul_roles import ConsulRoles, ConsulUnavailable
 
 log = logging.getLogger(__name__)
 
@@ -475,6 +478,11 @@ class RolesMgr(object):
         module_path = event_spec.get('module_path', None)
         if not module_path:
             log.warn('No auth events module_path specified in app_config.')
+        elif module_path.startswith('http://') or \
+             module_path.startswith('https://'):
+            url = module_path
+            module_path = self._fetch_event_module(url)
+            log.info('Downloaded event module %s to %s', url, module_path)
         elif not os.path.isfile(module_path):
             log.warn('Auth events module %s not found, not running event '
                      '%s.', module_path, event_method)
@@ -498,6 +506,23 @@ class RolesMgr(object):
                          % (event_method, module_path, e)
                 log.exception(reason)
                 raise DuConfigError(reason)
+
+    @staticmethod
+    def _fetch_event_module(url):
+        """
+        Download a module, save it in a temporary file, and return the path.
+        FIXME: improvements:
+        + checksums
+        + cache
+        """
+        parsed = urlparse.urlparse(url)
+        basename = parsed.path.basename()
+        resp = requests.get(url)
+        resp.raise_for_status()
+
+        with tempfile.NamedTemporaryFile(prefix=basename, delete=False) as f:
+            f.write(resp.body)
+            return f.name
 
     def _delete_rabbit_credentials(self, credentials):
         for credential in credentials:
@@ -1068,6 +1093,13 @@ class ResMgrPf9Provider(ResMgrProvider):
         t = threading.Thread(target=self.bbone_poller.run)
         t.daemon = True
         t.start()
+
+        try:
+            self._consul_roles = ConsulRoles(config, self.res_mgr_db)
+            self._consul_roles.startwatch()
+        except ConsulUnavailable as e:
+            log.info('Consul isn\'t available. Roles are loaded from the '
+                     'filesystem only: %s', e)
 
     @staticmethod
     def _load_config(config_file):
