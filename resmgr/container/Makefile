@@ -76,11 +76,6 @@ ifeq ($(wildcard $(MUSTER_WRAPPER)),)
     $(error There must be a pf9-muster-wrapper rpm in $(ARTIFACTS))
 endif
 
-KUBE_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-kube-wrapper*.rpm)
-ifeq ($(wildcard $(KUBE_WRAPPER)),)
-    $(error There must be a pf9-kubewrapper rpm in $(ARTIFACTS))
-endif
-
 OSTACKHOST_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-ostackhost-wrapper*.rpm)
 GLANCE_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-glance-wrapper*.rpm)
 NEUTRON_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-neutron-app-wrapper*.rpm)
@@ -151,7 +146,7 @@ stage: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIA
 	cp -rv $(SRCROOT)/resmgr/container/* $(STAGE)/
 	python $(Y2J) $(APP_METADATA_YAML) > $(APP_METADATA_JSON)
 	cp -v $(SRCROOT)/resmgr/upper-constraints.txt $(STAGE)/
-	cp -v $(MUSTER_WRAPPER) $(KUBE_WRAPPER) $(STAGE)/
+	cp -v $(MUSTER_WRAPPER) $(STAGE)/
 	private=$(STAGE)/opt/pf9/www/private && \
 	mkdir -p $${private} && \
 	cp -v $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT) $(COMMS_RPM) $(COMMS_DEB) \
