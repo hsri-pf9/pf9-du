@@ -3,9 +3,9 @@
 # Copyright 2015 Platform9 Systems Inc.
 # All Rights Reserved.
 
-import commands
 import json
 import sys
+import subprocess
 import os.path
 
 def get_volumes_list():
@@ -16,18 +16,25 @@ def get_volumes_list():
     # to find list of volumes. We need lvm2 package to run these commands.
     if os.path.isfile("/sbin/vgs") is False:
         return ["Error: No vgs command found."]
-    # tail -n+2 removes the header line followed by awk to get only the
-    # name of the volumes, size of volume and free space. Return it as a
-    # list of dictionaries.
-    out = commands.getoutput("sudo /sbin/vgs | tail -n+2 | awk '{print $1, $6, $7}'")
-    volumes_list = out.splitlines(False)
-    res = []
-    for volume in volumes_list:
-        volume_data = volume.split()
-        res.append(dict(name=volume_data[0],
-                        size=volume_data[1],
-                        free=volume_data[2]))
-    return res
+    # check_output provides multi-line string output. volume_data is a list of
+    # lists which is used to get only the name of the volumes, size of volume
+    # and free space. Return it as a list of dictionaries.
+    volume_data = []
+    required_data = []
+    out = subprocess.check_output(["sudo", "/sbin/vgs"])
+    for volume in out.splitlines():
+        volume_data.append(volume.split())
+    # To ignore any errors in output of `sudo /sbin/vgs`, checking for VG in
+    # output line as we get required data in next line. Result will be added
+    # in required_data once VG is found in line
+    process_lines = False
+    for line in volume_data:
+        if process_lines:
+            required_data.append(dict(name=line[0], size=line[5],
+                                      free=line[6]))
+        if line[0] == "VG":
+            process_lines = True
+    return required_data
 
 if __name__ == '__main__':
     out = get_volumes_list()
