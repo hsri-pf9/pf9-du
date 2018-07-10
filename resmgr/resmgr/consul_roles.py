@@ -10,6 +10,8 @@ import re
 import requests
 import threading
 
+from ConfigParser import DuplicateSectionError
+
 from firkinize.configstore.consul import Consul
 
 LOG = logging.getLogger(__name__)
@@ -47,6 +49,7 @@ class ConsulRoles(object):
             self._watch = consul.prefix_watch(self._prefix, self._callback)
             self._watch_thread = threading.Thread(target=self._watch.run)
             self._watch_thread.daemon = True
+            self._pending_role_updates = set()
             LOG.info('Initialized consul watch for role changes on %s',
                      consul_url)
         except KeyError as e:
@@ -82,10 +85,32 @@ class ConsulRoles(object):
         version = key_elems[1]
         LOG.info('Updating role %s, version %s', rolename, version)
         config = json.loads(value)
-        self._db.save_role_in_db(rolename, version, config)
+        try:
+            self._db.save_role_in_db(rolename, version, config)
+            LOG.info('Saved %s role, version %s in the database',
+                     rolename, version)
+        except KeyError:
+            LOG.exception('Role %s failed validation. Queueing for later in '
+                          'case a new parameter shows up in consul', rolename)
+            self._pending_role_updates.add((key_elems, value))
 
     def _on_params_change(self, key_elems, value):
         rolename = key_elems[0]
         param_name = key_elems[1]
         LOG.info('Updating role param %s for role %s', param_name, rolename)
+        try:
+            self._config.add_section(rolename)
+            LOG.info('Created config section %s', rolename)
+        except DuplicateSectionError:
+            LOG.info('Config section %s already exists', rolename)
+
         self._config.set(rolename, param_name, value)
+
+        # The new param may make it possible to save a role that failed to
+        # validate earlier. Let's try to save the pending adds again. If one
+        # fails, it will be re-added to self._pending_role_updates.
+        pending = self._pending_role_updates
+        self._pending_role_updates = set()
+        LOG.info('Attempting to add pending role updates...')
+        for update in pending:
+            self._on_config_change(*update)
