@@ -94,6 +94,7 @@ pre-reqs: ${VENV}
 unit-test-setup: pre-reqs
 	# Setup up nose and coverage in addition to pre-reqs
 	source ${TEST_VENV}/bin/activate && \
+	pip install --upgrade pip && \
 	pip install nose mock coverage httpretty pylint && \
 	deactivate
 
