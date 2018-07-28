@@ -37,6 +37,7 @@ function usage()
     echo "--ntpd                                                     | Install ntpd."
     echo "--no-ntpd                                                  | Do not install ntpd."
     echo "--extract                                                  | Extract installation files to /tmp/pf9-install-XXXXX and exit."
+    echo "--preserve                                                 | Don't delete temporary installation files after installer finishes."
     echo "--skip-os-check                                            | Do not ask operating system compatibility questions."
     if ! packages_present ${EXT}; then
         echo "--controller=<Platform9 controller address>                | Address of the Platform9 region controller, e.g. you.platform9.net or 10.11.12.13 (env:DU_FQDN)."
@@ -80,6 +81,11 @@ while getopts ":-:" optchar; do
                     echo "Files extracted at: ${TMPDIR}"
                     echo
                     exit 0
+                    ;;
+                preserve)
+                    # disable the EXIT trap that cleans up our $TMPDIR
+                    trap - EXIT
+                    echo "Files extracted at: ${TMPDIR}"
                     ;;
                 ntpd)
                     ASK_NTPD="false"

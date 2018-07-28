@@ -29,6 +29,9 @@ function download_nocert() {
             echo "Failed to download ${f} exiting." >&2
             return 1
         fi
+        # The following two echo's succeed even if awk/md5sum are absent -- ok
+        echo "file size: $(ls -l ${THIS_DIR}/${f} | awk '{print $5}')"
+        echo "file md5 checksum: $(md5sum ${THIS_DIR}/${f})"
     done < ${packagelist}
     return 0
 }
