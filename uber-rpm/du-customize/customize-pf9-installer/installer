@@ -45,6 +45,7 @@ function usage()
         echo "--password=<Platform9 password>                            | Keystone authentication password (env:OS_PASSWORD)."
         echo "--project-name=<Platform9 project name>                    | Keystone project/tenant on which user has admin privileges (env:OS_TENANT_NAME)."
         echo "--insecure                                                 | Ignore invalid controller certificate."
+        echo "--depl-env-webhook=<webhook url>                           | Post message to this URL if deployment environment type file cannot be downloaded."
     fi
     echo "--help                                                     | Display program help."
 }
@@ -108,6 +109,9 @@ while getopts ":-:" optchar; do
                 controller=*)
                     # overrides the value in globals.sh
                     DU_FQDN="${OPTARG#*=}"
+                    ;;
+                depl-env-webhook=*)
+                    DEPL_ENV_WEBHOOK="${OPTARG#*=}"
                     ;;
                 project-name=*)
                     OS_TENANT_NAME="${OPTARG#*=}"

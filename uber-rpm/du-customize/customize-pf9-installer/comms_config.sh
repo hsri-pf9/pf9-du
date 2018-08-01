@@ -8,13 +8,21 @@ SIDEKICK_ENV_FILE=${SIDEKICK_ENV_FILE:-"/etc/pf9/pf9-sidekick.env"}
 function configure_comms() {
     local url="https://${DU_FQDN}/clarity/deployment_environment.txt"
     local deployment_env
-    if deployment_env=$(curl -fs ${url}) ; then
+    local err_log="/tmp/depl_env_curl_err.log"
+    if deployment_env=$(curl -fs ${url} 2> ${err_log} ) ; then
         echo "deployment environment is ${deployment_env}"
         if [ "${deployment_env}" == "decco" ]; then
             set_sni_mode_to_fqdn
         fi
     else
         echo "deployment environment not available"
+        if [ -n "${DEPL_ENV_WEBHOOK}" ] ; then
+            msg="host $(hostname) failed to download deployment environment file from DU ${DU_FQDN}"
+            curl -d "{\"text\":\"$msg\"}" "${DEPL_ENV_WEBHOOK}"
+            echo ${msg}
+            # treat this is a fatal error
+            exit 1
+        fi
     fi
 }
 
