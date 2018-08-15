@@ -46,6 +46,7 @@ function usage()
         echo "--project-name=<Platform9 project name>                    | Keystone project/tenant on which user has admin privileges (env:OS_TENANT_NAME)."
         echo "--insecure                                                 | Ignore invalid controller certificate."
         echo "--depl-env-webhook=<webhook url>                           | Post message to this URL if deployment environment type file cannot be downloaded."
+        echo "--inf-790-webhook=<webhook url>                            | Detect INF-790 occurence, post to specified webhook, and try mitigation"
     fi
     echo "--help                                                     | Display program help."
 }
@@ -112,6 +113,9 @@ while getopts ":-:" optchar; do
                     ;;
                 depl-env-webhook=*)
                     DEPL_ENV_WEBHOOK="${OPTARG#*=}"
+                    ;;
+                inf-790-webhook=*)
+                    INF_790_WEBHOOK="${OPTARG#*=}"
                     ;;
                 project-name=*)
                     OS_TENANT_NAME="${OPTARG#*=}"
@@ -201,16 +205,26 @@ function check_exit_code_and_generate_support_bundle()
 
 function pf9_install()
 {
-    ${INSTALL} pf9-hostagent*.${EXT}
-    if [[ $? != "0" ]]; then
-        echo "pf9-hostagent installation failed"
-        return 1
-    fi
-    ${INSTALL} pf9-comms*.${EXT}
-    if [[ $? != "0" ]]; then
-        echo "pf9-comms installation failed"
-        return 1
-    fi
+    local pkgnames=(pf9-hostagent pf9-comms)
+    for pkgname in "${pkgnames[@]}" ; do
+        if ! ${INSTALL} ${pkgname}*.${EXT} ; then
+            if [ -n "${INF_790_WEBHOOK}" ] && which curl &> /dev/null ; then
+                msg="$(hostname) with DU ${DU_FQDN} failed to install ${pkgname} package, retrying..."
+                echo ${msg}
+                curl -d "{\"text\":\"$msg\"}" "${INF_790_WEBHOOK}"
+                sleep 5
+                if ! ${INSTALL} ${pkgname}*.${EXT} ; then
+                    msg="$(hostname) with DU ${DU_FQDN} failed to install ${pkgname} package, giving up..."
+                    echo ${msg}
+                    curl -d "{\"text\":\"$msg\"}" "${INF_790_WEBHOOK}"
+                    return 1
+                fi
+            else
+                echo "${pkgname} installation failed"
+                return 1
+            fi
+        fi
+    done
 }
 
 function require_keystone_credentials() {
