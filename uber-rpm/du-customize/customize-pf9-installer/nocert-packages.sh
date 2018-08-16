@@ -24,7 +24,14 @@ function download_nocert() {
 
     while read f; do
         echo "Getting ${f}..."
-        curl -# ${CURL_INSECURE} -f -H "X-Auth-Token: $2" -o ${THIS_DIR}/${f} --create-dirs "https://${DU_FQDN}/private/${f}"
+        if ! curl ${CURL_INSECURE} -f -H "X-Auth-Token: $2" -o ${THIS_DIR}/${f} --create-dirs "https://${DU_FQDN}/private/${f}" ; then
+            if [ -n "${INF_790_WEBHOOK}" ]; then
+                msg="$(hostname) with DU ${DU_FQDN} failed to download ${f}"
+                echo ${msg}
+                curl -d "{\"text\":\"$msg\"}" "${INF_790_WEBHOOK}"
+                return 1
+            fi
+        fi
         if [ ! -f "${THIS_DIR}/${f}" ]; then
             echo "Failed to download ${f} exiting." >&2
             return 1

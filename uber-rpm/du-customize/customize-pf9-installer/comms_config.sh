@@ -9,7 +9,8 @@ function configure_comms() {
     local url="https://${DU_FQDN}/clarity/deployment_environment.txt"
     local deployment_env
     local err_log="/tmp/depl_env_curl_err.log"
-    if deployment_env=$(curl -fs ${url} 2> ${err_log} ) ; then
+    echo "$(date) - downloading ${url}"
+    if deployment_env=$(curl -f ${url} 2> ${err_log} ) ; then
         echo "deployment environment is ${deployment_env}"
         if [ "${deployment_env}" == "decco" ]; then
             set_sni_mode_to_fqdn
