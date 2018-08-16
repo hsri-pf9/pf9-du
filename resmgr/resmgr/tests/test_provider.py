@@ -1135,6 +1135,7 @@ class TestProvider(DbTestCase):
     def test_iaas_8990(self):
         # start the poller with a short poll interval
         pollthread = threading.Thread(target=self._bbone.run)
+        pollthread.daemon = True
 
         # this is backup of thread.start() that's mocked by setUp
         self._real_thread_start(pollthread)
