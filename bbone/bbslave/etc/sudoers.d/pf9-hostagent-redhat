@@ -14,7 +14,8 @@ pf9	ALL = NOPASSWD: /opt/pf9/hostagent/bin/pf9-yum install /var/cache/pf9apps/*.
           NOPASSWD: /sbin/vgs, \
           NOPASSWD: /bin/mkdir -p /opt/pf9/home, \
           NOPASSWD: /bin/chown -R pf9\:pf9group /opt/pf9/home, \
-          NOPASSWD: /usr/bin/ovs-vsctl list-br
+          NOPASSWD: /usr/bin/ovs-vsctl list-br, \
+          NOPASSWD: /opt/pf9/pf9-onboarding/bin/onboarding-runner
 
 Defaults:pf9 !requiretty
 Defaults!/sbin/service env_keep+=SYSTEMCTL_SKIP_REDIRECT
