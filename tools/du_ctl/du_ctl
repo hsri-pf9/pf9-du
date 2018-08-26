@@ -432,7 +432,7 @@ def _update_and_poll(options, cur_host_agent_version):
     try:
         _do_put(put_req, agent_data)
 
-        time_left = 10 * 60    # 10 mins
+        time_left = 15 * 60    # 15 mins
         poll_interval = 20    # 20 secs
         updating = False
         while (time_left):
