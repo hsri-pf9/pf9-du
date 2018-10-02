@@ -7,9 +7,9 @@
     port: 8083
     httpPath: "/resmgr"
     rewritePath: "/"
-  - name: private
+  - name: protected
     port: 8083
-    httpPath: "/private"
+    httpPath: "/protected"
     rewritePath: "/static"
   - name: resmgr-internal
     port: 8083

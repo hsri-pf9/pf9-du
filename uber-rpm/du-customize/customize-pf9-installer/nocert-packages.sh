@@ -16,7 +16,7 @@ function download_nocert() {
     local packagelist="${THIS_DIR}/packagelist"
 
     echo "Getting package list..."
-    curl -# ${CURL_INSECURE} -f -H "X-Auth-Token: $2" "https://$DU_FQDN/private/nocert-packagelist.$1" > ${packagelist}
+    curl -# ${CURL_INSECURE} -f -H "X-Auth-Token: $2" "https://$DU_FQDN/protected/nocert-packagelist.$1" > ${packagelist}
     if [ ! -f "${packagelist}" ]; then
         echo "Failed to download package list, exiting." >&2
         return 1
@@ -24,7 +24,7 @@ function download_nocert() {
 
     while read f; do
         echo "Getting ${f}..."
-        if ! curl ${CURL_INSECURE} -f -H "X-Auth-Token: $2" -o ${THIS_DIR}/${f} --create-dirs "https://${DU_FQDN}/private/${f}" ; then
+        if ! curl ${CURL_INSECURE} -f -H "X-Auth-Token: $2" -o ${THIS_DIR}/${f} --create-dirs "https://${DU_FQDN}/protected/${f}" ; then
             if [ -n "${INF_790_WEBHOOK}" ]; then
                 msg="$(hostname) with DU ${DU_FQDN} failed to download ${f}"
                 echo ${msg}
