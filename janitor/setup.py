@@ -19,7 +19,8 @@ setup(
     install_requires=[
         "python-daemon==1.6.1",
         "requests",
-        "pyyaml"
+        "pyyaml",
+        "python-keystoneclient==3.13.0"
     ],
     test_suite='janitor',
     zip_safe=False,

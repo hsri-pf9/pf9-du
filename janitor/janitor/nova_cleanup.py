@@ -23,21 +23,16 @@ class NovaCleanup(NovaBase):
     def __init__(self, conf):
         super(NovaCleanup, self).__init__(conf)
         self._resmgr_url = conf.get('resmgr', 'endpointURI')
-        self._token = utils.get_auth_token(self._auth_tenant,
-                                           self._auth_user,
-                                           self._auth_pass,
-                                           None)
+        self.auth = utils.get_auth(self._auth_tenant,
+                                   self._auth_user,
+                                   self._auth_pass)
 
     def cleanup(self):
         """Remove hypervisor and instance information from Nova for
         hosts which have been removed from resmgr
         """
-        self._token = utils.get_auth_token(self._auth_tenant,
-                                           self._auth_user,
-                                           self._auth_pass,
-                                           self._token)
-        token_id = self._token['id']
-        project_id = self._token['tenant']['id']
+        token_id = utils.get_auth_token(self.auth)
+        project_id = utils.get_auth_project_id(self.auth)
 
         def get_affected_instances(nova_only_ids):
             server_list = dict((nova_id, []) for nova_id in nova_only_ids)

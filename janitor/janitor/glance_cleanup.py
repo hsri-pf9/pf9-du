@@ -19,10 +19,12 @@ class GlanceCleanup(object):
     def __init__(self, conf):
         self._resmgr_url = conf.get('resmgr', 'endpointURI')
         self._glance_url = conf.get('glance', 'apiEndpoint')
-        self._auth = None
         glance_config = conf.get('nova', 'configfile')
         self._auth_user, self._auth_pass, self._auth_tenant = \
                 utils.get_keystone_credentials(glance_config)
+        self.auth = utils.get_auth(self._auth_tenant,
+                                   self._auth_user,
+                                   self._auth_pass)
 
     def _get_images(self, token):
         url = '%s/v2/images?limit=100' % self._glance_url
@@ -113,9 +115,7 @@ class GlanceCleanup(object):
         """
         update image properties based on the health of the host and role
         """
-        self._auth = utils.get_auth_token(self._auth_tenant, self._auth_user,
-                                          self._auth_pass, self._auth)
-        token = self._auth['id']
+        token = utils.get_auth_token(self.auth)
         resp = utils.get_resmgr_hosts(self._resmgr_url, token)
         resp.raise_for_status()
         resp_list = resp.json()

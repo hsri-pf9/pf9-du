@@ -2,62 +2,33 @@
 # Copyright (c) Platform9 Systems. All rights reserved
 #
 
-import json
 import logging
 import requests
 
 from ConfigParser import ConfigParser
-import time
+from keystoneauth1.identity import v3
+from keystoneauth1 import session
 
 LOG = logging.getLogger('janitor-daemon')
 
 
-def _get_auth_token(tenant, user, password):
-    data = {
-        "auth": {
-            "tenantName": tenant,
-            "passwordCredentials": {
-                "username": user,
-                "password": password
-            }
-        }
-    }
-
-    url = 'http://localhost:8080/keystone/v2.0/tokens'
-
-    r = requests.post(url, json.dumps(data),
-                      verify=False, headers={'Content-Type': 'application/json'})
-
-    if r.status_code != requests.codes.ok:
-        raise RuntimeError('Token request returned: %d' % r.status_code)
-
-    return r.json()['access']['token']
+def get_auth(tenant, user, password):
+    auth = v3.Password(
+        auth_url="http://localhost:8080/keystone/v3",
+        username=user,
+        password=password, project_name=tenant,
+        user_domain_id="default", project_domain_id="default")
+    return auth
 
 
-def _need_refresh(token):
-    """
-    Return True if token should be refreshed.
-    """
-
-    # TODO check if token is valid by querying keystone
-
-    str_exp_time = token['expires']
-    token_time = time.strptime(str_exp_time, '%Y-%m-%dT%H:%M:%SZ')
-    current_time = time.gmtime()
-
-    return True if time.mktime(token_time) - time.mktime(current_time) < 60 * 5\
-        else False
+def get_auth_token(auth):
+    sess = session.Session(auth=auth)
+    return sess.get_token()
 
 
-def get_auth_token(tenant, user, password, old_token):
-
-    token = old_token
-
-    if not old_token or _need_refresh(old_token):
-        LOG.debug('Refreshing token...')
-        token = _get_auth_token(tenant, user, password)
-
-    return token
+def get_auth_project_id(auth):
+    sess = session.Session(auth=auth)
+    return sess.get_project_id()
 
 
 def get_resmgr_hosts(resmgr_url, token):
@@ -106,6 +77,7 @@ def get_ostackhost_role_data(resmgr_hosts, resmgr_url, token):
                           'than one ostackhost roles authorized. Taking none '
                           'in consideration.', resmgr_host)
     return clusters
+
 
 def get_keystone_credentials(configfile):
     """

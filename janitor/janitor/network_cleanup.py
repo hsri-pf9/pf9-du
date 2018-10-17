@@ -26,10 +26,9 @@ class NetworkCleanup(NovaBase):
 
     def __init__(self, conf):
         super(NetworkCleanup, self).__init__(conf)
-        self._token = utils.get_auth_token(self._auth_tenant,
-                                           self._auth_user,
-                                           self._auth_pass,
-                                           None)
+        self.auth = utils.get_auth(self._auth_tenant,
+                                   self._auth_user,
+                                   self._auth_pass)
 
     def build_instance_network_mapping(self,  token_id, project_id, network_ids):
         """
@@ -71,12 +70,8 @@ class NetworkCleanup(NovaBase):
         return network_to_inst
 
     def cleanup(self):
-        self._token = utils.get_auth_token(self._auth_tenant,
-                                           self._auth_user,
-                                           self._auth_pass,
-                                           self._token)
-        token_id = self._token['id']
-        project_id = self._token['tenant']['id']
+        token_id = utils.get_auth_token(self.auth)
+        project_id = utils.get_auth_project_id(self.auth)
         resp = self._nova_request('os-networks', token_id, project_id)
 
         if not resp:
