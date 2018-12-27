@@ -461,7 +461,7 @@ class RolesMgr(object):
             event_spec = app_details['du_config']['auth_events']
 
             # add the host configuration to the du_config events if needed
-            host_config = app_config.get(role_name, {}).get('config', {})
+            host_config = app_config.get(app_name, {}).get('config', {})
             event_spec = dict_subst.substitute(event_spec,
                     {'__HOST_CONFIG__': host_config})
             events_type = event_spec.get('type', None)
