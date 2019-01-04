@@ -55,6 +55,7 @@ ${BUILD_DIR}:
 ${VENV}: ${BUILD_DIR}
 	mkdir -p $@
 	$(SRC_ROOT)/build-venv.sh ${VENV}
+	${VENV}/bin/pip install setuptools==33.1.1
 
 ${BBMASTER_SRC_STAGE}: pre-reqs
 	mkdir -p ${BBMASTER_SRC_STAGE}/etc/pf9

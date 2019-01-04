@@ -23,6 +23,7 @@ ${BUILD_DIR}:
 
 ${TEST_VENV}: ${BUILD_DIR}
 	virtualenv ${TEST_VENV}
+	${TEST_VENV}/bin/pip install setuptools==33.1.1
 
 pre-reqs : ${TEST_VENV}
 	for pkg in ${TEST_SETUP_DEPS}; do \
