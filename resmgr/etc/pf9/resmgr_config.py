@@ -22,7 +22,7 @@ logging = {
         'filelogger': {
             'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
-            'maxBytes': 2097152,
+            'maxBytes': 1048576,
             'backupCount': 10,
             'filename': '/var/log/pf9/resmgr.log',
             'formatter': 'simple'
