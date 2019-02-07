@@ -4,3 +4,4 @@ set -x
 
 date
 
+uptime
