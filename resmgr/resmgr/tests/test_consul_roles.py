@@ -139,12 +139,12 @@ class TestConsulRoles(DbTestCase):
 
         # check current setting
         deets = self._db.query_host_and_app_details(
-                    host_id=TEST_HOST['id'],
-                    include_deauthed_roles=True)
+                    host_id=TEST_HOST['id'])
         self.assertEquals(1, len(deets))
-        self.assertEqual('conf1_value', deets[TEST_HOST['id']]['apps_config'][
+        apps_cfg = deets[TEST_HOST['id']]['apps_config_including_deauthed_roles']
+        self.assertEqual('conf1_value', apps_cfg[
             rolename]['config']['test_conf']['DEFAULT']['conf1'])
-        self.assertEqual('param1_value', deets[TEST_HOST['id']]['apps_config'][
+        self.assertEqual('param1_value', apps_cfg[
             rolename]['du_config']['auth_events']['params']['param1'])
 
         # update conf1 and param1
@@ -166,12 +166,13 @@ class TestConsulRoles(DbTestCase):
 
         # check it
         deets = self._db.query_host_and_app_details(
-                    host_id=TEST_HOST['id'],
-                    include_deauthed_roles=True)
+                    host_id=TEST_HOST['id'])
         self.assertEquals(1, len(deets))
-        self.assertEqual('conf1_new_value', deets[TEST_HOST['id']]['apps_config'][
+        self.assertEqual('conf1_new_value', deets[TEST_HOST['id']][
+            'apps_config_including_deauthed_roles'][
             rolename]['config']['test_conf']['DEFAULT']['conf1'])
-        self.assertEqual('param1_new_value', deets[TEST_HOST['id']]['apps_config'][
+        self.assertEqual('param1_new_value', deets[TEST_HOST['id']][
+            'apps_config_including_deauthed_roles'][
             rolename]['du_config']['auth_events']['params']['param1'])
 
 

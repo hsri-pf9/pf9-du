@@ -316,7 +316,10 @@ class TestProvider(DbTestCase):
         self.assertEqual(bad_role, None)
 
     def test_core646(self):
-        # reproduces the race condition of CORE-646
+        # Reproduces the race condition of CORE-646
+
+        # Set to False before fix, and True after fix
+        bug_fixed = True
         host_id = TEST_HOST['id']
         self._provider.add_role(host_id, 'test-role', {})
 
@@ -327,24 +330,35 @@ class TestProvider(DbTestCase):
 
         self._assert_role_state(host_id, 'test-role',
                                 role_states.AUTH_CONVERGING)
-        self._assert_role_state(host_id, 'test-role-2',
-                                role_states.AUTH_CONVERGING)
-        url = 'http://fake/v1/hosts/1234/apps'
 
-        # The following sequence occurs before the fix to CORE-646:
-        # - 2 pushes of a config that contains both roles
-        # - a push of a config that contains only test-role
-        self._requests_put.assert_has_calls([
-            ((url, match_dict_to_jsonified(BBONE_COMBINED_PUSH)),{}),
-            ((url, match_dict_to_jsonified(BBONE_COMBINED_PUSH)),{}),
-            ((url, match_dict_to_jsonified(BBONE_PUSH)),{}),
-        ])
-        # The following sequence occurs after CORE-646 is fixed:
-        # self._requests_put.assert_has_calls([
-        #    ((url, match_dict_to_jsonified(BBONE_PUSH)),{}),
-        #    ((url, match_dict_to_jsonified(BBONE_COMBINED_PUSH)),{}),
-        #    ((url, match_dict_to_jsonified(BBONE_COMBINED_PUSH)),{}),
-        #])
+        expected_role2_state = role_states.PRE_AUTH if bug_fixed else \
+                               role_states.AUTH_CONVERGING
+        self._assert_role_state(host_id, 'test-role-2', expected_role2_state)
+        url = 'http://fake/v1/hosts/1234/apps'
+        if not bug_fixed:
+            # The following sequence occurs before the fix to CORE-646:
+            # - 2 pushes of a config that contains both roles
+            # - a push of a config that contains only test-role
+            self._requests_put.assert_has_calls([
+                ((url, match_dict_to_jsonified(BBONE_COMBINED_PUSH)),{}),
+                ((url, match_dict_to_jsonified(BBONE_COMBINED_PUSH)),{}),
+                ((url, match_dict_to_jsonified(BBONE_PUSH)),{}),
+            ])
+        else:
+            # The following sequence occurs after CORE-646 is fixed:
+            # 2 pushes containing only test-role
+            self._requests_put.assert_has_calls([
+                ((url, match_dict_to_jsonified(BBONE_PUSH)),{}),
+                ((url, match_dict_to_jsonified(BBONE_PUSH)),{}),
+            ])
+            # It takes another process_hosts() for test-role-2 to be pushed
+            self._bbone.process_hosts()
+            self._requests_put.assert_has_calls([
+                ((url, match_dict_to_jsonified(BBONE_PUSH)),{}),
+                ((url, match_dict_to_jsonified(BBONE_PUSH)),{}),
+                ((url, match_dict_to_jsonified(BBONE_COMBINED_PUSH)), {}),
+                ((url, match_dict_to_jsonified(BBONE_COMBINED_PUSH)), {}),
+            ])
 
     def test_add_role_default_config(self):
         host_id = TEST_HOST['id']

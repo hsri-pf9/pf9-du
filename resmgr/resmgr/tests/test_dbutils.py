@@ -50,11 +50,12 @@ class TestDb(DbTestCase):
                              {'customizable_key': 'customizable_value'},
                              'rabbit', 'p@55wd')
         host_id = TEST_HOST['id']
-        deets = self._db.query_host_and_app_details(include_deauthed_roles=True)
+        deets = self._db.query_host_and_app_details()
         self.assertEquals(1, len(deets))
         self.assertEquals(role_states.NOT_APPLIED,
                           deets[host_id]['role_states']['test-role_1.0'])
-        self.assertTrue('test-role' in deets[host_id]['apps_config'])
+        self.assertTrue('test-role' in deets[host_id][
+            'apps_config_including_deauthed_roles'])
 
         attrs_with_rolenames = self._db.query_host(host_id, fetch_role_ids=False)
         self.assertEquals(host_id, attrs_with_rolenames['id'])
@@ -82,11 +83,12 @@ class TestDb(DbTestCase):
                              'rabbit', 'p@55wd')
         host_id = TEST_HOST['id']
 
-        deets = self._db.query_host_and_app_details(include_deauthed_roles=True)
+        deets = self._db.query_host_and_app_details()
         self.assertEquals(1, len(deets))
         self.assertEquals(role_states.NOT_APPLIED,
                           deets[host_id]['role_states']['test-role_1.0'])
-        self.assertTrue('test-role' in deets[host_id]['apps_config'])
+        self.assertTrue('test-role' in deets[host_id][
+            'apps_config_including_deauthed_roles'])
         result = self._db.advance_role_state(host_id, 'test-role',
                                              role_states.NOT_APPLIED,
                                              role_states.START_APPLY)
@@ -143,11 +145,12 @@ class TestDb(DbTestCase):
                              {'customizable_key': 'customizable_value'},
                              'rabbit', 'p@55wd')
         host_id = TEST_HOST['id']
-        deets = self._db.query_host_and_app_details(include_deauthed_roles=True)
+        deets = self._db.query_host_and_app_details()
         self.assertEquals(1, len(deets))
         self.assertEquals(role_states.NOT_APPLIED,
                           deets[host_id]['role_states']['test-role_1.0'])
-        self.assertTrue('test-role' in deets['1234']['apps_config'])
+        self.assertTrue('test-role' in deets['1234'][
+            'apps_config_including_deauthed_roles'])
 
         self._db.remove_role_from_host(host_id, 'test-role')
         deets = self._db.query_host_and_app_details()

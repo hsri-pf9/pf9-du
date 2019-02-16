@@ -777,8 +777,7 @@ class ResMgrDB(object):
         with self.dbsession() as session:
             return session.query(RabbitCredential).filter_by(**filter_kwargs).all()
 
-    def query_host_and_app_details(self, host_id=None,
-                                   include_deauthed_roles=False):
+    def query_host_and_app_details(self, host_id=None):
         """
         Query host details and returns a JSON serializable dictionary and not
         the ORM object. Use this to reference the host data beyond the database
@@ -800,15 +799,18 @@ class ResMgrDB(object):
                 results = session.query(Host).all()
             for host in results:
                 assigned_apps = {}
+                assigned_apps_including_deauthed_roles = {}
                 current_role_states = {}
                 for role_assoc in host.roles:
-                    if include_deauthed_roles or \
-                       role_states.role_is_authed(role_assoc.current_state):
-                        desiredconfig = self._substitute_host_role_params(
-                                host.id,
-                                role_assoc.role.rolename,
-                                role_assoc.role.desiredconfig)
+                    desiredconfig = self._substitute_host_role_params(
+                        host.id,
+                        role_assoc.role.rolename,
+                        role_assoc.role.desiredconfig)
+                    assigned_apps_including_deauthed_roles.update(desiredconfig)
+
+                    if role_states.role_is_authed(role_assoc.current_state):
                         assigned_apps.update(desiredconfig)
+
                     current_role_states[role_assoc.role_id] = \
                                         role_assoc.current_state
 
@@ -820,7 +822,10 @@ class ResMgrDB(object):
                     'lastresponsetime': host.lastresponsetime,
                     'responding': host.responding,
                     'apps_config': assigned_apps,
+                    'apps_config_including_deauthed_roles':
+                        assigned_apps_including_deauthed_roles,
                     'role_settings': host.role_settings,
+                    'role_details': [assoc.role for assoc in host.roles],
                     'role_states': current_role_states
                     }
 

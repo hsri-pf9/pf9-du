@@ -295,11 +295,12 @@ class RolesMgr(object):
             # host_id isn't there, no push yet
             return True
 
-    def get_current_app_config(self, host_id, include_deauthed_roles=False):
+    @staticmethod
+    def get_current_app_config(host_details, include_deauthed_roles=False):
         """
         Calculate the current app config, either to be pushed to a host,
         or to be used with an auth event.
-        :param host_id:
+        :param host_details: the full host data
         :param include_deauthed_roles: If true, includes config for roles
             that are in the process of being removed. Useful when running
             deauth events that need config for apps that are being removed.
@@ -319,22 +320,21 @@ class RolesMgr(object):
             }
         }}
         """
-        db = self.db_handler
-        host_details = db.query_host_and_app_details(host_id,
-                include_deauthed_roles=include_deauthed_roles)
-        app_info = host_details[host_id]['apps_config']
-        role_settings = host_details[host_id]['role_settings']
-        roles = db.query_roles_for_host(host_id)
+        app_info = host_details['apps_config_including_deauthed_roles'] if \
+            include_deauthed_roles else host_details['apps_config']
+        role_settings = host_details['role_settings']
+        roles = host_details['role_details']
         _update_custom_role_settings(app_info, role_settings, roles)
         return app_info
 
-    def move_to_preauth_state(self, host_id, rolename, current_state):
+    def move_to_preauth_state(self, host_id, host_details,
+                              rolename, current_state):
         """
         Run the on_auth role event handler.
         on success move to the PRE_AUTH state
         on failure move back to NOT_APPLIED.
         """
-        app_info = self.get_current_app_config(host_id)
+        app_info = self.get_current_app_config(host_details)
         if current_state == role_states.START_APPLY:
             with self.db_handler.move_new_state(host_id, rolename,
                                                 role_states.START_APPLY,
@@ -351,26 +351,27 @@ class RolesMgr(object):
             raise DuConfigError('Unexpected state %s when trying to move to '
                                 'preauth' % current_state)
 
-    def move_to_auth_converging_state(self, host_id, rolename):
+    def move_to_auth_converging_state(self, host_id, host_details, rolename):
         with self.db_handler.move_new_state(host_id, rolename,
                                             role_states.PRE_AUTH,
                                             role_states.AUTH_CONVERGING,
                                             role_states.PRE_AUTH):
-            app_info = self.get_current_app_config(host_id)
+            app_info = self.get_current_app_config(host_details)
             log.info('Sending request to backbone to add role %s to %s with '
                      'config %s', rolename, host_id, app_info)
             self.push_configuration(host_id, app_info)
 
-    def move_to_pre_deauth_state(self, host_id, rolename, current_state):
+    def move_to_pre_deauth_state(self, host_id, host_details,
+                                 rolename, current_state):
         with self.db_handler.move_new_state(host_id, rolename,
                                             current_state,
                                             role_states.PRE_DEAUTH,
                                             role_states.APPLIED):
-            app_info = self.get_current_app_config(host_id,
-                                include_deauthed_roles=True)
+            app_info = self.get_current_app_config(host_details,
+                                                   include_deauthed_roles=True)
             self.on_deauth(rolename, app_info)
 
-    def move_to_deauth_converging_state(self, host_id, rolename):
+    def move_to_deauth_converging_state(self, host_id, host_details, rolename):
         with self.db_handler.move_new_state(host_id, rolename,
                                             role_states.PRE_DEAUTH,
                                             role_states.DEAUTH_CONVERGING,
@@ -383,20 +384,20 @@ class RolesMgr(object):
             if credentials:
                 self._delete_rabbit_credentials(credentials)
 
-            app_info = self.get_current_app_config(host_id)
+            app_info = self.get_current_app_config(host_details)
             self.push_configuration(host_id, app_info)
 
-    def move_to_applied_state(self, host_id, rolename):
+    def move_to_applied_state(self, host_id, host_details, rolename):
         with self.db_handler.move_new_state(host_id, rolename,
                                             role_states.AUTH_CONVERGED,
                                             role_states.APPLIED,
                                             role_states.AUTH_ERROR):
             log.info('Running on_auth_converged_event')
-            app_info = self.get_current_app_config(host_id,
+            app_info = self.get_current_app_config(host_details,
                                 include_deauthed_roles=True)
             self.on_auth_converged(rolename, app_info)
 
-    def move_to_not_applied_state(self, host_id, rolename):
+    def move_to_not_applied_state(self, host_id, host_details, rolename):
         """
         Note there's no role transition to 'NOT_APPLIED' because the
         the role is removed from the associations.
@@ -404,7 +405,7 @@ class RolesMgr(object):
         try:
             log.info('Running on_deauth_converged_event for %s(%s)',
                      host_id, rolename)
-            app_info = self.get_current_app_config(host_id,
+            app_info = self.get_current_app_config(host_details,
                                 include_deauthed_roles=True)
             self.on_deauth_converged(rolename, app_info)
 
@@ -822,7 +823,8 @@ class BbonePoller(object):
         """
         for host in host_ids:
             with _role_update_lock:
-                self._advance_from_transient_state(host)
+                self._advance_from_transient_state(host,
+                                                   authorized_hosts.get(host))
             try:
                 host_info = self._get_backbone_host(host)
             except BBMasterNotFound:
@@ -876,7 +878,7 @@ class BbonePoller(object):
                     elif not (responding or responding_on_du):
                         # if we're waiting for convergence, assume we'll never see it,
                         # finish setup/cleanup with on post converge event handlers.
-                        self._finish_role_converge(host)
+                        self._finish_role_converge(host, authorized_hosts[host])
                     else:
                         cfg_key = 'apps' if host_status == 'ok' else 'desired_apps'
                         host_config = host_info.get(cfg_key, {})
@@ -895,7 +897,8 @@ class BbonePoller(object):
                         if self.rolemgr.received_since_last_push(host, host_info) and \
                            host_status == 'ok' and \
                            is_satisfied_by(expected_cfg, host_info['apps']):
-                            self._finish_role_converge(host)
+                            self._finish_role_converge(host,
+                                                       authorized_hosts[host])
                         elif not is_satisfied_by(expected_cfg, host_config):
                             log.debug('Pushing new configuration for %s, config: %s. '
                                       'Expected config %s', host, host_config,
@@ -921,7 +924,7 @@ class BbonePoller(object):
                     _unauthorized_hosts[host]['info']['hostname'] = hostname
                     self.notifier.publish_notification('change', 'host', host)
 
-    def _finish_role_converge(self, host_id):
+    def _finish_role_converge(self, host_id, host_details):
         db = self.db_handle
         roles = db.query_roles_for_host(host_id)
         if not roles:
@@ -931,11 +934,13 @@ class BbonePoller(object):
                 if db.advance_role_state(host_id, role.rolename,
                                          role_states.AUTH_CONVERGING,
                                          role_states.AUTH_CONVERGED):
-                    self.rolemgr.move_to_applied_state(host_id, role.rolename)
+                    self.rolemgr.move_to_applied_state(host_id, host_details,
+                                                       role.rolename)
                 elif db.advance_role_state(host_id, role.rolename,
                                            role_states.DEAUTH_CONVERGING,
                                            role_states.DEAUTH_CONVERGED):
-                    self.rolemgr.move_to_not_applied_state(host_id, role.rolename)
+                    self.rolemgr.move_to_not_applied_state(host_id, host_details,
+                                                           role.rolename)
             except DuConfigError as e:
                 log.error('Failed to run post converge event for role %s on '
                           'host %s: %s', role.rolename, host_id, e)
@@ -959,7 +964,7 @@ class BbonePoller(object):
                 log.info('Moved role %s on host %s to the %s state',
                          role.rolename, host_id, role_states.DEAUTH_ERROR)
 
-    def _advance_from_transient_state(self, host_id):
+    def _advance_from_transient_state(self, host_id, host_details):
         """
         Move the state machine forward to a point where it's either waiting
         for status from a host, or at a terminal state. This comes into effect
@@ -971,8 +976,10 @@ class BbonePoller(object):
         FIXME: With a bit more refactoring, this could handle the whole state
                machine.
         """
+        if not host_details:
+            return
         db = self.db_handle
-        roles = db.query_roles_for_host(host_id)
+        roles = host_details['role_details']
         rolenames = [r.rolename for r in roles] if roles else []
         for rolename in rolenames:
             more_transitions = True
@@ -983,23 +990,28 @@ class BbonePoller(object):
                 current_state = assoc.current_state
                 if current_state in [role_states.START_APPLY,
                                      role_states.START_EDIT]:
-                    self.rolemgr.move_to_preauth_state(host_id, rolename,
-                                                       current_state)
+                    self.rolemgr.move_to_preauth_state(host_id, host_details,
+                                                       rolename, current_state)
                 elif current_state == role_states.PRE_AUTH:
                     self.rolemgr.move_to_auth_converging_state(host_id,
+                                                               host_details,
                                                                rolename)
                 elif current_state == role_states.AUTH_CONVERGED:
-                    self.rolemgr.move_to_applied_state(host_id, rolename)
+                    self.rolemgr.move_to_applied_state(host_id, host_details,
+                                                       rolename)
                     more_transitions = False
                 elif current_state == role_states.START_DEAUTH:
                     self.rolemgr.move_to_pre_deauth_state(host_id,
+                                                          host_details,
                                                           rolename,
                                                           current_state)
                 elif current_state == role_states.PRE_DEAUTH:
                     self.rolemgr.move_to_deauth_converging_state(host_id,
+                                                                 host_details,
                                                                  rolename)
                 elif current_state == role_states.DEAUTH_CONVERGED:
                     self.rolemgr.move_to_not_applied_state(host_id,
+                                                           host_details,
                                                            rolename)
                     more_transitions = False
                 else:
@@ -1045,8 +1057,9 @@ class BbonePoller(object):
             del_ids = all_ids - bbone_ids
             exist_ids = all_ids & bbone_ids
 
-            # This hook is for unit-testing race conditions that modify the
-            # app config database after it's read at the top of this method
+            # This hook is for simulating a race condition that modifies the
+            # app config database after it's read at the top of this method.
+            # Currently used by the unit-test for CORE-646
             if post_db_read_hook_func:
                 post_db_read_hook_func()
 
@@ -1424,8 +1437,10 @@ class ResMgrPf9Provider(ResMgrProvider):
                 raise
 
             # run the on_auth event
-            self.roles_mgr.move_to_preauth_state(host_id, role_name,
-                                                 curr_role_state)
+            host_details = self.res_mgr_db.query_host_and_app_details(host_id)
+            host_details = host_details[host_id]
+            self.roles_mgr.move_to_preauth_state(host_id, host_details,
+                                                 role_name, curr_role_state)
             # wake up the poller to start moving through the state machine.
             self.bbone_poller.wake_up()
 
@@ -1474,8 +1489,10 @@ class ResMgrPf9Provider(ResMgrProvider):
             log.debug('Clearing role %s for host %s in DB', role_name, host_id)
 
             # run the on_deauth event
-            self.roles_mgr.move_to_pre_deauth_state(host_id, role_name,
-                                                    curr_role_state)
+            host_details = self.res_mgr_db.query_host_and_app_details(host_id)
+            host_details = host_details[host_id]
+            self.roles_mgr.move_to_pre_deauth_state(host_id, host_details,
+                                                    role_name, curr_role_state)
             # wake up the poller to start moving through the state machine.
             if wake_poller:
                 self.bbone_poller.wake_up()
