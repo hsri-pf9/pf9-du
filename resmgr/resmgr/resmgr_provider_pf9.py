@@ -1028,7 +1028,7 @@ class BbonePoller(object):
                 _hosts_message_data.pop(id, None)
                 self.notifier.publish_notification('delete', 'host', id)
 
-    def process_hosts(self):
+    def process_hosts(self, post_db_read_hook_func=None):
         """
         Routine to query bbone for host info and process it
         """
@@ -1044,6 +1044,11 @@ class BbonePoller(object):
             new_ids = bbone_ids - all_ids
             del_ids = all_ids - bbone_ids
             exist_ids = all_ids & bbone_ids
+
+            # This hook is for unit-testing race conditions that modify the
+            # app config database after it's read at the top of this method
+            if post_db_read_hook_func:
+                post_db_read_hook_func()
 
             # Process hosts that are newly reported from backbone
             self._process_new_hosts(new_ids)

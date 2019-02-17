@@ -102,6 +102,11 @@ BBONE_PUSH['test-role']['url'] = \
     "%(download_protocol)s://%(host_relative_amqp_fqdn)s:" \
     "%(download_port)s/private/test-role-1.0.rpm"
 
+# Contains both test-role and test-role-2
+BBONE_COMBINED_PUSH = copy.deepcopy(BBONE_PUSH)
+BBONE_COMBINED_PUSH['test-role-2'] = copy.deepcopy(BBONE_COMBINED_PUSH['test-role'])
+
+
 class match_dict_to_jsonified(object):
     """
     __eq__ is true when the other object is a json string representing
@@ -309,6 +314,37 @@ class TestProvider(DbTestCase):
         self.assertEqual(good_role['test-role']['name'], 'test-role')
         bad_role = self._provider.get_role('role-missing-config')
         self.assertEqual(bad_role, None)
+
+    def test_core646(self):
+        # reproduces the race condition of CORE-646
+        host_id = TEST_HOST['id']
+        self._provider.add_role(host_id, 'test-role', {})
+
+        def preemptive_func():
+            self._provider.add_role(host_id, 'test-role-2', {})
+
+        self._bbone.process_hosts(post_db_read_hook_func=preemptive_func)
+
+        self._assert_role_state(host_id, 'test-role',
+                                role_states.AUTH_CONVERGING)
+        self._assert_role_state(host_id, 'test-role-2',
+                                role_states.AUTH_CONVERGING)
+        url = 'http://fake/v1/hosts/1234/apps'
+
+        # The following sequence occurs before the fix to CORE-646:
+        # - 2 pushes of a config that contains both roles
+        # - a push of a config that contains only test-role
+        self._requests_put.assert_has_calls([
+            ((url, match_dict_to_jsonified(BBONE_COMBINED_PUSH)),{}),
+            ((url, match_dict_to_jsonified(BBONE_COMBINED_PUSH)),{}),
+            ((url, match_dict_to_jsonified(BBONE_PUSH)),{}),
+        ])
+        # The following sequence occurs after CORE-646 is fixed:
+        # self._requests_put.assert_has_calls([
+        #    ((url, match_dict_to_jsonified(BBONE_PUSH)),{}),
+        #    ((url, match_dict_to_jsonified(BBONE_COMBINED_PUSH)),{}),
+        #    ((url, match_dict_to_jsonified(BBONE_COMBINED_PUSH)),{}),
+        #])
 
     def test_add_role_default_config(self):
         host_id = TEST_HOST['id']
