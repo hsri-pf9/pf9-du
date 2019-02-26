@@ -697,6 +697,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
         'queue_name') else 'bbslave-q-' + _host_id
     socket_timeout = float(config.get('amqp', 'connect_timeout')) \
         if config.has_option('amqp', 'connect_timeout') else 2.5
+    amqp_hb_itvl = float(config.get('amqp', 'amqp_heartbeat_interval')) \
+        if config.has_option('amqp', 'amqp_heartbeat_interval') else 30
     dual_channel_io_loop(log,
                          host=amqp_host,
                          credentials=credentials,
@@ -708,6 +710,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
                          send_channel_down_cb=send_channel_down_cb,
                          consume_cb=consume_msg,
                          virtual_host=vhost,
+                         amqp_heartbeat_interval=amqp_hb_itvl,
                          ssl_options=ssl_options,
                          socket_timeout=socket_timeout)  # in secs
 

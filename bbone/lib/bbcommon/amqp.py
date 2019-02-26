@@ -140,6 +140,7 @@ def dual_channel_io_loop(log,
                          send_channel_down_cb,
                          consume_cb,
                          virtual_host=None,
+                         amqp_heartbeat_interval=30,
                          ssl_options=None,
                          socket_timeout=None):
     """
@@ -233,6 +234,7 @@ def dual_channel_io_loop(log,
                 virtual_host=virtual_host,
                 ssl=ssl_options is not None,
                 ssl_options=ssl_options,
+                heartbeat_interval=amqp_heartbeat_interval,
                 socket_timeout=socket_timeout),
             on_open_callback=on_open)
     conn.ioloop.start()
