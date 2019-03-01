@@ -171,11 +171,18 @@ class ResMgrDB(object):
         self.db_connection_options = {}
 
         # Override SQLAlchemy default pool size if defined
-        try:
+        if config.has_option('database', 'pool_size'):
             self.db_connection_options['pool_size'] = config.getint('database', 'pool_size')
-        except ConfigParser.NoOptionError as excp:
-            log.info(('No database connection pool_size configured. '
-                      'Using SQLAlchemy default pool_size.'))
+        else:
+            log.info('No database connection pool_size configured. '
+                      'Using SQLAlchemy default pool_size.')
+
+        # Set Pessimistic disconnect handling
+        if config.has_option('database', 'pessimistic_disconnect_handling'):
+            self.db_connection_options['pool_pre_ping'] = config.getboolean('database',
+                                                            'pessimistic_disconnect_handling')
+        else:
+            log.info('No pessimistic disconnect handling. Using SQLAlchemy default')
 
         self.session_maker = sessionmaker(bind=self.dbengine)
         # Populate/Update the roles table, if needed.
