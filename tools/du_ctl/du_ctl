@@ -36,7 +36,23 @@ _resmgr_endpoint = 'http://localhost:8083/v1'
 _sidekick_endpoint = 'http://localhost:3011/v1'
 _keystone_endpoint = 'http://localhost:8080/keystone_admin/v2.0/tokens'
 
-_parser = argparse.ArgumentParser()
+debug_parser = argparse.ArgumentParser(add_help=False)
+debug_parser.add_argument("--debug",
+                        action='store_true',
+                        dest='debug',
+                        help='Write debug level logs to stdout')
+
+format_parser = argparse.ArgumentParser(add_help=False)
+format_parser.add_argument("--format",
+                    action='store',
+                    dest='format',
+                    default='json',
+                    choices=['json', 'table'],
+                    help='Output format')
+
+parent_parsers = [debug_parser, format_parser]
+
+_parser = argparse.ArgumentParser(parents=parent_parsers)
 
 def login(username, password, tenant):
     """
@@ -142,6 +158,7 @@ def _build_hostagent_parser(subparsers):
 
     # Parser for list
     agent_list_parser = agent_sub_parser.add_parser('list',
+                                                    parents=parent_parsers,
                                                     help='List the hosts and its details')
     agent_list_parser.add_argument('--host',
                       action='store',
@@ -184,6 +201,7 @@ def _build_sidekick_parser(subparsers):
 
     # sidekick host list
     sidekick_host_list_parser = sidekick_sub_parser.add_parser('list',
+                                                                parents=parent_parsers,
                                                                 help='List hosts heartbeating to sidekick.')
     sidekick_host_list_parser.add_argument('--host_id',
                                    action='store',
@@ -201,18 +219,6 @@ def _add_credential_arguments(parser):
                         dest='password',
                         help='User account password. Optional if OS_PASSWORD is set.')
 
-def _add_format_arguent(parser):
-    parser.add_argument("--format",
-                        action='store',
-                        dest='format',
-                        help='Format, valid values are json/table')
-
-def _add_debug_argument(parser):
-    parser.add_argument("--debug",
-                        action='store_true',
-                        dest='debug',
-                        help='Write debug level logs to stdout')
-
 def _build_host_parser(subparsers):
     """
     Build subparser for host related operations
@@ -225,6 +231,7 @@ def _build_host_parser(subparsers):
                                                  dest='host_subparser')
 
     host_list_parser = host_sub_parser.add_parser('list',
+                                                  parents=parent_parsers,
                                                   help='List hosts information')
     _add_credential_arguments(host_list_parser)
 
@@ -262,8 +269,6 @@ def _build_parsers():
     """
     Build the command line parser hierarchy based on the control script actions
     """
-    _add_format_arguent(_parser)
-    _add_debug_argument(_parser)
     subparsers = _parser.add_subparsers(help='sub-commands',
                                         dest='subparser')
     _build_role_parser(subparsers)
