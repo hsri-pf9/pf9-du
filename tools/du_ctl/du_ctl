@@ -18,6 +18,8 @@ import sys
 import time
 from prettytable import PrettyTable
 
+JSON_INDENT = 4
+
 logging.basicConfig(level=logging.DEBUG,
                     stream=sys.stderr,
                     format='%(message)s')
@@ -54,9 +56,8 @@ def login(username, password, tenant):
         }
     }
     r = requests.post(_keystone_endpoint,
-                      json.dumps(data),
-                      verify=False,
-                      headers={'Content-Type': 'application/json'})
+                      json=data,
+                      verify=False)
     r.raise_for_status()
     return r.json()
 
@@ -372,8 +373,7 @@ def do_host_role_reset(args):
     Remove all roles associated with a host
     :param args: Command line args
     """
-    headers = {'Content-type': 'json',
-               'X-Auth-Token': _get_login_token(args)}
+    headers = {'X-Auth-Token': _get_login_token(args)}
     resp = requests.delete('%s/hosts/%s' % (_resmgr_endpoint, args.host_id),
                            headers=headers)
     resp.raise_for_status()
@@ -468,11 +468,10 @@ def do_support_bundle(args):
     sys.exit(1)
 
 def do_support_command(args):
-    headers = {'X-Auth-Token' : _get_login_token(args),
-               'Content-Type' : 'application/json'}
+    headers = {'X-Auth-Token' : _get_login_token(args)}
     body = {'command' : args.command}
     resp = requests.post('%s/hosts/%s/support/command/' % (_resmgr_endpoint, args.host_id),
-                         headers=headers, data=json.dumps(body))
+                         headers=headers, json=body)
     resp.raise_for_status()
 
     print "Response code: %d " % resp.status_code
@@ -484,7 +483,6 @@ def _do_get(url, headers={}):
     :return: JSON response
     :rtype: JSON encoded dict
     """
-    headers['Content-type'] = 'json'
     resp = requests.get(url, headers=headers)
     resp.raise_for_status()
     return resp.json()
@@ -701,13 +699,13 @@ def _print_host_list(args, host_list):
     if args.format == 'table':
         _print_host_list_table(host_list)
     else:
-        print json.dumps(host_list, indent=3)
+        print json.dumps(host_list, indent=JSON_INDENT)
 
 def _print_agent_list(args, agent_list):
     if args.format == 'table':
         _print_agent_list_table(agent_list)
     else:
-        print json.dumps(agent_list, indent=3)
+        print json.dumps(agent_list, indent=JSON_INDENT)
 
 def _print_agent_list_table(agent_list):
     header = ["id", "status", "version"]
@@ -766,7 +764,7 @@ def _print_sidekick_list(args, sidekick_list):
         else:
             _print_sidekick_list_table(sidekick_list)
     else:
-        print(json.dumps(sidekick_list, indent=4))
+        print(json.dumps(sidekick_list, indent=JSON_INDENT))
 
 def _print_sidekick_list_table(sidekick_list):
     header = None
