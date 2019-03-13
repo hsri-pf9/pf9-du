@@ -271,6 +271,67 @@ def _build_parsers():
     _build_host_parser(subparsers)
     _build_sidekick_parser(subparsers)
 
+def _process_host_commands(args):
+    if args.host_subparser == 'list':
+        do_host_list(args)
+        return
+    elif args.host_subparser == 'role-reset':
+        do_host_role_reset(args)
+        return
+    elif args.host_subparser == 'support':
+        if args.host_support_subparser == 'bundle':
+            do_support_bundle(args)
+            return
+        elif args.host_support_subparser == 'command':
+            do_support_command(args)
+            return
+
+
+def _process_hostagent_commands(args):
+    if args.agent_subparser == 'update':
+        if not (args.host_id and args.agent_version and args.agent_url):
+            # Should never hit this because argparse's parsing should take
+            # care of this, but keeping it here as a safety net.
+            log.error('Missing mandatory arguments for host agent update')
+            _parser.print_help()
+            sys.exit(1)
+        else:
+            # Agent update
+            do_agent_update(args)
+            return
+    elif args.agent_subparser == 'list':
+        do_agent_list(args)
+        return
+    elif args.agent_subparser == 'restart':
+        if not args.host_id:
+            # Should never hit this because argparse's parsing should take
+            # care of this, but keeping it here as a safety net.
+            log.error('Missing mandatory arguments for host agent restart')
+            _parser.print_help()
+            sys.exit(1)
+        do_agent_restart(args)
+        return
+
+
+def _process_hostrole_commands(args):
+    if args.role_subparser == 'apply':
+        do_set_host_role(args)
+        return
+
+
+def _process_sidekick_commands(args):
+    if args.sidekick_subparser == 'list':
+        do_sidekick_list(args)
+        return
+    elif args.sidekick_subparser == 'support':
+        if args.sidekick_support_subparser == 'bundle':
+            do_sidekick_support_bundle(args)
+            return
+        elif args.sidekick_support_subparser == 'command':
+            do_sidekick_support_command(args)
+            return
+
+
 def _process_cmd(args):
     """
     Does the work of the command.
@@ -278,66 +339,21 @@ def _process_cmd(args):
     """
     if args.debug:
         log.setLevel(logging.DEBUG)
-    if args.subparser == 'hostagent':
-        if args.agent_subparser == 'update':
-            if not (args.host_id and args.agent_version and args.agent_url):
-                # Should never hit this because argparse's parsing should take
-                # care of this, but keeping it here as a safety net.
-                log.error('Missing mandatory arguments for host agent update')
-                _parser.print_help()
-                sys.exit(1)
-            else:
-                # Agent update
-                do_agent_update(args)
-                return
-        elif args.agent_subparser == 'list':
-            do_agent_list(args)
-            return
-        elif args.agent_subparser == 'restart':
-            if not args.host_id:
-                # Should never hit this because argparse's parsing should take
-                # care of this, but keeping it here as a safety net.
-                log.error('Missing mandatory arguments for host agent restart')
-                _parser.print_help()
-                sys.exit(1)
-            do_agent_restart(args)
-            return
 
-    if args.subparser == 'hostrole':
-        if args.role_subparser == 'apply':
-            do_set_host_role(args)
-            return
+    subparser_functions = dict(
+        host=_process_host_commands,
+        hostagent=_process_hostagent_commands,
+        hostrole=_process_hostrole_commands,
+        sidekick=_process_sidekick_commands,
+    )
 
-    if args.subparser == 'host':
-        if args.host_subparser == 'list':
-            do_host_list(args)
-            return
-        elif args.host_subparser == 'role-reset':
-            do_host_role_reset(args)
-            return
-        elif args.host_subparser == 'support':
-            if args.host_support_subparser == 'bundle':
-                do_support_bundle(args)
-                return
-            elif args.host_support_subparser == 'command':
-                do_support_command(args)
-                return
-
-    if args.subparser == 'sidekick':
-        if args.sidekick_subparser == 'list':
-            do_sidekick_list(args)
-            return
-        elif args.sidekick_subparser == 'support':
-            if args.sidekick_support_subparser == 'bundle':
-                do_sidekick_support_bundle(args)
-                return
-            elif args.sidekick_support_subparser == 'command':
-                do_sidekick_support_command(args)
-                return
-
-    # Did not match any known command. Should not hit this because argparse
-    # should do everything for us.
-    _parser.print_help()
+    if args.subparser in subparser_functions.keys():
+        subcommand_parser = subparser_functions[args.subparser]
+        subcommand_parser(args)
+    else:
+        # Did not match any known command. Should not hit this because argparse
+        # should do everything for us.
+        _parser.print_help()
 
 
 def get_user_pass(args):
