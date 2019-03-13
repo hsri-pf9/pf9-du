@@ -31,6 +31,7 @@ log.setLevel(logging.INFO)
 
 _bbmaster_endpoint = 'http://localhost:8082/v1/hosts'
 _resmgr_endpoint = 'http://localhost:8083/v1'
+_sidekick_endpoint = 'http://localhost:3011/v1'
 _keystone_endpoint = 'http://localhost:8080/keystone_admin/v2.0/tokens'
 
 _parser = argparse.ArgumentParser()
@@ -147,6 +148,48 @@ def _build_hostagent_parser(subparsers):
                       help='ID of the specific host to be queried. If not specified, '
                            'all hosts are queried')
 
+def _build_sidekick_parser(subparsers):
+    """
+    Build subparser for Sidekick related operations
+    :param subparsers: Subparsers object which is used to build the role
+    subparser
+    """
+    sidekick_parser = subparsers.add_parser('sidekick',
+                                        help='Sidekick related commands')
+    sidekick_sub_parser = sidekick_parser.add_subparsers(help='Sidekick sub-commands',
+                                                         dest='sidekick_subparser')
+
+    sidekick_support_parser = sidekick_sub_parser.add_parser('support',
+                                                     help='Support commands available through Sidekick.')
+    sidekick_support_sub_parser = sidekick_support_parser.add_subparsers(help='Sidekick support sub-commands',
+                                                                 dest='sidekick_support_subparser')
+
+    # sidekick support bundle
+    sidekick_support_bundle_parser = sidekick_support_sub_parser.add_parser('bundle',
+                                                                    help='Retrieve support bundle via Sidekick.')
+    sidekick_support_bundle_parser.add_argument("--host_id",
+                                            required=True,
+                                            help='ID of the host from which to pull a support bundle.')
+
+    # sidekick support command
+    sidekick_support_command_parser = sidekick_support_sub_parser.add_parser('command',
+                                                                    help='Execute a command via Sidekick.')
+    sidekick_support_command_parser.add_argument("--command",
+                                            required=True,
+                                            help='Command to execute on the host.')
+    sidekick_support_command_parser.add_argument("--host_id",
+                                            required=True,
+                                            help='ID of the host on which to execute the command.')
+
+    # sidekick host list
+    sidekick_host_list_parser = sidekick_sub_parser.add_parser('list',
+                                                                help='List hosts heartbeating to sidekick.')
+    sidekick_host_list_parser.add_argument('--host_id',
+                                   action='store',
+                                   dest='host_id',
+                                   required=False,
+                                   help='ID of the host to query.')
+
 def _add_credential_arguments(parser):
     parser.add_argument("--user",
                         action='store',
@@ -225,6 +268,7 @@ def _build_parsers():
     _build_role_parser(subparsers)
     _build_hostagent_parser(subparsers)
     _build_host_parser(subparsers)
+    _build_sidekick_parser(subparsers)
 
 def _process_cmd(args):
     """
@@ -278,6 +322,18 @@ def _process_cmd(args):
                 do_support_command(args)
                 return
 
+    if args.subparser == 'sidekick':
+        if args.sidekick_subparser == 'list':
+            do_sidekick_list(args)
+            return
+        elif args.sidekick_subparser == 'support':
+            if args.sidekick_support_subparser == 'bundle':
+                do_sidekick_support_bundle(args)
+                return
+            elif args.sidekick_support_subparser == 'command':
+                do_sidekick_support_command(args)
+                return
+
     # Did not match any known command. Should not hit this because argparse
     # should do everything for us.
     _parser.print_help()
@@ -323,6 +379,43 @@ def do_host_role_reset(args):
     resp.raise_for_status()
     print 'All roles reset for host %s. It will take a few minutes for' \
              ' the role reset to be synchronized across all services.' % args.host_id
+
+def do_sidekick_list(args):
+    """
+    Retrieve heartbeat information for hosts in Sidekick
+    :param args: Command line args
+    """
+    sidekick_host_url = '{}/hosts'.format(_sidekick_endpoint)
+
+    if args.host_id:
+        sidekick_host_url = sidekick_host_url + '/{}'.format(args.host_id)
+
+    resp = _do_get(sidekick_host_url)
+    _print_sidekick_list(args, resp)
+
+def do_sidekick_support_bundle(args):
+    """
+    Retrieve support bundle via Sidekick
+    :param args: Command line args
+    """
+    sidekick_command_url = '{}/command'.format(_sidekick_endpoint)
+    body = dict(hostid=args.host_id, opcode='bundle')
+
+    resp = _do_post(sidekick_command_url, body)
+
+    print("Support bundle requested for {}".format(resp['hostid']))
+
+def do_sidekick_support_command(args):
+    """
+    Execute a command via Sidekick
+    :param args: Command line args
+    """
+    sidekick_command_url = '{}/command'.format(_sidekick_endpoint)
+    body = dict(hostid=args.host_id, opcode='command', command=args.command)
+
+    resp = _do_post(sidekick_command_url, body)
+
+    print("Command executed for {}".format(resp['hostid']))
 
 def _get_bundles(bundle_dir):
     """
@@ -404,8 +497,7 @@ def _do_method(url, method, body, headers):
     :return: JSON response
     :rtype: JSON encoded dict
     """
-    headers['Content-type'] = 'json'
-    resp = method(url, data=json.dumps(body), headers=headers)
+    resp = method(url, json=body, headers=headers)
     resp.raise_for_status()
     return resp.json()
 
@@ -658,6 +750,32 @@ def _print_host_list_table(host_list):
             _get_nested_property(host, 'role_status'),
             roles
         ]
+        rows.append(row)
+    _print_list(header, rows)
+
+def _print_sidekick_list(args, sidekick_list):
+    if args.format == 'table':
+        if args.host_id:
+            # Match /hosts data structure when printing a single host.
+            host_id = sidekick_list['hostid']
+
+            sidekick_host = {}
+            sidekick_host[host_id] = sidekick_list
+
+            _print_sidekick_list_table(sidekick_host)
+        else:
+            _print_sidekick_list_table(sidekick_list)
+    else:
+        print(json.dumps(sidekick_list, indent=4))
+
+def _print_sidekick_list_table(sidekick_list):
+    header = None
+    rows = []
+    for host in sidekick_list.values():
+        if not header:
+            header = host.keys()
+
+        row = host.values()
         rows.append(row)
     _print_list(header, rows)
 
