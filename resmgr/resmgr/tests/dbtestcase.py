@@ -9,6 +9,7 @@ import requests
 import tempfile
 import unittest
 
+from collections import OrderedDict
 from ConfigParser import ConfigParser
 from resmgr import dbutils
 from resmgr import migrate_db
@@ -69,9 +70,60 @@ convergingNonResponsiveHostThreshold = 30
 # customizable parameters to be substituted in. Thus here both the app
 # the role are called 'test-role'.
 # See resmgr_provider_pf9:_update_custom_role_settings
-TEST_ROLE = {
-    "test-role": {
-        "1.0": {
+test_role_metadata = OrderedDict()
+test_role_metadata["0.5"] = {
+            "role_name": "test-role",
+            "display_name": "Test Role v0.5",
+            "description": "This is a test role.",
+            "customizable_settings": {
+                "customizable_key": {
+                    "path": "config/test_conf/customizable_section",
+                    "default": "default value for customizable_key"
+                },
+            },
+            "rabbit_permissions": {
+                "config": "^(glance|openstack|reply_.*)$",
+                "write": "^(glance|openstack|reply_.*)$",
+                "read": "^(reply_.*)$"
+            },
+            "role_version": "0.5",
+            "config": {
+                "test-role": {
+                     "version": "0.5",
+                     "service_states": {"test-service": "true"},
+                     "url": "%(download_protocol)s://%(host_relative_amqp_fqdn)s:"
+                            "%(download_port)s/private/test-role-0.5.rpm",
+                     "du_config": {
+                        "auth_events": {
+                            "type": "python",
+                            "module_path": os.path.join(THISDIR,
+                                                        'test_auth_events.py'),
+                            "params": {
+                                "param1": "%(test-role.param1)s",
+                                "param2": "%(test-role.param2)s",
+                                "host_id": "%(host_id)s",
+                                "host_config": "%(host_config)s"
+                            }
+                        }
+                     },
+                     "config": {
+                         "test_conf": {
+                             "DEFAULT": {
+                                 "conf1": "%(test-role.conf1)s",
+                                 "rabbit_user": "%(rabbit_userid)s",
+                                 "rabbit_password": "%(rabbit_password)s",
+                                 "rabbit_transport_url": "%(rabbit_transport_url)s",
+                                 "legacy_rabbit_transport_url": "__RABBIT_TRANSPORT_URL__",
+                                 "endpoint_spec": "http://something/%(project_id)s"
+                             },
+                             "customizable_section": {}
+                         }
+                    }
+                }
+            }
+        }
+
+test_role_metadata["1.0"] = {
             "role_name": "test-role",
             "display_name": "Test Role",
             "description": "This is a test role.",
@@ -122,8 +174,12 @@ TEST_ROLE = {
                 }
             }
         }
+
+
+
+TEST_ROLE = {
+    "test-role": test_role_metadata
     }
-}
 
 TEST_HOST = {
     'id': '1234',
@@ -159,6 +215,7 @@ class DbTestCase(unittest.TestCase):
         test_roles['test-role-2']['1.0']['config']['test-role-2'] = \
             test_roles['test-role-2']['1.0']['config'].pop('test-role')
         test_roles['role-missing-config'] = copy.deepcopy(TEST_ROLE['test-role'])
+        test_roles['role-missing-config'].pop('0.5')
         test_roles['role-missing-config']['1.0']['role_name'] = 'role-missing-config'
         test_roles['role-missing-config']['1.0']['config']['test-role']['config']['test_conf']['DEFAULT']['conf2'] = "%(missing.conf.val)s"
         self._load_roles_from_files.return_value = test_roles

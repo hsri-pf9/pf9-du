@@ -122,7 +122,7 @@ class ResMgrMemProvider(ResMgrProvider):
 
         return self.hosts[host_id], self.roles[role_id]
 
-    def add_role(self, host_id, role_id, host_settings):
+    def add_role(self, host_id, role_id, version, host_settings):
         #prereq
         self._refresh_data()
 

@@ -465,11 +465,14 @@ class ResMgrDB(object):
                               ' host and role %s', ex, host_id, role_name)
                 raise
 
-    def _get_default_settings(self, role_name):
+    def _get_default_settings(self, role_name, version=None):
         """
         Requires that the role exists in the database.
         """
-        role = self.query_role(role_name)
+        if not version:
+            role = self.query_role(role_name)
+        else:
+            role = self.query_role_with_version(role_name, version)
         default_settings = {}
         for default_setting_name, default_setting in role.customizable_settings.iteritems():
                 default_settings[default_setting_name] = default_setting['default']
@@ -484,7 +487,8 @@ class ResMgrDB(object):
             if key not in settings[role_name]:
                 settings[role_name][key] = val
 
-    def insert_update_host(self, host_id, host_details, role_name, settings_to_add):
+    def insert_update_host(self, host_id, host_details, role_name,
+                           version, settings_to_add):
         """
         Add a new host into the database or update the entries for an
         existing host in the database. The host details passed is a
@@ -502,7 +506,7 @@ class ResMgrDB(object):
                 with _host_lock:
                     with self.dbsession() as session:
                         host = session.query(Host).filter_by(id=host_id).first()
-                        default_settings = self._get_default_settings(role_name)
+                        default_settings = self._get_default_settings(role_name, version)
 
                         if not set(settings_to_add).issubset(set(default_settings)):
                             invalid_keys = set(settings_to_add) - set(default_settings)
@@ -676,6 +680,17 @@ class ResMgrDB(object):
 
         return result
 
+    def query_role_with_version(self, role_name, version):
+        log.info('Querying role %s, version %s', role_name, version)
+        with self.dbsession() as session:
+            try:
+                result = session.query(Role).filter_by(rolename=role_name, version=version).first()
+            except NoResultFound:
+                log.exception('No role %s, version %s found', role_name, version)
+                result = None
+
+        return result
+
     @staticmethod
     def _build_host_attributes(host_details, fetch_role_ids):
         """
@@ -838,7 +853,7 @@ class ResMgrDB(object):
 
         return out
 
-    def associate_role_to_host(self, host_id, role_name):
+    def associate_role_to_host(self, host_id, role_name, version=None):
         """
         Associate a role to the host.
         :param str host_id: ID of the host
@@ -849,8 +864,12 @@ class ResMgrDB(object):
         with self.dbsession() as session:
             try:
                 host = session.query(Host).filter_by(id=host_id).first()
-                role = session.query(Role).filter_by(rolename=role_name,
-                                                     active=True).first()
+                if not version:
+                    role = session.query(Role).filter_by(rolename=role_name,
+                                                         active=True).first()
+                else:
+                    role = session.query(Role).filter_by(rolename=role_name,
+                                                         version=version).first()
 
                 # in an upgrade, the active role will not match the currently
                 # associated role. Just update the role.

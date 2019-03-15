@@ -35,6 +35,21 @@ def _json_error_response(response, code, exc):
     response.json = {'message': '%s: %s' % (exc.__class__.__name__, exc.msg)}
     return response
 
+def _validate_incoming_request_body(req_body):
+    """Validate incoming request body for expected structure"""
+    if len(req_body) == 0:
+        req_body = {}
+    else:
+        try:
+            req_body = pecan.request.json_body
+        except Exception as e:
+            raise MalformedRequest(400, str(e))
+
+    if not isinstance(req_body, dict):
+        raise MalformedRequest(400, 'Invalid JSON body')
+
+    return req_body
+
 class RoleAppVersionsController(RestController):
     """Controller for role app version related requests"""
 
@@ -95,8 +110,49 @@ class RolesController(RestController):
 
         return out[name]
 
+class HostRolesVersionController(RestController):
+
+    @enforce(required=['admin'])
+    @expose('json')
+    def put(self, host_id, role_name, version):
+        """
+        Handles requests of type PUT /v1/hosts/<host_id>/roles/<role_name>/versions/<version>
+        Assigns the specific version of specified role to the host.
+        The body must either be empty or a Json dictionary.
+        :param str host_id: ID of the host
+        :param str role_name: Name of the role being assigned
+        :param str version: Version of the role to assign
+        """
+        msg_body = {}
+        try:
+            msg_body = _validate_incoming_request_body(pecan.request.body)
+        except MalformedRequest as e:
+            log.exception('Bad request body', e)
+            abort(e.errorCode, e.errorMsg)
+
+        log.debug('Assigning role %s, version %s to host %s with message body %s',
+                  role_name, version, host_id, msg_body)
+        try:
+            _provider.add_role(host_id, role_name, version, msg_body)
+        except (RoleNotFound, HostNotFound, HostDown) as e:
+            log.exception('Role %s or Host %s not found: %s', role_name,
+                          host_id, e)
+            return _json_error_response(pecan.response, 404, e)
+        except (HostConfigFailed, BBMasterNotFound,
+                RabbitCredentialsConfigureError):
+            log.exception('Role assignment failed')
+            abort(500)
+        except RoleUpdateConflict as e:
+            log.exception('Role assignment failed')
+            return _json_error_response(pecan.response, 409, e)
+        except DuConfigError as e:
+            log.exception('Role assignment failed')
+            return _json_error_response(pecan.response, 400, e)
+
 class HostRolesController(RestController):
     """Controller for hosts' roles related requests"""
+
+    versions = HostRolesVersionController()
 
     @enforce(required=['admin'])
     @expose('json')
@@ -108,22 +164,17 @@ class HostRolesController(RestController):
         :param str host_id: ID of the host
         :param str role_name: Name of the role being assigned
         """
-        msg_body = pecan.request.body
-        if len(msg_body) == 0:
-            msg_body = {}
-        else:
-            try:
-                msg_body = pecan.request.json_body
-            except Exception as e:
-                abort(400, str(e))
-
-        if not isinstance(msg_body, dict):
-            abort(400, 'Invalid Json body')
+        msg_body = {}
+        try:
+            msg_body = _validate_incoming_request_body(pecan.request.body)
+        except MalformedRequest as e:
+            log.exception('Bad request body', e)
+            abort(e.errorCode, e.errorMsg)
 
         log.debug('Assigning role %s to host %s with message body %s',
                   role_name, host_id, msg_body)
         try:
-            _provider.add_role(host_id, role_name, msg_body)
+            _provider.add_role(host_id, role_name, None, msg_body)
         except (RoleNotFound, HostNotFound, HostDown) as e:
             log.exception('Role %s or Host %s not found: %s', role_name,
                           host_id, e)

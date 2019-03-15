@@ -130,6 +130,7 @@ class TestConsulRoles(DbTestCase):
         self._db.insert_update_host(TEST_HOST['id'],
                                     TEST_HOST['details'],
                                     rolename,
+                                    None,
                                     custom_params)
         self._db.associate_role_to_host(TEST_HOST['id'], rolename)
         self._db.associate_rabbit_credentials_to_host(TEST_HOST['id'],

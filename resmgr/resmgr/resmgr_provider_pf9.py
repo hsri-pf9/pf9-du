@@ -1278,7 +1278,7 @@ class ResMgrPf9Provider(ResMgrProvider):
             for j in xrange(2)
         )
 
-    def create_rabbit_credentials(self, host_id, role_name):
+    def create_rabbit_credentials(self, host_id, role_name, version):
         """
         Get the credentials for the specified host and role from the database.
         If no credentials are found, then they are created.
@@ -1297,8 +1297,12 @@ class ResMgrPf9Provider(ResMgrProvider):
         else:
             rabbit_user, rabbit_password = self._random_rabbit_creds()
         self._rabbit_mgmt_cl.create_user(rabbit_user, rabbit_password)
-        active_role = self.res_mgr_db.query_role(role_name)
-        permissions = active_role.rabbit_permissions
+        if not version:
+            associated_role = self.res_mgr_db.query_role(role_name)
+        else:
+            associated_role = self.res_mgr_db.query_role_with_version(role_name, version)
+
+        permissions = associated_role.rabbit_permissions
         try:
             self._rabbit_mgmt_cl.set_permissions(rabbit_user,
                                                  permissions['config'],
@@ -1360,7 +1364,7 @@ class ResMgrPf9Provider(ResMgrProvider):
                                      'current state.' % (role_name, host_id))
         return curr_state
 
-    def add_role(self, host_id, role_name, host_settings):
+    def add_role(self, host_id, role_name, version, host_settings):
         """
         Add a role to a particular host
         :param str host_id: ID of the host
@@ -1375,10 +1379,17 @@ class ResMgrPf9Provider(ResMgrProvider):
         log.info('Assigning role %s to %s with host settings %s',
                  role_name, host_id, host_settings)
 
-        active_role_in_db = self.res_mgr_db.query_role(role_name)
-        if not active_role_in_db:
-            log.error('Role %s is not found in list of active roles', role_name)
-            raise RoleNotFound(role_name)
+        if not version:
+            active_role_in_db = self.res_mgr_db.query_role(role_name)
+            if not active_role_in_db:
+                log.error('Role %s is not found in list of active roles', role_name)
+                raise RoleNotFound(role_name)
+        else:
+            role_in_db = self.res_mgr_db.query_role_with_version(role_name, version)
+            if not role_in_db:
+                log.error('Role %s, version %s is not found in the list of roles',
+                          role_name, version)
+                raise RoleVersionNotFound(role_name, version)
 
         host_inst = self.host_inventory_mgr.get_host(host_id)
         if not host_inst:
@@ -1409,9 +1420,10 @@ class ResMgrPf9Provider(ResMgrProvider):
             try:
                 role_is_new = False
                 self.res_mgr_db.insert_update_host(host_id, host_inst['info'],
-                                                   role_name, host_settings)
+                                                   role_name, version, host_settings)
                 role_is_new = self.res_mgr_db.associate_role_to_host(host_id,
-                                                                     role_name)
+                                                                     role_name,
+                                                                     version)
                 curr_role_state = self._move_to_apply_edit_state(host_id,
                                                                  role_name)
                 with _host_lock:
@@ -1423,7 +1435,7 @@ class ResMgrPf9Provider(ResMgrProvider):
                     _unauthorized_host_status_time_on_du.pop(host_id, None)
                 # IAAS-6519: rabbit changes after state machine starts
                 rabbit_user, rabbit_password = \
-                        self.create_rabbit_credentials(host_id, role_name)
+                        self.create_rabbit_credentials(host_id, role_name, version)
                 self.res_mgr_db.associate_rabbit_credentials_to_host(host_id,
                         role_name, rabbit_user, rabbit_password)
             except Exception as e:

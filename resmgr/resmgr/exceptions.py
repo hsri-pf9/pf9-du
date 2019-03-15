@@ -14,11 +14,20 @@ class ResMgrException(Exception):
     def __repr__(self):
         return self.msg
 
+class MalformedRequest(ResMgrException):
+    def __init__(self, errorCode, errorMsg):
+        super(MalformedRequest, self).__init__('Malformed request')
+        self.errorCode = errorCode
+        self.errorMsg = errorMsg
 
 class RoleNotFound(ResMgrException):
     def __init__(self, val):
         super(RoleNotFound, self).__init__('Role %s not found' % val)
 
+class RoleVersionNotFound(ResMgrException):
+    def __init__(self, name, version):
+        super(RoleVersionNotFound, self).__init__(
+            'Role %s, version %s not found' % (name, version))
 
 class RoleExists(ResMgrException):
     def __init__(self, roleKey, resKey):

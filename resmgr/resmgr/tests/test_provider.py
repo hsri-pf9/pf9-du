@@ -266,7 +266,7 @@ class TestProvider(DbTestCase):
         init_rabbit_creds = self._db.query_rabbit_credentials(host_id=host_id)
         init_delete_calls = self._delete_rabbit_user.call_count
         with self.assertRaises(RoleUpdateConflict):
-            self._provider.add_role(host_id, rolename, {})
+            self._provider.add_role(host_id, rolename, None, {})
         with self.assertRaises(RoleUpdateConflict):
             self._provider.delete_role(host_id, rolename)
 
@@ -279,7 +279,7 @@ class TestProvider(DbTestCase):
 
     def _add_and_converge_role(self, rolename):
         host_id = TEST_HOST['id']
-        self._provider.add_role(host_id, rolename, {})
+        self._provider.add_role(host_id, rolename, None, {})
         self._bbone.process_hosts()
         self._assert_event_handler_called('on_auth')
         self._assert_role_state(host_id, rolename,
@@ -321,10 +321,10 @@ class TestProvider(DbTestCase):
         # Set to False before fix, and True after fix
         bug_fixed = True
         host_id = TEST_HOST['id']
-        self._provider.add_role(host_id, 'test-role', {})
+        self._provider.add_role(host_id, 'test-role', None, {})
 
         def preemptive_func():
-            self._provider.add_role(host_id, 'test-role-2', {})
+            self._provider.add_role(host_id, 'test-role-2', None, {})
 
         self._bbone.process_hosts(post_db_read_hook_func=preemptive_func)
 
@@ -363,7 +363,15 @@ class TestProvider(DbTestCase):
     def test_add_role_default_config(self):
         host_id = TEST_HOST['id']
         rolename = TEST_ROLE['test-role']['1.0']['role_name']
-        self._provider.add_role(host_id, rolename, {})
+        self._add_role_default_config(host_id, rolename, None)
+
+    def test_add_non_active_role_default_config(self):
+        host_id = TEST_HOST['id']
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+        #self._add_role_default_config(host_id, rolename, "0.5")
+
+    def _add_role_default_config(self, host_id, rolename, roleversion):
+        self._provider.add_role(host_id, rolename, roleversion, {})
         self._bbone.process_hosts()
 
         self._assert_role_state(host_id, 'test-role',
@@ -455,8 +463,8 @@ class TestProvider(DbTestCase):
     def test_delete_one_role_keep_another(self):
         # add and converge both roles
         host_id = TEST_HOST['id']
-        self._provider.add_role(host_id, 'test-role', {})
-        self._provider.add_role(host_id, 'test-role-2', {})
+        self._provider.add_role(host_id, 'test-role', None, {})
+        self._provider.add_role(host_id, 'test-role-2', None, {})
         self._bbone.process_hosts()
         self._assert_fails_puts_deletes(host_id, 'test-role')
 
@@ -544,7 +552,7 @@ class TestProvider(DbTestCase):
         self._db.setup_roles()
 
         # re-PUT the role
-        self._provider.add_role(host_id, rolename, {})
+        self._provider.add_role(host_id, rolename, None, {})
         self._bbone.process_hosts()
         self._assert_role_state(host_id, 'test-role',
                                 role_states.AUTH_CONVERGING)
@@ -594,7 +602,7 @@ class TestProvider(DbTestCase):
         # re-PUT the role with new configurable param
         custom_value = 'new value for customizable_key'
         new_role_params ={'customizable_key': custom_value}
-        self._provider.add_role(host_id, rolename, new_role_params)
+        self._provider.add_role(host_id, rolename, None, new_role_params)
         self._bbone.process_hosts()
         self._assert_role_state(host_id, 'test-role',
                                 role_states.AUTH_CONVERGING)
@@ -641,7 +649,7 @@ class TestProvider(DbTestCase):
         rolename = TEST_ROLE['test-role']['1.0']['role_name']
         self._fail_auth_event('on_auth')
         with self.assertRaises(DuConfigError):
-            self._provider.add_role(host_id, rolename, {})
+            self._provider.add_role(host_id, rolename, None, {})
         self._assert_role_state(host_id, 'test-role',
                                 role_states.NOT_APPLIED)
 
@@ -652,7 +660,7 @@ class TestProvider(DbTestCase):
 
         self._fail_auth_event('on_auth')
         with self.assertRaises(DuConfigError):
-            self._provider.add_role(host_id, rolename, {})
+            self._provider.add_role(host_id, rolename, None, {})
 
         # should still be applied
         self._assert_role_state(host_id, 'test-role',
@@ -681,7 +689,7 @@ class TestProvider(DbTestCase):
         self._fail_auth_event('on_auth_converged')
 
         # add and converge the role. The end state should be AUTH_EROR
-        self._provider.add_role(host_id, rolename, {})
+        self._provider.add_role(host_id, rolename, None, {})
         self._bbone.process_hosts()
         self._get_backbone_host.return_value = self._converged_host()
         self._bbone.process_hosts()
@@ -689,7 +697,7 @@ class TestProvider(DbTestCase):
 
         # now try to recover
         self._unfail_auth_event('on_auth_converged')
-        self._provider.add_role(host_id, rolename, {})
+        self._provider.add_role(host_id, rolename, None, {})
         self._bbone.process_hosts()
         self._assert_role_state(host_id, rolename, role_states.AUTH_CONVERGING)
         self._get_backbone_host.return_value = self._converged_host()
@@ -711,7 +719,7 @@ class TestProvider(DbTestCase):
 
         # add should fail:
         with self.assertRaises(RoleUpdateConflict):
-            self._provider.add_role(host_id, rolename, {})
+            self._provider.add_role(host_id, rolename, None, {})
 
         # now try to recover with a delete
         self._unfail_auth_event('on_deauth_converged')
@@ -760,7 +768,7 @@ class TestProvider(DbTestCase):
                 'move_to_preauth_state') as move_to_preauth_state:
             move_to_preauth_state.side_effect = RuntimeError()
             with self.assertRaises(RuntimeError):
-                self._provider.add_role(host_id, 'test-role', {})
+                self._provider.add_role(host_id, 'test-role', None, {})
 
         # we should be in START_APPLY now
         self._assert_role_state(host_id, 'test-role',
@@ -796,7 +804,7 @@ class TestProvider(DbTestCase):
             custom_value = 'new value for customizable_key'
             with self.assertRaises(RuntimeError):
                 new_role_params ={'customizable_key': custom_value}
-                self._provider.add_role(host_id, rolename, new_role_params)
+                self._provider.add_role(host_id, rolename, None, new_role_params)
 
         # we should be in START_EDIT now
         self._assert_role_state(host_id, 'test-role',
@@ -880,7 +888,7 @@ class TestProvider(DbTestCase):
                 'push_configuration') as push_configuration:
             push_configuration.side_effect = RuntimeError()
             with self.assertRaises(RuntimeError):
-                self._provider.add_role(host_id, 'test-role', {})
+                self._provider.add_role(host_id, 'test-role', None, {})
                 self._bbone.process_hosts()
 
 
@@ -948,7 +956,7 @@ class TestProvider(DbTestCase):
     def test_crash_from_auth_converging(self):
         host_id = TEST_HOST['id']
         rolename = TEST_ROLE['test-role']['1.0']['role_name']
-        self._provider.add_role(host_id, rolename, {})
+        self._provider.add_role(host_id, rolename, None, {})
         self._bbone.process_hosts()
         self._assert_event_handler_called('on_auth')
         self._assert_role_state(host_id, rolename,
@@ -969,7 +977,7 @@ class TestProvider(DbTestCase):
         custom_value = 'new value for customizable_key'
         new_role_params = {'customizable_key': custom_value}
         with self.assertRaises(RoleUpdateConflict):
-            self._provider.add_role(host_id, rolename,
+            self._provider.add_role(host_id, rolename, None,
                                     new_role_params)
 
         # 'restart' resmgr: fire the bb poller
@@ -1009,7 +1017,7 @@ class TestProvider(DbTestCase):
         custom_value = 'new value for customizable_key'
         new_role_params ={'customizable_key': custom_value}
         with self.assertRaises(RoleUpdateConflict):
-            self._provider.add_role(host_id, rolename,
+            self._provider.add_role(host_id, rolename, None,
                                     new_role_params)
 
         # 'restart' resmgr: fire the bb poller
@@ -1095,12 +1103,16 @@ class TestProvider(DbTestCase):
         self._bbone.process_hosts()
 
         with self.assertRaises(HostDown):
-            self._provider.add_role(host_id, 'test-role-2', {})
+            self._provider.add_role(host_id, 'test-role-2', None, {})
+
+        with self.assertRaises(HostDown):
+            self._provider.add_role(host_id, 'test-role', '0.5', {})
+
 
     def test_delete_role_from_auth_error(self):
         host_id = TEST_HOST['id']
         rolename = TEST_ROLE['test-role']['1.0']['role_name']
-        self._provider.add_role(host_id, rolename, {})
+        self._provider.add_role(host_id, rolename, None, {})
         self._bbone.process_hosts()
         self._assert_event_handler_called('on_auth')
         self._assert_role_state(host_id, rolename,
@@ -1193,7 +1205,7 @@ class TestProvider(DbTestCase):
         # add and converge the role at v1.0
         host_id = TEST_HOST['id']
         rolename = TEST_ROLE['test-role']['1.0']['role_name']
-        self._provider.add_role(host_id, rolename, {})
+        self._provider.add_role(host_id, rolename, None, {})
         self._assert_event_handler_called('on_auth')
         time.sleep(2)
         self._assert_role_state(host_id, rolename,
@@ -1224,7 +1236,7 @@ class TestProvider(DbTestCase):
             self._db.setup_roles()
 
             # re-PUT the role
-            self._provider.add_role(host_id, rolename, {})
+            self._provider.add_role(host_id, rolename, None, {})
 
             # add_role wakes up the poller and it starts converging
             time.sleep(1)

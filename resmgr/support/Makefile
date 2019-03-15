@@ -98,7 +98,7 @@ unit-test-setup: pre-reqs
 
 unit-test: unit-test-setup
 	cd ${RESMGR_DIR} && \
-	${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
+	${TEST_VENV}/bin/nosetests -s --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
 			--cover-package=resmgr --cover-package=bbcommon --verbosity=2 --with-xunit \
 			--xunit-file=${BUILD_DIR}/test_output.xml --exclude=load_test_app && \
 	cd ${BUILD_DIR}/coverage && \
