@@ -625,19 +625,32 @@ class ResMgrDB(object):
                               host_id, '' if responding else 'not')
                 raise
 
-    def update_host_hostname(self, host_id, hostname):
+    def update_host_info(self, host_id, host_info):
         """
-        Update the host entry in the database with the specified hostname
+        Update the host entry in the database with the specified info.
+        :param str host_id: ID of the host
+        :param dict host_info: Dictionary containing keys and values to update.
         """
         with self.dbsession() as session:
             try:
                 host = session.query(Host).filter_by(id=host_id).first()
-                host.hostname = hostname
+
+                table_columns = {attr.name for attr in host.__table__.columns}
+
+                for column_name, new_value in host_info.iteritems():
+                    if column_name in table_columns:
+                        setattr(host, column_name, new_value)
+                    else:
+                        log.warning("Attempt to update nonexistent column '%s' "
+                                    "in hosts table for host ID %s.",
+                                    column_name, host_id)
+
+                if session.is_modified(host):
+                    log.info('Updated info for %s to %s', host_id, host_info)
             except:
-                log.exception('Failed to update host %s with hostname %s',
-                              host_id, hostname)
+                log.exception('Failed to update host %s with %s',
+                              host_id, host_info)
                 raise
-        log.info('hostname for %s has changed to %s', host_id, hostname)
 
     def save_role_in_db(self, name, version, details):
         """

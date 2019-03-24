@@ -36,7 +36,7 @@ class TestDb(DbTestCase):
                                                       rabbit_user,
                                                       rabbit_pass)
 
-    def _add_host_with_customizable_role(self, apply_roleversion, 
+    def _add_host_with_customizable_role(self, apply_roleversion,
                                          applied_roleversion, customvalues):
         self._associate_role('test-role', apply_roleversion,
                              customvalues,
@@ -178,6 +178,41 @@ class TestDb(DbTestCase):
     def test_remove_role(self):
         self._remove_role(None, '1.0', {'customizable_key': 'customizable_value'})
         self._remove_role('0.5', '0.5', {'customizable_key': 'customizable_value_0.5'})
+
+    def test_update_host_info(self):
+        host_id = TEST_HOST['id']
+
+        # Add host with mock host info
+        self._associate_role('test-role', None,
+                             {'customizable_key': 'customizable_value'},
+                             'rabbit', 'p@55wd')
+
+        host_details = self._db.query_host_and_app_details()
+        self.assertEqual(host_details[host_id]['hostosinfo'], 'centos')
+
+        # Update host OS info
+        good_host_info = {
+            'hostarch': 'i386',
+            'hostosinfo': 'LFS 8.4'
+        }
+        result = self._db.update_host_info(host_id, good_host_info)
+        self.assertFalse(result)
+
+        host_details = self._db.query_host_and_app_details()
+        self.assertEqual(1, len(host_details))
+        self.assertEqual(host_details[host_id]['hostarch'], 'i386')
+        self.assertEqual(host_details[host_id]['hostosinfo'], 'LFS 8.4')
+
+        # Test updating nonexistent database column
+        bad_host_info = {'nonexistent_column': 'Garbage data'}
+        result = self._db.update_host_info(host_id, bad_host_info)
+        self.assertFalse(result)
+
+        host_details = self._db.query_host_and_app_details()
+        self.assertEqual(1, len(host_details))
+
+        with self.assertRaises(KeyError):
+            host_details[host_id]['nonexistent_column']
 
     def test_update_role_state(self):
         self._associate_role('test-role', None,
