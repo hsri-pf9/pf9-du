@@ -63,13 +63,11 @@ ${RESMGR_SRC_STAGE}: pre-reqs
 	cp ${RESMGR_DIR}/etc/pf9/resmgr.conf ${RESMGR_SRC_STAGE}/etc/pf9/
 	cp ${RESMGR_DIR}/etc/pf9/resmgr_config.py ${RESMGR_SRC_STAGE}/etc/pf9/
 	cp ${RESMGR_DIR}/etc/pf9/resmgr-paste.ini ${RESMGR_SRC_STAGE}/etc/pf9/
+	cp ${RESMGR_DIR}/pf9-resmgr.service ${RESMGR_SRC_STAGE}/pf9-resmgr.service
 
 	mkdir -p ${VENV}/bin
 	cp ${RESMGR_DIR}/bin/db_sync.py ${VENV}/bin
 	cp ${RESMGR_DIR}/bin/resmgr-daemon.py ${VENV}/bin/
-
-	mkdir -p ${RESMGR_SRC_STAGE}/etc/rc.d/init.d
-	cp -r ${RESMGR_DIR}/etc/init.d/pf9-resmgr ${RESMGR_SRC_STAGE}/etc/rc.d/init.d/
 
 	mkdir -p ${PF9_OPT_DIR}/du-customize
 	cp ${RESMGR_DIR}/support/50-customize-resmgr ${PF9_OPT_DIR}/du-customize

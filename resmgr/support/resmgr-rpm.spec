@@ -4,7 +4,7 @@ Release:        __BUILDNUM__.__GITHASH__
 Summary:        Platform 9 Resource Manager
 
 License:        Commercial
-URL:            http://www.platform9.net
+URL:            http://www.platform9.com
 
 AutoReqProv:    no
 
@@ -28,6 +28,7 @@ Platform 9 Resource Manager
 
 %install
 cp -r * ${RPM_BUILD_ROOT}
+%{__install} -D -m0644 pf9-resmgr.service %{buildroot}%{_unitdir}/pf9-resmgr.service
 
 %clean
 rm -rf ${RPM_BUILD_ROOT}
@@ -43,8 +44,8 @@ rm -rf ${RPM_BUILD_ROOT}
 %config /etc/pf9/resmgr_config.py
 /etc/pf9/resmgr_roles
 /etc/pf9/resmgr_svc_configs
-/etc/rc.d/init.d/
 %dir /var/log/pf9
+%{_unitdir}/pf9-resmgr.service
 
 %post
 if [ "$1" = "1" ]; then
@@ -52,16 +53,17 @@ if [ "$1" = "1" ]; then
     pattern="^[ \t]*admin_token[ \t]*=[ \t]*.*";
     adminkeyline=`grep "$pattern" /etc/keystone/keystone.conf`;
     sed -i.orig "s/$pattern/$adminkeyline/g" /etc/pf9/resmgr-paste.ini
-    /sbin/chkconfig --add pf9-resmgr
+    systemctl enable pf9-resmgr.service
 elif [ "$1" -ge "2" ]; then
-    # In case of an upgrade, only restart the service if it's already running
-    /sbin/service pf9-resmgr condrestart
+    #Upgrade case
+    systemctl enable pf9-resmgr.service
+    systemctl start pf9-resmgr.service
 fi
 
 %preun
 if [ $1 = 0 ]; then # package is being erased, not upgraded
-    /sbin/service pf9-resmgr stop > /dev/null 2>&1
-    /sbin/chkconfig --del pf9-resmgr
+    systemctl stop pf9-resmgr.service
+    systemctl disable pf9-resmgr.service
 fi
 
 %postun
