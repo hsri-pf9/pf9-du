@@ -2,13 +2,14 @@
 # All Rights reserved
 
 from daemon.runner import DaemonRunner, DaemonRunnerStopFailureError
+import argparse
 import logging
 import paste.deploy
 import paste.httpserver
 import os
 import sys
 import os.path
-from time import time,strftime
+import time
 
 pidfile = '/var/run/pf9/resmgr.pid'
 logfile = '/var/log/pf9/resmgr-daemon.log'
@@ -50,14 +51,33 @@ def makedir(dirname) :
             logger.error("Could not create directory %s" % dirname)
             raise
 
-resmgr = ResmgrDaemon()
-runner = DaemonRunner(resmgr)
+def main():
+    parser = argparse.ArgumentParser(description='Resource manager flags.')
+    parser.add_argument('--no-daemon', action='store_true', default=False,
+                        help='Do not run resource manager as a daemon.')
 
-# ensures that the logger file handle does not get closed during daemonization
-runner.daemon_context.files_preserve = [handler.stream]
-makedir(os.path.dirname(pidfile))
-try:
-    runner.do_action()
-except DaemonRunnerStopFailureError:
-    sys.exit(0)
+    arguments, _ = parser.parse_known_args()
 
+    resmgr = ResmgrDaemon()
+
+    if arguments.no_daemon:
+        try:
+            resmgr.run()
+        except KeyboardInterrupt:
+            # Exit after resmgr.run() completes
+            sys.exit(1)
+        finally:
+            sys.exit(1)
+    else:
+        runner = DaemonRunner(resmgr)
+
+        # ensures that the logger file handle does not get closed during daemonization
+        runner.daemon_context.files_preserve = [handler.stream]
+        makedir(os.path.dirname(pidfile))
+        try:
+            runner.do_action()
+        except DaemonRunnerStopFailureError:
+            sys.exit(0)
+
+if __name__ == "__main__":
+    main()
