@@ -20,7 +20,7 @@ setup(
         'python-memcached',
         'sqlalchemy',
         'requests',
-        'MySQL-python',
+        'mysqlclient',
         'Paste',
         'PasteDeploy'
     ],
