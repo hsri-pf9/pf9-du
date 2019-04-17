@@ -6,7 +6,7 @@ Summary:	Debian Package Signature Verification Tool
 Group:		Packaging
 License:	GPL
 URL:		http://http.debian.net/debian/pool/main/d/debsig-verify/
-Source0:	http://http.debian.net/debian/pool/main/d/debsig-verify/debsig-verify_%{version}.tar.gz
+Source0:    http://security.ubuntu.com/ubuntu/pool/universe/d/debsig-verify/debsig-verify_%{version}.tar.gz
 Patch0:		pf9-xmltok-to-expat.patch
 
 Requires:	gnupg expat
