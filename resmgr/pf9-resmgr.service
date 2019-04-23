@@ -4,12 +4,14 @@ Wants=network.target
 Wants=mysqld.service rabbitmq-server.service
 After=network.target
 
-
 [Service]
-ExecStart=/opt/pf9/resmgr/bin/python /opt/pf9/resmgr/bin/resmgr-daemon.py start
+ExecStart=/opt/pf9/resmgr/bin/python -u /opt/pf9/resmgr/bin/resmgr-daemon.py
 Type=simple
 PIDFile=/var/run/pf9/resmgr.pid
 Restart=on-failure
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pf9-resmgr
 
 [Install]
 WantedBy=multi-user.target
