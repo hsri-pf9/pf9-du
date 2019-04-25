@@ -33,12 +33,10 @@ def makedir(dirname) :
 def main():
     makedir(os.path.dirname(pidfile))
     logger.info('Starting the resource manager.')
-    while True:
-        app = paste.deploy.loadapp('config:%s' % paste_ini,
-                                   global_conf = {'config' : pecan_config})
-        paste.httpserver.serve(app, port = 8083)
-        time.sleep(5)
-        logger.error('Resource manager shutdown unexpectedly. Attempting to restart...')
+    app = paste.deploy.loadapp('config:%s' % paste_ini,
+                                global_conf = {'config' : pecan_config})
+    paste.httpserver.serve(app, port = 8083)
+    logger.error('Resource manager shutdown unexpectedly. Attempting to restart...')
 
 
 if __name__ == "__main__":
