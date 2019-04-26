@@ -1,0 +1,17 @@
+[Unit]
+Description=Platform9 Backbone Master
+Wants=network.target
+After=network.target
+
+[Service]
+ExecStart=/opt/pf9/bbmaster/bin/python /opt/pf9/bbmaster/bin/pecan serve /etc/pf9/bbmaster_config.py
+Type=simple
+PIDFile=/var/run/pf9-bbmaster.pid
+Restart=on-failure
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pf9-bbmaster
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

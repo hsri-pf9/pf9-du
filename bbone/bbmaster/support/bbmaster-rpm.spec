@@ -4,7 +4,7 @@ Release:        __BUILDNUM__.__GITHASH__
 Summary:        Platform 9 Backbone Master
 
 License:        Commercial
-URL:            http://www.platform9.net
+URL:            http://www.platform9.com
 
 AutoReqProv:    no
 
@@ -28,6 +28,7 @@ Platform 9 backbone master
 
 %install
 cp -r * ${RPM_BUILD_ROOT}
+%{__install} -D -m0644 pf9-bbmaster.service %{buildroot}%{_unitdir}/pf9-bbmaster.service
 
 %clean
 rm -rf ${RPM_BUILD_ROOT}
@@ -37,17 +38,16 @@ rm -rf ${RPM_BUILD_ROOT}
 /opt/pf9
 %config /etc/pf9/bbmaster_config.py
 %config /etc/pf9/bbmaster.conf
-/etc/rc.d/init.d/pf9-bbmaster
 %dir /var/log/pf9
+%{_unitdir}/pf9-bbmaster.service
 
 
 %post
-# Ugly hack to get pf9-bbmaster hooked up to init.d scripts
-sudo /bin/ln -sf /opt/pf9/bbmaster/bin/python /opt/pf9/bbmaster/bin/pf9-bbmaster
+systemctl enable pf9-bbmaster.service
 
 if [ "$1" -ge "2" ]; then
-    # In case of an upgrade, restart the service if it's already running
-    /sbin/service pf9-bbmaster condrestart
+	#upgrade case
+	systemctl restart pf9-bbmaster.service
 fi
 
 %preun
