@@ -46,6 +46,7 @@ APP_METADATA_JSON = $(STAGE)/app_metadata.json
 # FIXME - Do NOT copy paste the logic below if we add deb support. Come up with
 # a way to parameterize it!
 
+HOSTAGENT_VERSION_FILE = $(BLDROOT)/hostagent/hostagent_version.txt
 HOSTAGENT_RPM = $(BLDROOT)/hostagent/redhat-nocert/rpm-build/RPMS/x86_64/pf9-hostagent-$(PF9_VERSION)-$(BUILD_NUMBER).$(GITHASH).x86_64.rpm
 HOSTAGENT_DEB = $(BLDROOT)/hostagent/debian-nocert/deb-build/DEBS/x86_64/pf9-hostagent-$(PF9_VERSION)-$(BUILD_NUMBER).$(GITHASH).x86_64.deb
 REDHAT_INSTALLER_SCRIPT = $(SRCROOT)/uber-rpm/build/platform9-install-redhat.sh
@@ -142,7 +143,7 @@ check-ostack-pkgs:
 # nginx container build so it can be served publically from there. Having it
 # here allows us to test hostagent installation without nginx.
 
-stage: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT)
+stage: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT) $(HOSTAGENT_VERSION_FILE)
 	cp -rv $(SRCROOT)/resmgr/container/* $(STAGE)/
 	python $(Y2J) $(APP_METADATA_YAML) > $(APP_METADATA_JSON)
 	cp -v $(SRCROOT)/resmgr/upper-constraints.txt $(STAGE)/
@@ -169,6 +170,9 @@ stage: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIA
 
 $(BLDROOT):
 	mkdir -p $@
+
+$(HOSTAGENT_VERSION_FILE): | $(BLDROOT)
+	echo '$(PF9_VERSION)-$(BUILD_NUMBER).$(GITHASH)' > $@
 
 # Expects the image tag to be passed in as an argument
 # Example: $(call image_build, "a.b.c.d")
