@@ -177,6 +177,18 @@ class ResMgrDB(object):
             log.info('No database connection pool_size configured. '
                       'Using SQLAlchemy default pool_size.')
 
+
+        """
+        Checking pool_status is required since size() function
+        if not defined for pool types like NullPool, StaticPool and
+        AssertionPool.
+        Save the threshold (15% of pool size) for remaining connections in the pool,
+        which gets checked in dbsession() to make some decisions.
+        """
+        pool_status = self.dbengine.pool.status()
+        if pool_status not in ['NullPool', 'StaticPool', 'AssertionPool']:
+            self.pool_rem_conns_threshold = self.dbengine.pool.size() * (15.0/100)
+
         # Set Pessimistic disconnect handling
         if config.has_option('database', 'pessimistic_disconnect_handling'):
             self.db_connection_options['pool_pre_ping'] = config.getboolean('database',
@@ -431,8 +443,24 @@ class ResMgrDB(object):
         session = self.session_maker()
         try:
             yield session
-            # TODO: This is temporarily here for monitoring. To be removed.
-            log.info('Connection pool status: %s', self.dbengine.pool.status())
+            """
+            Calculate the remaining connections and check them against
+            a threshold value.
+            If the number of remaining connections is less than the
+            threshold, then log a warning message. Else keep logging a
+            debug message with the Queuepool information.
+            Note: All other pool types except QueuePool do not support
+            functions like size() and checkedout(). Also there is no
+            explicit way of finding out if the pool is QueuePool apart
+            from looking at the status of the pool.
+            """
+            pool_status = self.dbengine.pool.status()
+            if pool_status not in ['NullPool', 'StaticPool', 'AssertionPool']:
+                pool_rem_conns = self.dbengine.pool.size() - self.dbengine.pool.checkedout()
+                if pool_rem_conns <= self.pool_rem_conns_threshold :
+                   log.warn('Connection pool status: %s', self.dbengine.pool.status())
+                else:
+                   log.debug('Connection pool status: %s', self.dbengine.pool.status())
             if self._has_uncommitted_changes(session):
                 session.commit()
         except:
