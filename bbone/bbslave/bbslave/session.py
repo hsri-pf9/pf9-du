@@ -289,7 +289,9 @@ def start(config, log, app_db, agent_app_db, app_cache,
 
                 # Run the command
                 try:
-                    rcode, output = _run_command(fpath, log)
+                    #Timeout after 20s if the extension has failed to finish
+                    command = 'timeout 120 ' + fpath
+                    rcode, output = _run_command(command, log)
                 except Exception as e:
                     msg = 'Error running extension script: %s' % e
                     log.error(msg)
@@ -299,11 +301,18 @@ def start(config, log, app_db, agent_app_db, app_cache,
                     output = msg
 
                 if rcode:
-                    # Running the extension failed
-                    ext_result = {
-                        'status': 'error',
-                        'data': output
-                    }
+                    #Execution of command has timed-out.
+                    if rcode == 124:
+                        ext_result = {
+                            'status': 'timed-out',
+                            'data': 'Extension script timed-out'
+                        }
+                    else:
+                        # Running the extension failed
+                        ext_result = {
+                            'status': 'error',
+                            'data': output
+                        }
                 else:
                     try:
                         # Try to build result dict which is JSON serializable
