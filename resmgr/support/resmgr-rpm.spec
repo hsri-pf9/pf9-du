@@ -53,11 +53,6 @@ if [ "$1" = "1" ]; then
     pattern="^[ \t]*admin_token[ \t]*=[ \t]*.*";
     adminkeyline=`grep "$pattern" /etc/keystone/keystone.conf`;
     sed -i.orig "s/$pattern/$adminkeyline/g" /etc/pf9/resmgr-paste.ini
-    systemctl enable pf9-resmgr.service
-elif [ "$1" -ge "2" ]; then
-    #Upgrade case
-    systemctl enable pf9-resmgr.service
-    systemctl start pf9-resmgr.service
 fi
 
 %preun
