@@ -757,10 +757,13 @@ def _print_host_list_table(host_list):
         ip_addresses = ""
         if iface_ip:
             ip_address_arr = map(lambda x: x[0] + ":" +x[1], iface_ip.items())
-            ip_addresses = reduce(lambda x,y: x+","+y, ip_address_arr)
+            ip_addresses = reduce(lambda x,y: x+"\n"+y, ip_address_arr)
+            # PrettyTable does not add row separators. Additional newline helps readability.
+            ip_addresses += '\n'
         roles = ""
-        if roles in host:
-            roles = reduce(lambda x,y: x+","+y, host['roles'])
+        if 'roles' in host:
+            roles = '\n'.join(host['roles'])
+            roles += '\n'
         row = [
             host['id'],
             _get_nested_property(host, 'info', 'hostname'),
