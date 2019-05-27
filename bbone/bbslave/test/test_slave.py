@@ -15,7 +15,7 @@ from bbcommon import constants
 from bbcommon.amqp import io_loop
 from bbcommon.utils import is_satisfied_by
 from bbcommon import vhost
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
 import pika
 import logging as log
 import threading

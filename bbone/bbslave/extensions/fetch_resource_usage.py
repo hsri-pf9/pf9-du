@@ -41,7 +41,7 @@ def main():
         },
         'cpu': get_cpu_usage()
     }
-    print json.dumps(usage, indent=3)
+    print(json.dumps(usage, indent=3))
 
 
 if __name__ == '__main__':

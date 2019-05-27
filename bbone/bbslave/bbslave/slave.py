@@ -10,7 +10,7 @@ __author__ = 'leb'
 from pika.exceptions import AMQPConnectionError
 import session
 import logging, logging.handlers
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
 import time
 import datetime
 import errno

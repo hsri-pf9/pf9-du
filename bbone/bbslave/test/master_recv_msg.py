@@ -12,7 +12,7 @@ __author__ = 'leb'
 
 import json
 from bbslave import constants
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
 import pika
 from pika.channel import Channel
 import time
@@ -43,7 +43,7 @@ def receive_messages():
                        routing_key=constants.MASTER_TOPIC)
 
     def consume_msg(ch, method, properties, body):
-        print 'Received: %s'  % body
+        print('Received: %s'  % body)
 
     channel.basic_consume(consume_msg,
                           queue=queue_name,

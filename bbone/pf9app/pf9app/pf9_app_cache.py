@@ -6,6 +6,7 @@ __author__ = 'Platform9'
 import contextlib
 import logging
 import os
+from six.moves.urllib.parse import urlparse
 from urlparse import urlsplit
 from pf9app.app_cache import AppCache
 from pf9app.exceptions import DownloadFailed
@@ -102,7 +103,8 @@ class Pf9AppCache(AppCache):
                     msg = 'Could not determine the size of the file being downloaded.'
                     self.log.error(msg)
                     raise DownloadFailed(msg)
-                with open(tmpdst, "w") as wf:
+                with open(tmpdst, "wb") as wf:
+                    # Python3: Cannot write bytes without opening the file in wb mode.
                     # Source files (rpms) could be huge,download them in chunks
                     for chunk in response.iter_content(DOWNLOAD_CHUNK_SIZE):
                         wf.write(chunk)

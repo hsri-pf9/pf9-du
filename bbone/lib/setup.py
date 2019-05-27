@@ -12,7 +12,10 @@ setup(
     description='',
     author='',
     author_email='',
-    install_requires=['requests'],
+    install_requires=[
+        'requests',
+        'six==1.12.0'
+    ],
     test_suite='bbcommon',
     zip_safe=False,
     include_package_data=True,

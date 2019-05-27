@@ -5,7 +5,8 @@ __author__ = 'leb'
 
 import copy
 from configutils import configutils
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
+from six import iteritems
 import ssl
 
 def is_satisfied_by(desired_config, current_config):
@@ -31,7 +32,7 @@ def is_satisfied_by(desired_config, current_config):
     if set(specified_config.keys()) != set(current_config.keys()):
         return False
     # Second, the app properties and configurations must match
-    for app_name, app_spec in specified_config.iteritems():
+    for app_name, app_spec in iteritems(specified_config):
         # Remove url, pkginfo, and DU-side role config
         # because they don't truly belong in the state
         for config_key in 'url', 'du_config', 'pkginfo', 'rank':

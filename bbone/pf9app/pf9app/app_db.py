@@ -5,6 +5,7 @@ __author__ = 'leb'
 
 from abc import ABCMeta, abstractmethod
 from app import App
+from six import iteritems
 
 class AppDb(object):
     __metaclass__ = ABCMeta
@@ -72,7 +73,7 @@ class AppDb(object):
         """
         apps = self.query_installed_apps()
         config = {}
-        for app_name, app in apps.iteritems():
+        for app_name, app in iteritems(apps):
             if app.implements_service_states:
                 config[app_name] = {
                     'version': app.version,

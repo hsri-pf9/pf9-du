@@ -12,6 +12,7 @@ import sys
 
 from exceptions import ServiceCtrlError, ConfigOperationError
 from app import App, RemoteApp
+from six import iteritems
 
 CFGSCRIPTCMD = "%s /opt/pf9/%s/config"
 SVC_COMMAND = "sudo /etc/init.d/%s %s"
@@ -223,7 +224,7 @@ class Pf9App(App):
         """
         self.log.info("Setting the desired service state")
 
-        for name, service_state in services.iteritems():
+        for name, service_state in iteritems(services):
             run_state = False if stop_all else service_state
             try:
                 self._set_run_state(name, run_state)
@@ -299,8 +300,9 @@ class Pf9App(App):
             self.log.error("%s:get_config failed: %s %s", self.app_name, out, err)
             raise ConfigOperationError()
         try:
-            cfg = json.loads(out)
-        except ValueError, e:
+            # Python3: JSON object cannot be 'bytes'. It has to be a string.
+            cfg = json.loads(out.decode())
+        except ValueError as e:
             self.log.error("%s:get_config output is malformed: %s",
                            self.app_name, e)
             raise ConfigOperationError()

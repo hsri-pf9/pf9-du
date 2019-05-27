@@ -27,6 +27,7 @@ PF9APP_DIR := $(SRC_ROOT)/bbone/pf9app
 BBLIBCOMMON_DIR := $(SRC_ROOT)/bbone/lib
 CONFIGUTILS_DIR := $(SRC_ROOT)/lib/configutils
 HOSTAGENT_DEPS = setuptools==33.1.1 \
+                 six==1.12.0 \
                  $(CONFIGUTILS_DIR) \
                  $(PF9APP_DIR) \
                  $(BBLIBCOMMON_DIR) \

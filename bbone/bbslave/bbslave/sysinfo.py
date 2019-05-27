@@ -3,7 +3,7 @@
 
 __author__ = 'leb'
 import platform
-import ConfigParser
+from six.moves.configparser import ConfigParser
 import uuid
 import os
 import re
@@ -59,13 +59,13 @@ def get_host_id(base_dir='/etc/pf9'):
     host_id_file = os.path.join(base_dir, 'host_id.conf')
     SECT_NAME = 'hostagent'
     OPT_NAME = 'host_id'
-    cfg = ConfigParser.ConfigParser()
+    cfg = ConfigParser()
     cfg.read([host_id_file])
     if cfg.has_section(SECT_NAME) and cfg.has_option(SECT_NAME, OPT_NAME):
         host_id = cfg.get(SECT_NAME, OPT_NAME)
     else:
         host_id = str(uuid.uuid4())
-        cfg = ConfigParser.ConfigParser()
+        cfg = ConfigParser()
         cfg.add_section(SECT_NAME)
         cfg.set(SECT_NAME, OPT_NAME, host_id)
         with open(host_id_file, 'w') as fp:

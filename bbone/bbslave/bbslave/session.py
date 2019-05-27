@@ -11,7 +11,7 @@ from bbcommon import constants
 from bbcommon.amqp import dual_channel_io_loop
 from datagatherer import datagatherer
 from logging import Logger
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
 from pf9app.app_db import AppDb
 from pf9app.app_cache import AppCache
 from pf9app.app import RemoteApp
@@ -318,7 +318,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
                         # Try to build result dict which is JSON serializable
                         ext_result = {
                             'status': 'ok',
-                            'data': json.loads(output)
+                            # Python3: JSON object cannot be 'bytes'. It has to be a string.
+                            'data': json.loads(output.decode())
                         }
                     except Exception as e:
                         log.error('Extension data %s is not JSON serializable: %s',
@@ -656,7 +657,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
         send_status(status, current_config, desired_config)
 
     def consume_msg(ch, method, properties, body):
-        handle_msg(json.loads(body))
+        # Python3: JSON object cannot be 'bytes'. It has to be a string.
+        handle_msg(json.loads(body.decode()))
 
     def connection_up_cb(connection):
         def _renew_timer():

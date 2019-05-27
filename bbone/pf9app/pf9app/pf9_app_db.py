@@ -9,6 +9,7 @@ import os
 import platform
 import subprocess
 import time
+from six import iteritems
 
 from app_db import AppDb
 from pf9_app_cache import get_supported_distro
@@ -272,7 +273,7 @@ class Pf9AppDb(AppDb):
         """
         appMap = {}
         installed = self.pkgmgr.query_pf9_apps()
-        for app, val in installed.iteritems():
+        for app, val in iteritems(installed):
             appMap[app] = self.make_app(app, val['version'])
         return appMap
 
