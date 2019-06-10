@@ -43,12 +43,6 @@ rm -rf ${RPM_BUILD_ROOT}
 
 
 %post
-systemctl enable pf9-bbmaster.service
-
-if [ "$1" -ge "2" ]; then
-	#upgrade case
-	systemctl restart pf9-bbmaster.service
-fi
 
 %preun
 
