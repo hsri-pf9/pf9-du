@@ -78,6 +78,10 @@ def get_mounted_nfs():
         return answer
     except Exception:
         LOG.exception('unhandled exception when get mounted nfs info.')
+        LOG.info('re-cache mounted nfs info')
+        cached = cache_mounted_nfs()
+        if cached:
+            answer = cached
     return answer
 
 
