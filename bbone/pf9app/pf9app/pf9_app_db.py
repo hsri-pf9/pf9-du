@@ -20,8 +20,6 @@ from exceptions import NotInstalled, UpdateOperationFailed, \
 if get_supported_distro() == 'debian':
     import apt
     import apt.debfile
-else:
-    import yum
 
 
 class AptPkgMgr(object):
@@ -125,9 +123,11 @@ class YumPkgMgr(object):
     # that need to be implemented as part of the package manager.
 
     def __init__(self, log = logging):
-        self.ybase = yum.YumBase()
         self.log = log
         self.yum_rootwrap_path = '/opt/pf9/hostagent/bin/pf9-yum'
+        # Dummy time string to insert in rpm commands
+        dummy_time = time.time()
+        self.dummy_time_str = str(dummy_time)
 
     def query_pf9_apps(self):
         """
@@ -138,55 +138,67 @@ class YumPkgMgr(object):
         :rtype: dict
         """
         out = {}
-        # We need to refresh the RPM DB, otherwise we won't discover the latest
-        # set of apps which may have been installed outside of this YumBase
-        # instance
-        self.ybase.closeRpmDB()
-        pkgs = self.ybase.rpmdb.searchProvides("pf9app")
-        for pkg in pkgs:
-            out[pkg.name] = {
-                'name': pkg.name,
-                'version': pkg.printVer()
+
+        query_cmd = "rpm -q --whatprovides pf9app --queryformat '%{NAME}" + self.dummy_time_str + "%{VERSION}-%{RELEASE}\n'"
+        code, response, err = _run_command_with_custom_pythonpath(query_cmd)
+        if code:
+            self.log.error('RPM query command failed : %s. Return code: %d, '
+                           'stdout: %s, stderr: %s', query_cmd, code, response, err)
+            # Return empty dict in case of error.
+            return out
+
+        for line in response.splitlines():
+            name, version = line.split(self.dummy_time_str, 1)
+            out[name] = {
+                'name': name,
+                'version': version
             }
 
         return out
 
     def query_pf9_agent(self):
         """
-        Query the installed pf9 host agent details from the YUM repo
+        Query the installed pf9 host agent details
         :return: dictionary of agent name and version
         :rtype: dict
         """
         for i in range(20):
-            pkgs = self._find_installed_pkg('pf9-hostagent')
-            if len(pkgs) == 1:
+            version = self._find_installed_pkg_version('pf9-hostagent')
+            if len(version) == 1:
                 return {
-                    'name': pkgs[0].name,
-                    'version': pkgs[0].printVer()
+                    'name': 'pf9-hostagent',
+                    'version': version[0]
                 }
-            # Number of packages found is not 1.
-            # This can happen when the hostagent has restarted on update
-            # but the yum cache has not yet updated with the end of the
-            # transaction. It will report 2 hostagents in such a case.
-            self.log.info('Refreshing yum cache because of hostagent '
-                          'package count mismatch: %s.', pkgs)
+            # Wait for a case where hostagent has restarted on update
             time.sleep(6)
-            self.ybase.closeRpmDB()
 
         self.log.error('Could not determine the agent version')
         raise Pf9Exception('Querying pf9 agent version failed.')
 
-    def _find_installed_pkg(self, appname):
+    def _find_installed_pkg_version(self, appname):
         """
         Searches the installed packages for an app specified by the app name. The
         search is done based on an absolute match of the app name.
         :param appname: Name of the app to find.
-        :return: List of yum.rpmsack.RPMInstalledPackage objects that match the search
+        :return: Version of the appname
         :rtype: list
         """
-        pkgs = self.ybase.doPackageLists('installed')
-        exactmatch, _, _ = yum.packages.parsePackages(pkgs.installed, [appname])
-        return exactmatch
+        version = []
+        version_cmd = 'rpm -q %s --queryformat ' %(appname)
+        version_cmd = version_cmd + "%{VERSION}-%{RELEASE}\n"
+
+        code, response, err = _run_command_with_custom_pythonpath(version_cmd)
+        if code:
+            self.log.error('RPM version query command failed : %s. Return code: %d, '
+                           'stdout: %s, stderr: %s', version_cmd, code, response, err)
+            # In case of failure, empty version list is returned.
+            return version
+
+        # Strip trailing newline characters if any, from the response string.
+        response = response.rstrip()
+        # Convert the response string to the version list.
+        version = response.split("\n")
+        return version
 
     def remove_package(self, appname):
         """
@@ -195,16 +207,16 @@ class YumPkgMgr(object):
         :raises NotInstalled: if the app is not found/installed
         :raises RemoveOperationFailed: if the remove operation failed.
         """
-        pkgs = self._find_installed_pkg(appname)
+        version = self._find_installed_pkg_version(appname)
 
-        if not pkgs:
+        if not version:
             # We perform exactmatch above. If nothing is returned, can assume app
             # is not installed
             raise NotInstalled()
 
-        # match for pkg should be only 1, since it is an exact match
         # TODO: verify if this is an issue if same app has 2 versions installed
-        assert len(pkgs) == 1
+        # Assert that only a single version of the package is installed.
+        assert len(version) == 1
 
         erase_cmd = 'sudo %s erase %s' % (self.yum_rootwrap_path, appname)
         code, out, err = _run_command_with_custom_pythonpath(erase_cmd)
