@@ -50,10 +50,12 @@ def generate_support_bundle(out_tgz_file, logger=logging):
 
     tgzfile = tarfile.open(out_tgz_file, 'w:gz')
     for pattern in file_list:
-        expanded_pattern = os.path.expandvars(
-                os.path.expanduser(pattern))
+        expanded_pattern = os.path.expandvars(os.path.expanduser(pattern))
         for file in glob.iglob(expanded_pattern):
+            try:
                 tgzfile.add(file)
+            except OSError as e:
+                logger.warn(e)
     tgzfile.close()
 
 if __name__ == '__main__':
