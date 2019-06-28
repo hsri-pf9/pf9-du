@@ -39,6 +39,7 @@ def reconnect_loop(config):
             log_handler = logging.handlers.RotatingFileHandler(log_name,
                                                                maxBytes=log_file_size,
                                                                backupCount=log_rotate_count)
+        log_format.converter = time.gmtime
         log_handler.setFormatter(log_format)
         log.addHandler(log_handler)
         log.setLevel(getattr(logging, log_level_name))
