@@ -13,7 +13,7 @@ import os
 import re
 import shutil
 import tempfile
-import ConfigParser
+from six.moves.configparser import ConfigParser
 import errno
 import json
 import os
@@ -48,7 +48,7 @@ def ini_to_json(iniConfig):
     To write out to a JSON file, use json.dump() on the output object.
     """
     # Ensure you are working with a ConfigParser object
-    assert isinstance(iniConfig, ConfigParser.ConfigParser)
+    assert isinstance(iniConfig, ConfigParser)
     out = {}
 
     # Need some extra handling here to deal with DEFAULT sections. The DEFAULT
@@ -79,7 +79,7 @@ def inifile_to_json(iniFile):
     if not os.path.exists(iniFile):
         raise OSError(errno.ENOENT, os.strerror(errno.ENOENT), iniFile)
 
-    cfgparser = ConfigParser.ConfigParser()
+    cfgparser = ConfigParser()
     cfgparser.read(iniFile)
 
     return ini_to_json(cfgparser)
@@ -90,7 +90,7 @@ def json_to_ini(jsonConfig):
     output is a ConfigParser object. To write the output to a file, use
     ConfigParser.write() method on the output.
     """
-    out = ConfigParser.ConfigParser()
+    out = ConfigParser()
     for section, sectionval in jsonConfig.items():
         if not isinstance(sectionval, dict):
             # To satisfy the ini layout, the top level values in the JSON dict

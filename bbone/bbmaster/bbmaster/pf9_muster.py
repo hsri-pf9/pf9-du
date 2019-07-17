@@ -4,7 +4,7 @@
 # TODO: Implement interface so that new apps can follow same structure by
 #       implementing it
 import os
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
 from bbcommon import constants
 
 bbm_config = ConfigParser()

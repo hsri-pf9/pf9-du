@@ -1,6 +1,6 @@
 from bbmaster.tests import FunctionalTest
 
-import ConfigParser
+from six.moves.configparser import ConfigParser
 import copy
 import json
 import logging as log
@@ -23,7 +23,7 @@ from os.path import join, realpath, dirname
 host_id = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
 bbmaster_dir = realpath(join(dirname(__file__), '../..'))
 bbmaster_conf = join(bbmaster_dir, 'etc/bbmaster_test.conf')
-config = ConfigParser.ConfigParser()
+config = ConfigParser()
 config.read(bbmaster_conf)
 config.set('amqp', 'virtual_host', vhost.generate_amqp_vhost())
 log.basicConfig(level=getattr(log, 'INFO'))
@@ -145,7 +145,7 @@ def _setup_slave(init_msg, host_topic):
         log.info('[%s] Mock slave received message %s',
                 threading.currentThread().getName(), body)
         out_msg = copy.deepcopy(init_msg)
-        in_msg = json.loads(body)
+        in_msg = json.loads(body.decode())
         if in_msg['opcode'] == 'ping':
             # Return init_msg
             pass

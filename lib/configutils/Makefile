@@ -19,6 +19,7 @@ DISTUTILS_DEBUG = 1
 
 ${TEST_VENV}: ${BUILD_DIR}
 	virtualenv ${TEST_VENV}
+	${TEST_VENV}/bin/pip install six==1.12.0
 
 pre-reqs : ${TEST_VENV}
 	cd ${SRC_DIR} && \

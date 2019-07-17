@@ -5,7 +5,7 @@
 This module is implementation of the backbone provider interface.
 """
 
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
 import datetime
 from bbone_provider_memory import bbone_provider_memory
 import threading
@@ -138,7 +138,7 @@ class bbone_provider_pf9(bbone_provider_memory):
         """
         def consume_msg(ch, method, properties, body):
             try:
-                body = json.loads(body)
+                body = json.loads(body.decode())
                 if body['opcode'] == 'support':
                     handle_support_bundle(body)
                     return
