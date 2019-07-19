@@ -98,11 +98,11 @@ function main()
 
     # Test http proxy connect
     test_connect_success --host pf9.platform9.net --port 443 \
-        --proxy-host squid.platform9.sys --proxy-port 3128
+        --proxy-host squid-01.platform9.horse --proxy-port 3128
 
     # Test https proxy connect
     test_connect_success --host pf9.platform9.net --port 443 \
-        --proxy-protocol https --proxy-host squid.platform9.sys --proxy-port 443
+        --proxy-protocol https --proxy-host squid-01.platform9.horse --proxy-port 443
 
     # Test http proxy with basic auth connect
     test_connect_success --host pf9.platform9.net --port 443 \
@@ -118,9 +118,9 @@ function main()
     # Test unresolvable hostnames
     test_connect_fail "no such host" --host "no-such-host.platform9.com" --port 443
     test_connect_fail "503 Service Unavailable" --host "no-such-host.platform9.com" --port 443 \
-        --proxy-host squid.platform9.sys
+        --proxy-host squid-01.platform9.horse
     test_connect_fail "503 Service Unavailable" --host "no-such-host.platform9.com" --port 443 \
-        --proxy-host squid.platform9.sys --proxy-protocol https --proxy-port 443
+        --proxy-host squid-01.platform9.horse --proxy-protocol https --proxy-port 443
     test_connect_fail "503 Service Unavailable" --host "no-such-host.platform9.com" --port 443 \
         --proxy-host squid-basic-auth-01.platform9.horse --proxy-user pf9 --proxy-pass dummy
     test_connect_fail "503 Service Unavailable" --host "no-such-host.platform9.com" --port 443 \
