@@ -4,7 +4,7 @@
 import base64
 import logging
 import zlib
-from Cookie import SimpleCookie
+from six.moves.http_cookies import SimpleCookie
 
 """
 Middleware to decode compressed Auth token that is passed in the request.
@@ -48,7 +48,7 @@ class TokenDecoder(object):
         try:
             token = self.extract_token(environ)
             environ['HTTP_X_AUTH_TOKEN'] = token
-        except Exception, e:
+        except Exception as e:
             # We could not decode the token, mark it as authentication failure
             log.exception('Decoding token failed: %s, environ: %s', e, environ)
             resp = MiniResp('Authentication required', environ)

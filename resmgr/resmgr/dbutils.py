@@ -6,7 +6,6 @@
 
 __author__ = 'Platform9'
 
-import ConfigParser
 import copy
 import datetime
 import glob
@@ -15,6 +14,8 @@ import logging
 import os
 import threading
 
+from six.moves.configparser import ConfigParser
+from six import iteritems
 from contextlib import contextmanager
 from sqlalchemy import create_engine, Column, String, Text, ForeignKey
 from sqlalchemy import Boolean, DateTime, UniqueConstraint, types
@@ -60,7 +61,7 @@ class JsonBlob(types.TypeDecorator):
         if value is None:
             return None
 
-        return json.loads(value)
+        return json.loads(value.decode())
 
 class RabbitCredential(Base):
     __tablename__ = 'rabbit_credentials'
@@ -218,7 +219,7 @@ class ResMgrDB(object):
             '__HOST_CONFIG__': '%(host_config)s'
         }
 
-        for underscore_token, py_token in legacy_tokens.iteritems():
+        for underscore_token, py_token in iteritems(legacy_tokens):
             app_config_str = app_config_str.replace(underscore_token, py_token)
         return app_config_str
 
@@ -255,7 +256,7 @@ class ResMgrDB(object):
 
     def _flat_config(self):
         ret = {}
-        for item in self.config.defaults().iteritems():
+        for item in iteritems(self.config.defaults()):
             ret['DEFAULT.%s' % item[0]] = item[1]
         for section in self.config.sections():
             for item in self.config.items(section):
@@ -288,11 +289,11 @@ class ResMgrDB(object):
         params['host_config'] = '__HOST_CONFIG__'
 
         new_app_specs = {}
-        for appname, config in app_specs.iteritems():
+        for appname, config in iteritems(app_specs):
             config_string = json.dumps(config)
             config_string = self._replace_legacy_tokens(config_string)
             config_string = config_string % params
-            new_app_specs[appname] = json.loads(config_string)
+            new_app_specs[appname] = json.loads(config_string.decode())
 
         return new_app_specs
 
@@ -375,7 +376,7 @@ class ResMgrDB(object):
         log.info('Setting up roles in the database')
         discovered_roles = self._load_roles_from_files()
 
-        for role, role_info in discovered_roles.iteritems():
+        for role, role_info in iteritems(discovered_roles):
             for version, version_details in role_info.items():
                 try:
                     self.save_role_in_db(role, version, version_details)
@@ -395,7 +396,7 @@ class ResMgrDB(object):
             with open(f) as fp:
                 try:
                     data = json.load(fp)
-                    for svc, details in data.iteritems():
+                    for svc, details in iteritems(data):
                         svc_db = self.query_service_config(svc)
                         settings = svc_db['settings'] if svc_db else details['settings']
                         self.set_service_config(svc, details['path'], settings)
@@ -502,7 +503,7 @@ class ResMgrDB(object):
         else:
             role = self.query_role_with_version(role_name, version)
         default_settings = {}
-        for default_setting_name, default_setting in role.customizable_settings.iteritems():
+        for default_setting_name, default_setting in iteritems(role.customizable_settings):
                 default_settings[default_setting_name] = default_setting['default']
         return default_settings
 
@@ -511,7 +512,7 @@ class ResMgrDB(object):
         """
         Update with defaults if they were not overwritten
         """
-        for key, val in default_settings.iteritems():
+        for key, val in iteritems(default_settings):
             if key not in settings[role_name]:
                 settings[role_name][key] = val
 
@@ -637,7 +638,7 @@ class ResMgrDB(object):
 
                 table_columns = {attr.name for attr in host.__table__.columns}
 
-                for column_name, new_value in host_info.iteritems():
+                for column_name, new_value in iteritems(host_info):
                     if column_name in table_columns:
                         setattr(host, column_name, new_value)
                     else:

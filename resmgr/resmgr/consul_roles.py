@@ -10,7 +10,7 @@ import re
 import requests
 import threading
 
-from ConfigParser import DuplicateSectionError
+from six.moves.configparser import DuplicateSectionError
 
 from firkinize.configstore.consul import Consul
 
@@ -84,7 +84,7 @@ class ConsulRoles(object):
         rolename = key_elems[0]
         version = key_elems[1]
         LOG.info('Updating role %s, version %s', rolename, version)
-        config = json.loads(value)
+        config = json.loads(value.decode())
         try:
             self._db.save_role_in_db(rolename, version, config)
             LOG.info('Saved %s role, version %s in the database',

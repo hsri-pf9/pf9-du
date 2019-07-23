@@ -5,7 +5,7 @@ import os
 
 from alembic import command
 from alembic.config import Config
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
 
 RESMGR_CONF_PATH = '/etc/pf9/resmgr.conf'
 

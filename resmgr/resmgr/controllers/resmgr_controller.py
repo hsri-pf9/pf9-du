@@ -17,6 +17,7 @@ from pecan import abort, expose
 from pecan.rest import RestController
 from resmgr.controllers.enforce_policy import enforce
 from resmgr.exceptions import *
+from six import itervalues
 
 log = logging.getLogger(__name__)
 _resmgr_conf_file = pecan.conf.resmgr['config_file']
@@ -91,7 +92,7 @@ class RolesController(RestController):
             log.info('No roles present')
             return []
 
-        return [val for val in out.itervalues()]
+        return [val for val in itervalues(out)]
 
     @expose('json')
     def get_one(self, name):
@@ -308,7 +309,7 @@ class HostsController(RestController):
             log.info('No hosts present')
             return []
 
-        return [val for val in res.itervalues()]
+        return [val for val in itervalues(res)]
 
     @expose('json')
     def get_one(self, host_id):

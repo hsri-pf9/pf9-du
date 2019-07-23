@@ -12,7 +12,8 @@ from exceptions import RoleNotFound, HostNotFound
 import notifier
 import logging
 import json
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
+from six import iteritems
 from os import environ
 
 class ResMgrMemProvider(ResMgrProvider):
@@ -75,7 +76,7 @@ class ResMgrMemProvider(ResMgrProvider):
         if not id_list:
             return all_roles
 
-        sub_roles = dict((key, val) for key, val in all_roles.iteritems() \
+        sub_roles = dict((key, val) for key, val in iteritems(all_roles) \
                              if key in id_list)
 
         ## TODO: error handling
@@ -106,7 +107,7 @@ class ResMgrMemProvider(ResMgrProvider):
         if not id_list:
             return self.hosts
 
-        sub_hosts = dict((key, val) for key, val in self.hosts.iteritems()
+        sub_hosts = dict((key, val) for key, val in iteritems(self.hosts)
                          if key in id_list)
 
         ## TODO: error handling

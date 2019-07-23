@@ -19,7 +19,7 @@ import random
 import string
 
 from alembic import op
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
 from rabbit import RabbitMgmtClient
 from sqlalchemy import Column, ForeignKey, String, UniqueConstraint
 

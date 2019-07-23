@@ -1,6 +1,6 @@
 import json
 import requests
-import urllib
+from six.moves.urllib.parse import quote
 
 class RabbitMgmtClient(object):
     """
@@ -14,7 +14,7 @@ class RabbitMgmtClient(object):
                  amqp_mgmt_port=15672,
                  vhost='/'):
         self.endpoint = 'http://%s:%s/api/' % (amqp_host, amqp_mgmt_port)
-        self.vhost = urllib.quote(vhost, safe='')
+        self.vhost = quote(vhost, safe='')
         self.request_kwargs = {'auth' : (user, password)}
 
     def create_user(self, user, password, tags=''):

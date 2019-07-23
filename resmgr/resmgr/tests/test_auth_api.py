@@ -81,7 +81,7 @@ class TestAuthApi(unittest.TestCase) :
         self.mock_keystone(self.user_token, 200, self.user_response)
         response = self.app.get('/v1/roles', {}, {'X-Auth-Token': self.user_token})
         self.assertEquals(200, response.status_code)
-        body = json.loads(response.text)
+        body = json.loads(response.text.decode())
         self.assertEquals("pf9-ostackhost", body[0]['name'])
 
         # bad auth
@@ -96,7 +96,7 @@ class TestAuthApi(unittest.TestCase) :
         self.mock_keystone(self.user_token, 200, self.user_response)
         response = self.app.get('/v1/hosts', {}, {'X-Auth-Token': self.user_token})
         self.assertEquals(200, response.status_code)
-        body = json.loads(response.text)
+        body = json.loads(response.text.decode())
         self.assertTrue(0 < len([host for host in body if host['id'] == 'rsc_1']))
 
         # bad auth
@@ -129,7 +129,7 @@ class TestAuthApi(unittest.TestCase) :
         response = self.app.get('/v1/hosts/rsc_1/', {},
                 {'X-Auth-Token': self.admin_token})
         self.assertEquals(200, response.status_code)
-        body = json.loads(response.text)
+        body = json.loads(response.text.decode())
         self.assertTrue('pf9-ostackhost' in body['roles'])
 
         # DELETE
@@ -153,7 +153,7 @@ class TestAuthApi(unittest.TestCase) :
         response = self.app.get('/v1/hosts/rsc_1/', {},
                 {'X-Auth-Token': self.admin_token})
         self.assertEquals(200, response.status_code)
-        body = json.loads(response.text)
+        body = json.loads(response.text.decode())
         self.assertTrue('pf9-ostackhost' not in body['roles'])
 
 if __name__ == '__main__':

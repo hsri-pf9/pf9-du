@@ -10,7 +10,7 @@ import tempfile
 import unittest
 
 from collections import OrderedDict
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
 from resmgr import dbutils
 from resmgr import migrate_db
 from StringIO import StringIO

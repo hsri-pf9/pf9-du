@@ -13,6 +13,7 @@ down_revision = '6'
 from alembic import op
 from sqlalchemy import Text
 import logging
+from six import iteritems
 
 
 log = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ table_cols_map = {
 
 
 def upgrade():
-    for table, cols in table_cols_map.iteritems():
+    for table, cols in iteritems(table_cols_map):
         with op.batch_alter_table(table) as tab_batch:
             for c in cols:
                 tab_batch.alter_column(c, type_=Text)
@@ -33,7 +34,7 @@ def upgrade():
 
 
 def downgrade():
-    for table, cols in table_cols_map.iteritems():
+    for table, cols in iteritems(table_cols_map):
         with op.batch_alter_table(table) as tab_batch:
             for c in cols:
                 tab_batch.alter_column(c, type_=String(2048))

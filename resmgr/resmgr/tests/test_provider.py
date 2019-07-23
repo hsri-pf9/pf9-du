@@ -118,7 +118,7 @@ class match_dict_to_jsonified(object):
         self._dict = dictionary
         self._other = None
     def __eq__(self, jsonified):
-        other = json.loads(jsonified)
+        other = json.loads(jsonified.decode())
         return self._dict == other
     def __repr__(self):
         return str(self._dict)

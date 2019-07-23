@@ -13,7 +13,6 @@ __author__ = 'Platform9'
 This module provides real implementation of Resource Manager provider interface
 """
 
-import ConfigParser
 import datetime
 import imp
 import logging
@@ -27,10 +26,13 @@ import requests
 import string
 import subprocess
 import tempfile
-import urlparse
 
+from six.moves.urllib.parse import urlparse
+from six.moves.configparser import ConfigParser
+from six import iteritems
+from six import iterkeys
 from bbcommon.utils import is_satisfied_by
-from Queue import Queue, Empty
+from six.moves.queue import Queue, Empty
 from resmgr import role_states, dict_subst
 from resmgr.dbutils import ResMgrDB, role_app_map
 from resmgr.exceptions import *
@@ -86,8 +88,8 @@ def _update_custom_role_settings(app_info, role_settings, roles):
     new_roles = dict((role.rolename, role.customizable_settings) for role in roles)
 
     # Iterate over all apps in app_info
-    for given_app_name in app_info.keys():
-        for role_name, settings in new_roles.iteritems():
+    for given_app_name in iterkeys(app_info):
+        for role_name, settings in iteritems(new_roles):
             # Role is considered only if it is part of the provided role_settings
             # AND part of the app name
             if role_name not in role_settings:
@@ -96,7 +98,7 @@ def _update_custom_role_settings(app_info, role_settings, roles):
             if given_app_name not in role_name:
                 continue
 
-            for setting_name, setting in settings.iteritems():
+            for setting_name, setting in iteritems(settings):
                 path = setting['path'].split('/')
                 # Traverse the config according to the path of the default setting.
                 # Then, insert the custom role setting into the app info
@@ -171,7 +173,7 @@ class RolesMgr(object):
         for role in query_op:
             default_settings = dict((setting_name, setting['default'])
                                     for (setting_name, setting)
-                                    in role.customizable_settings.iteritems())
+                                    in iteritems(role.customizable_settings))
             role_attrs = {
                 'name': role.rolename,
                 'display_name': role.displayname,
@@ -194,7 +196,7 @@ class RolesMgr(object):
         if role:
             default_settings = dict((setting_name, setting['default'])
                                     for (setting_name, setting)
-                                    in role.customizable_settings.iteritems())
+                                    in iteritems(role.customizable_settings))
             result = {
                 role.rolename: {
                     'name': role.rolename,
@@ -214,7 +216,7 @@ class RolesMgr(object):
         if role:
             return dict((app, config['version'])
                         for (app, config)
-                        in role.desiredconfig.iteritems())
+                        in iteritems(role.desiredconfig))
         return None
 
     def active_role_config(self):
@@ -239,7 +241,7 @@ class RolesMgr(object):
         Filter out the app configuration that is not needed
         by the host.
         """
-        for _, app_spec in app_info.iteritems():
+        for _, app_spec in iteritems(app_info):
             if 'du_config' in app_spec:
                 del app_spec['du_config']
 
@@ -453,7 +455,7 @@ class RolesMgr(object):
         # spec. Do nothing if it (or any of the intermediate keys)
         # is missing.
         role_apps = role_app_map[role_name]
-        for app_name, app_details in app_config.iteritems():
+        for app_name, app_details in iteritems(app_config):
             if app_name not in role_apps or \
                'du_config' not in app_details or \
                'auth_events' not in app_details['du_config']:
@@ -571,7 +573,7 @@ class HostInventoryMgr(object):
         log.debug('Looking up unauthorized hosts')
         iaas_9086_hosts = []
         with _host_lock:
-            for id in _unauthorized_hosts.iterkeys():
+            for id in iterkeys(_unauthorized_hosts):
                 if id in result:
                     iaas_9086_hosts.append(id)
                     continue
@@ -734,7 +736,7 @@ class BbonePoller(object):
                 log.exception('Querying backbone for %s failed', host)
                 continue
 
-            if host_info['status'] == 'missing' or 'info' not in host_info.keys():
+            if host_info['status'] == 'missing' or 'info' not in iterkeys(host_info):
                 # If host status is missing, do nothing.
                 continue
 
@@ -918,7 +920,7 @@ class BbonePoller(object):
                     }
 
                     # Compare host info from bbmaster to values stored in resmgr
-                    updated_host_info = { k: v for k, v in current_host_info.iteritems()
+                    updated_host_info = { k: v for k, v in iteritems(current_host_info)
                         if authorized_hosts[host][k] != v }
 
                     # Update resmgr DB if host info has changed
@@ -1041,7 +1043,7 @@ class BbonePoller(object):
         """
         cleanup_hosts = []
         with _host_lock:
-            for id in _unauthorized_hosts.iterkeys():
+            for id in iterkeys(_unauthorized_hosts):
                 if not (self._responding_within_threshold(_unauthorized_host_status_time[id])
                         or self._responding_within_threshold(_unauthorized_host_status_time_on_du[id])):
                     # Maintain a list of hosts that are past the threshold
@@ -1069,7 +1071,7 @@ class BbonePoller(object):
             # Get authorized host ids and unauthorized host ids and store it
             # in all_ids
             authorized_hosts = self.db_handle.query_host_and_app_details()
-            all_ids = set(authorized_hosts.keys() + _unauthorized_hosts.keys())
+            all_ids = set(list(iterkeys(authorized_hosts)) + list(iterkeys(_unauthorized_hosts)))
             new_ids = bbone_ids - all_ids
             del_ids = all_ids - bbone_ids
             exist_ids = all_ids & bbone_ids
@@ -1164,7 +1166,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         """
         Load the config file as well as the global config file.
         """
-        config = ConfigParser.ConfigParser()
+        config = ConfigParser()
         config.read(config_file)
         global_cfg_file = config.get('resmgr', 'global_config_file')
         config.read(global_cfg_file)
