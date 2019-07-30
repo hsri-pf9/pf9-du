@@ -60,8 +60,7 @@ change_file_permissions() {
     chown -R pf9:pf9group /var/cache/pf9apps
 }
 
-. /opt/pf9/pf9-service-functions.sh
-pf9_setup_service_files pf9-hostagent /opt/pf9/hostagent/pf9-hostagent-systemd /opt/pf9/hostagent/pf9-hostagent-deb-init
+cp /opt/pf9/hostagent/pf9-hostagent-systemd /lib/systemd/system/pf9-hostagent.service && systemctl daemon-reload
 
 if [ "$1" = "1" ]; then
     # Create the pf9 user and group
@@ -79,7 +78,7 @@ if [ "$1" = "1" ]; then
     usermod -aG pf9group root
     change_file_permissions
 
-    pf9_enable_service_on_boot pf9-hostagent
+    systemctl enable pf9-hostagent
 elif [ "$1" = "2" ]; then
     # During an upgrade, hostagent files are reverted to the default owner and
     # group. So, permissions must be reassigned.
@@ -91,7 +90,7 @@ elif [ "$1" = "2" ]; then
         systemctl condrestart pf9-comms
     fi
 
-    pf9_enable_service_on_boot pf9-hostagent
+    systemctl enable pf9-hostagent
 fi
 
 %preun
@@ -99,12 +98,11 @@ fi
 # $1==1: install the first time
 # $1>=2: upgrade
 
-. /opt/pf9/pf9-service-functions.sh
 
 if [ "$1" = 0 ]; then
-    pf9_service_stop pf9-hostagent
-    pf9_disable_service_on_boot pf9-hostagent
-    pf9_remove_service_files pf9-hostagent
+    systemctl stop pf9-hostagent
+    systemctl disable pf9-hostagent
+    rm /lib/systemd/system/pf9-hostagent.service && systemctl daemon-reload
 fi
 
 %postun

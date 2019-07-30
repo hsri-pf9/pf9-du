@@ -19,8 +19,7 @@ change_file_permissions() {
     chmod 0550 /opt/pf9/hostagent/pf9-hostagent-prestart.sh
 }
 
-. /opt/pf9/pf9-service-functions.sh
-pf9_setup_service_files pf9-hostagent /opt/pf9/hostagent/pf9-hostagent-systemd /opt/pf9/hostagent/pf9-hostagent-deb-init
+cp /opt/pf9/hostagent/pf9-hostagent-systemd /lib/systemd/system/pf9-hostagent.service && systemctl daemon-reload
 
 if [ "$script_step" = "configure" ] && [ -z $configured_version ]; then
     # Create the pf9 user and group
@@ -33,7 +32,7 @@ if [ "$script_step" = "configure" ] && [ -z $configured_version ]; then
     usermod -aG pf9group root
     # Make the certs and log files belong to the pf9group
     change_file_permissions
-    pf9_enable_service_on_boot pf9-hostagent > /dev/null 2>&1
+    systemctl enable pf9-hostagent > /dev/null 2>&1
 elif [ "$script_step" = "configure" ]; then
     # During an upgrade, hostagent files are reverted to the default owner and
     # group. So, permissions must be reassigned.
