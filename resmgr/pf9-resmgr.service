@@ -13,7 +13,7 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=pf9-resmgr
 RestartSec=10
-StartLimitIntervalSec=60
+StartLimitInterval=60
 StartLimitBurst=5
 
 [Install]
