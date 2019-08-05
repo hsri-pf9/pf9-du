@@ -113,6 +113,7 @@ rm -rf "/var/opt/pf9/hostagent"
 # Remove the apps cache in case of an uninstall
 if [ "$1" = "0" ]; then
     rm -rf "/var/cache/pf9apps"
+    pkill pf9-sidekick || true
 fi
 
 %changelog

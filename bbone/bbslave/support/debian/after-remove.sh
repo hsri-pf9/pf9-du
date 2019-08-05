@@ -14,5 +14,6 @@ case "$script_step" in
     # Remove the apps cache in case of an uninstall
     remove | purge | disappear)
         rm -rf "/var/cache/pf9apps"
+        pkill pf9-sidekick || true
         ;;
 esac
