@@ -36,8 +36,13 @@ rm -rf ${RPM_BUILD_ROOT}
 /opt/pf9/du-tools
 
 %post
+ln -sf ${DEST_DU_CTL_DIR}/du_ctl /usr/bin/du_ctl
 
 %preun
+if [ $1 == 0 ]; then
+    # only during complete uninstall
+    rm -rf /usr/bin/du_ctl
+fi
 
 %postun
 
