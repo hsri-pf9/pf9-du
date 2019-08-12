@@ -1293,8 +1293,8 @@ class ResMgrPf9Provider(ResMgrProvider):
     def _random_rabbit_creds(self, len=16):
         return tuple(
             "".join([random.choice(string.ascii_letters + string.digits)
-                     for i in xrange(len)])
-            for j in xrange(2)
+                     for i in range(len)])
+            for j in range(2)
         )
 
     def create_rabbit_credentials(self, host_id, role_name, version):

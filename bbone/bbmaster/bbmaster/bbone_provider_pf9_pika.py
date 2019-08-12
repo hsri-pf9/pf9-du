@@ -7,7 +7,7 @@ This module is implementation of the backbone provider interface.
 
 from six.moves.configparser import ConfigParser
 import datetime
-from bbone_provider_memory import bbone_provider_memory
+from bbmaster.bbone_provider_memory import bbone_provider_memory
 import threading
 from bbcommon import constants
 from bbcommon.amqp import io_loop
@@ -22,7 +22,7 @@ import requests
 import socket
 import time
 import copy
-from pf9_firmware_apps import (get_fw_apps_cfg,
+from bbmaster.pf9_firmware_apps import (get_fw_apps_cfg,
     insert_fw_apps_config, remove_fw_apps_config)
 from pika.exceptions import AMQPConnectionError
 
@@ -83,7 +83,7 @@ class bbone_provider_pf9(bbone_provider_memory):
         Sets the desired apps configuration for a particular host
         """
         with self.lock:
-            if self.hosts.has_key(id):
+            if id in self.hosts:
                 previous_desired_apps = self.desired_apps.get(id)
                 host_state = self.hosts[id]
             else:

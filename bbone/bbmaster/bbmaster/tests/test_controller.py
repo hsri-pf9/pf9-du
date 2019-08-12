@@ -7,7 +7,7 @@ from pecan.testing import load_test_app
 
 from bbmaster import bbone_provider_mock
 
-import mock_data
+from bbmaster.tests import mock_data
 
 
 class TestRootController(FunctionalTest):
@@ -31,20 +31,21 @@ class TestRootController(FunctionalTest):
     def test_get_host_details(self):
         # Get host IDs
         response = self.app.get('/v1/hosts/')
-        body = response.json_body
+        print(type(response))
+        body = response.json
         assert type(body) is list
-        assert body[0]['host_id'] == '468860b4-8a16-11e3-909d-005056a93468'
-        assert body[1]['host_id'] == '2d734f3a-8a16-11e3-909d-005056a93468'
+        assert body[0]['host_id'] == '2d734f3a-8a16-11e3-909d-005056a93468'
+        assert body[1]['host_id'] == '468860b4-8a16-11e3-909d-005056a93468'
 
-        assert body[1]['apps']['service1']['running']
-        assert body[1]['apps']['service1']['version'] == '1.1'
+        assert body[0]['apps']['service1']['running']
+        assert body[0]['apps']['service1']['version'] == '1.1'
 
     def test_get_host_ids(self):
         response = self.app.get('/v1/hosts/ids')
         body = response.json_body
         assert type(body) is list
-        assert body[0] == '468860b4-8a16-11e3-909d-005056a93468'
-        assert body[1] == '2d734f3a-8a16-11e3-909d-005056a93468'
+        assert body[0] == '2d734f3a-8a16-11e3-909d-005056a93468'
+        assert body[1] == '468860b4-8a16-11e3-909d-005056a93468'
 
     def test_get_apps_config(self):
         url = '/v1/hosts/468860b4-8a16-11e3-909d-005056a93468/apps'

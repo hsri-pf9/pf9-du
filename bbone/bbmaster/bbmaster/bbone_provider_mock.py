@@ -5,7 +5,7 @@
 This module is a mock implementation of the backbone provider interface.
 """
 
-from bbone_provider_memory import bbone_provider_memory
+from .bbone_provider_memory import bbone_provider_memory
 
 class bbone_provider_mock(bbone_provider_memory):
     """

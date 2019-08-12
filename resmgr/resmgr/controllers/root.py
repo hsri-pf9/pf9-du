@@ -4,7 +4,7 @@
 
 __author__ = 'Platform9'
 
-from resmgr_controller import RolesController, HostsController, ServicesController
+from resmgr.controllers.resmgr_controller import RolesController, HostsController, ServicesController
 
 class V1Controller(object):
     roles = RolesController()

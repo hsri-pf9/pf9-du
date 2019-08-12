@@ -8,7 +8,7 @@ Root level controllers for the backbone master webservice. Provides the root and
 the version controller for the webservice requests.
 """
 
-from hosts_controller import HostsController
+from bbmaster.controllers.hosts_controller import HostsController
 
 class V1Controller(object):
     '''

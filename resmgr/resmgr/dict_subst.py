@@ -3,6 +3,7 @@
 
 
 import copy
+from six import iteritems
 
 def substitute(dictionary, token_map):
     """
@@ -14,10 +15,10 @@ def substitute(dictionary, token_map):
     return d
 
 def _substitute(dictionary, token_map):
-    for key, val in dictionary.iteritems():
+    for key, val in iteritems(dictionary):
         val_type = type(val)
         if val_type is dict:
             _substitute(val, token_map)
-        elif val_type in (str, unicode) and val in token_map:
+        elif val_type is str and val in token_map:
             dictionary[key] = token_map[val]
 

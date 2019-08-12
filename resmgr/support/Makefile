@@ -51,9 +51,11 @@ COVERAGE_ZIP = ${SRC_ROOT}/coverage.zip
 ${BUILD_DIR}:
 	mkdir -p $@
 
+PY_VERSION=py3
+
 ${VENV}: ${BUILD_DIR}
 	mkdir -p $@
-	$(SRC_ROOT)/build-venv.sh ${VENV}
+	$(SRC_ROOT)/build-venv.sh ${VENV} ${PY_VERSION}
 
 ${RESMGR_SRC_STAGE}: pre-reqs
 	mkdir -p ${RESMGR_SRC_STAGE}/var/log/pf9

@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import tempfile
+import six
 from six.moves.configparser import ConfigParser
 import errno
 import json
@@ -150,9 +151,14 @@ def is_dict_subset(dict1, dict2):
             return False
 
         type1 = type(val1)
-        if type1 not in (str, unicode, bool, int, float, dict):
-            # Currently we support only these datatypes as values in the dict
-            return False
+        if six.PY2:
+            if type1 not in (str, unicode, bool, int, float, dict):
+                # Currently we support only these datatypes as values in the dict
+                return False
+        else:
+            if type1 not in (str, bool, int, float, dict):
+                # Currently we support only these datatypes as values in the dict
+                return False
         val2 = dict2[key]
         if issubclass(type1, dict):
             # If there is a nested dict, recurse the call.

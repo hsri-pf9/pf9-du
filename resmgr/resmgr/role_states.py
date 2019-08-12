@@ -31,7 +31,6 @@ class _RoleState(object):
         well.
         """
         if not (isinstance(other, str) or \
-                isinstance(other, unicode) or \
                 isinstance(other, _RoleState)):
             return False
         else:

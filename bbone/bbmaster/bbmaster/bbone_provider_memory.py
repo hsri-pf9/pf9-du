@@ -5,7 +5,7 @@
 This module is a mock implementation of the backbone provider interface.
 """
 
-from bbone_provider import bbone_provider
+from bbmaster.bbone_provider import bbone_provider
 from datetime import datetime
 
 class bbone_provider_memory(bbone_provider):
@@ -21,8 +21,9 @@ class bbone_provider_memory(bbone_provider):
         Return all host ids.
         :return: list of all the host IDs
         :rtype: list
+        In python3 dict_keys() are not JSON serializable, hence typecasted to list.
         """
-        return self.hosts.keys()
+        return list(self.hosts.keys())
 
     def get_hosts(self, id_list=[], show_firmware_apps=False):
         if not id_list:

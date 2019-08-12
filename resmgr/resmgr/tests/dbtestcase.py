@@ -13,7 +13,7 @@ from collections import OrderedDict
 from six.moves.configparser import ConfigParser
 from resmgr import dbutils
 from resmgr import migrate_db
-from StringIO import StringIO
+from io import StringIO
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -230,7 +230,7 @@ class DbTestCase(unittest.TestCase):
         resmgr_config = RESMGR_CONF % {'sqlite_temp_file':
                                        self._sqlite_temp_file}
         self._cfg = ConfigParser()
-        self._cfg.readfp(StringIO(resmgr_config))
+        self._cfg.read_file(StringIO(resmgr_config))
 
         # init the db and get an instance of ResMgrDB
         get_resmgr_db_url = \

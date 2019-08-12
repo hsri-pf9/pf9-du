@@ -49,12 +49,14 @@ endif
 #TODO: Coverage zip should probably be done as part of teamcity build steps.
 COVERAGE_ZIP = ${SRC_ROOT}/coverage.zip
 
+PY_VERSION=py3
+
 ${BUILD_DIR}:
 	mkdir -p $@
 
 ${VENV}: ${BUILD_DIR}
 	mkdir -p $@
-	$(SRC_ROOT)/build-venv.sh ${VENV}
+	$(SRC_ROOT)/build-venv.sh ${VENV} ${PY_VERSION}
 	${VENV}/bin/pip install setuptools==33.1.1
 	${VENV}/bin/pip install six==1.12.0
 

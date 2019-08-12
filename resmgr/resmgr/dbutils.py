@@ -61,7 +61,7 @@ class JsonBlob(types.TypeDecorator):
         if value is None:
             return None
 
-        return json.loads(value.decode())
+        return json.loads(value)
 
 class RabbitCredential(Base):
     __tablename__ = 'rabbit_credentials'
@@ -293,7 +293,7 @@ class ResMgrDB(object):
             config_string = json.dumps(config)
             config_string = self._replace_legacy_tokens(config_string)
             config_string = config_string % params
-            new_app_specs[appname] = json.loads(config_string.decode())
+            new_app_specs[appname] = json.loads(config_string)
 
         return new_app_specs
 

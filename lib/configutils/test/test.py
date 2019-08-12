@@ -22,7 +22,7 @@ def _no_file_test(method):
     nofilecheck = False
     try:
         method("nofile")
-    except Exception, e:
+    except Exception as e:
         nofilecheck = True
         assert type(e) == OSError
         assert e.errno == 2
@@ -34,7 +34,7 @@ def _json_error_test(filename, exc):
     exccheck = False
     try:
         configutils.jsonfile_to_ini(filename)
-    except Exception, e:
+    except Exception as e:
         exccheck = True
         assert type(e) == exc
 

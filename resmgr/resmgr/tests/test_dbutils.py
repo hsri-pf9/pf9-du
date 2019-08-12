@@ -43,10 +43,10 @@ class TestDb(DbTestCase):
                              'rabbit', 'p@55wd')
         host_id = TEST_HOST['id']
         deets = self._db.query_host_and_app_details()
-        self.assertEquals(1, len(deets))
-        self.assertEquals({'test-role': customvalues},
+        self.assertEqual(1, len(deets))
+        self.assertEqual({'test-role': customvalues},
                           deets[host_id]['role_settings'])
-        self.assertEquals(applied_roleversion,
+        self.assertEqual(applied_roleversion,
                           deets[host_id]['role_details'][0].version)
 
     def test_add_host_with_customizable_role(self):
@@ -62,26 +62,26 @@ class TestDb(DbTestCase):
         host_id = TEST_HOST['id']
         roleid = 'test-role_%s' % applied_roleversion
         deets = self._db.query_host_and_app_details()
-        self.assertEquals(1, len(deets))
-        self.assertEquals(role_states.NOT_APPLIED,
+        self.assertEqual(1, len(deets))
+        self.assertEqual(role_states.NOT_APPLIED,
                           deets[host_id]['role_states'][roleid])
         self.assertTrue('test-role' in deets[host_id][
             'apps_config_including_deauthed_roles'])
 
         attrs_with_rolenames = self._db.query_host(host_id, fetch_role_ids=False)
-        self.assertEquals(host_id, attrs_with_rolenames['id'])
-        self.assertEquals(1, len(attrs_with_rolenames['roles']))
-        self.assertEquals('test-role', attrs_with_rolenames['roles'][0])
+        self.assertEqual(host_id, attrs_with_rolenames['id'])
+        self.assertEqual(1, len(attrs_with_rolenames['roles']))
+        self.assertEqual('test-role', attrs_with_rolenames['roles'][0])
 
         attrs_with_role_ids = self._db.query_host(host_id, fetch_role_ids=True)
-        self.assertEquals(host_id, attrs_with_role_ids['id'])
-        self.assertEquals(1, len(attrs_with_role_ids['roles']))
-        self.assertEquals(roleid, attrs_with_role_ids['roles'][0])
+        self.assertEqual(host_id, attrs_with_role_ids['id'])
+        self.assertEqual(1, len(attrs_with_role_ids['roles']))
+        self.assertEqual(roleid, attrs_with_role_ids['roles'][0])
 
         # check another api
         roles = self._db.query_roles_for_host(host_id)
-        self.assertEquals(1, len(roles))
-        self.assertEquals(roleid, roles[0].id)
+        self.assertEqual(1, len(roles))
+        self.assertEqual(roleid, roles[0].id)
 
     def test_add_role(self):
         self._add_role(None, '1.0', {'customizable_key': 'customizable_value'})
@@ -99,8 +99,8 @@ class TestDb(DbTestCase):
         host_id = TEST_HOST['id']
 
         deets = self._db.query_host_and_app_details()
-        self.assertEquals(1, len(deets))
-        self.assertEquals(role_states.NOT_APPLIED,
+        self.assertEqual(1, len(deets))
+        self.assertEqual(role_states.NOT_APPLIED,
                           deets[host_id]['role_states']['test-role_1.0'])
         self.assertTrue('test-role' in deets[host_id][
             'apps_config_including_deauthed_roles'])
@@ -109,7 +109,7 @@ class TestDb(DbTestCase):
                                              role_states.START_APPLY)
         self.assertTrue(result)
         deets = self._db.query_host_and_app_details()
-        self.assertEquals(role_states.START_APPLY,
+        self.assertEqual(role_states.START_APPLY,
                           deets[host_id]['role_states']['test-role_1.0'])
 
         # new version of test-role:
@@ -125,7 +125,7 @@ class TestDb(DbTestCase):
 
         # there should be five roles, with 2.0 as the active one for test-role.
         roles = self._db.query_roles(active_only=False)
-        self.assertEquals(5, len(roles))
+        self.assertEqual(5, len(roles))
         old = None
         new = None
         other = None
@@ -152,8 +152,8 @@ class TestDb(DbTestCase):
                                     {'customizable_key': 'customizable_value'})
         self._db.associate_role_to_host(host_id, 'test-role')
         deets = self._db.query_host_and_app_details()
-        self.assertEquals(2, len(deets[host_id]['role_states']))
-        self.assertEquals(role_states.START_APPLY,
+        self.assertEqual(2, len(deets[host_id]['role_states']))
+        self.assertEqual(role_states.START_APPLY,
                           deets[host_id]['role_states']['test-role_2.0'])
 
     def _remove_role(self, apply_roleversion, applied_roleversion, customvalues):
@@ -163,17 +163,17 @@ class TestDb(DbTestCase):
         host_id = TEST_HOST['id']
         role_id = 'test-role_%s' % applied_roleversion
         deets = self._db.query_host_and_app_details()
-        self.assertEquals(1, len(deets))
-        self.assertEquals(role_states.NOT_APPLIED,
+        self.assertEqual(1, len(deets))
+        self.assertEqual(role_states.NOT_APPLIED,
                           deets[host_id]['role_states'][role_id])
         self.assertTrue('test-role' in deets['1234'][
             'apps_config_including_deauthed_roles'])
 
         self._db.remove_role_from_host(host_id, 'test-role')
         deets = self._db.query_host_and_app_details()
-        self.assertEquals(1, len(deets))
-        self.assertEquals({}, deets[host_id]['apps_config'])
-        self.assertEquals({}, deets[host_id]['role_states'])
+        self.assertEqual(1, len(deets))
+        self.assertEqual({}, deets[host_id]['apps_config'])
+        self.assertEqual({}, deets[host_id]['role_states'])
 
     def test_remove_role(self):
         self._remove_role(None, '1.0', {'customizable_key': 'customizable_value'})
@@ -224,8 +224,8 @@ class TestDb(DbTestCase):
                                              role_states.START_EDIT)
         self.assertFalse(result)
         deets = self._db.query_host_and_app_details()
-        self.assertEquals(1, len(deets))
-        self.assertEquals(role_states.NOT_APPLIED,
+        self.assertEqual(1, len(deets))
+        self.assertEqual(role_states.NOT_APPLIED,
                           deets[host_id]['role_states']['test-role_1.0'])
 
         result = self._db.advance_role_state(host_id, 'test-role',
@@ -233,7 +233,7 @@ class TestDb(DbTestCase):
                                              role_states.START_APPLY)
         self.assertTrue(result)
         deets = self._db.query_host_and_app_details()
-        self.assertEquals(role_states.START_APPLY,
+        self.assertEqual(role_states.START_APPLY,
                           deets[host_id]['role_states']['test-role_1.0'])
 
     def test_move_new_state(self):
@@ -252,7 +252,7 @@ class TestDb(DbTestCase):
                                      role_states.NOT_APPLIED):
             LOG.info('Successfully executed the body!')
         deets = self._db.query_host_and_app_details()
-        self.assertEquals(role_states.PRE_AUTH,
+        self.assertEqual(role_states.PRE_AUTH,
                           deets[host_id]['role_states']['test-role_1.0'])
 
     def test_move_new_state_fail(self):
@@ -272,7 +272,7 @@ class TestDb(DbTestCase):
                                          role_states.NOT_APPLIED):
                 raise RuntimeError('Failed to execute the body')
         deets = self._db.query_host_and_app_details()
-        self.assertEquals(role_states.NOT_APPLIED,
+        self.assertEqual(role_states.NOT_APPLIED,
                           deets[host_id]['role_states']['test-role_1.0'])
 
     def test_get_all_role_associations(self):
@@ -285,5 +285,5 @@ class TestDb(DbTestCase):
         host_id = TEST_HOST['id']
         assocs = self._db.get_all_role_associations(host_id)
         self.assertTrue(assocs)
-        self.assertEquals(['test-role', 'test-role-2'],
+        self.assertEqual(['test-role', 'test-role-2'],
                           sorted([a.role.rolename for a in assocs]))

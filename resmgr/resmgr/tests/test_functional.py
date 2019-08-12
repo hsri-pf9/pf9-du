@@ -87,8 +87,8 @@ class TestResMgr(FunctionalTest):
             resp = self.app.put('/v1/hosts/rsc_1/roles/test-role',
                                 expect_errors=True)
             LOG.info('test_put_role_bad_state response body: %s', resp.text)
-            self.assertTrue(resp.json.has_key('message'))
-            self.assertEquals(409, resp.status_code)
+            self.assertTrue('message' in resp.json)
+            self.assertEqual(409, resp.status_code)
 
     def test_put_role_on_auth_failure(self):
         with mock.patch.object(ResMgrMemProvider, 'add_role') as add_role:
@@ -97,7 +97,7 @@ class TestResMgr(FunctionalTest):
                                 expect_errors=True)
             LOG.info('test_put_role_on_auth_failure response body: %s',
                      resp.text)
-            self.assertEquals(400, resp.status_code)
+            self.assertEqual(400, resp.status_code)
 
     def test_delete_role_bad_state(self):
         with mock.patch.object(ResMgrMemProvider, 'delete_role') as delete_role:
@@ -105,7 +105,7 @@ class TestResMgr(FunctionalTest):
             resp = self.app.delete('/v1/hosts/rsc_1/roles/test-role',
                                    expect_errors=True)
             LOG.info('test_delete_role_bad_state response body: %s', resp.text)
-            self.assertEquals(409, resp.status_code)
+            self.assertEqual(409, resp.status_code)
 
     def test_delete_role_on_deauth_failure(self):
         with mock.patch.object(ResMgrMemProvider, 'delete_role') as delete_role:
@@ -114,14 +114,14 @@ class TestResMgr(FunctionalTest):
                                    expect_errors=True)
             LOG.info('test_delete_role_on_deauth_failure response body: %s',
                      resp.text)
-            self.assertEquals(400, resp.status_code)
+            self.assertEqual(400, resp.status_code)
 
     def test_delete_host_bad_state(self):
         with mock.patch.object(ResMgrMemProvider, 'delete_host') as delete_role:
             delete_role.side_effect = RoleUpdateConflict('conflict!')
             resp = self.app.delete('/v1/hosts/rsc_1', expect_errors=True)
             LOG.info('test_delete_host_bad_state response body: %s', resp.text)
-            self.assertEquals(409, resp.status_code)
+            self.assertEqual(409, resp.status_code)
 
     def test_delete_host_on_deauth_failure(self):
         with mock.patch.object(ResMgrMemProvider, 'delete_host') as delete_role:
@@ -129,4 +129,4 @@ class TestResMgr(FunctionalTest):
             resp = self.app.delete('/v1/hosts/rsc_1', expect_errors=True)
             LOG.info('test_delete_host_on_deauth_failure response body: %s',
                      resp.text)
-            self.assertEquals(400, resp.status_code)
+            self.assertEqual(400, resp.status_code)

@@ -34,23 +34,23 @@ BBONE_HOST = {
     'extensions': {
         'interfaces': {
             'data': {
-                'iface_ip': {u'eth0': '10.4.253.124'},
+                'iface_ip': {'eth0': '10.4.253.124'},
                 'ovs_bridges': []
             },
-            'status': u'ok'
+            'status': 'ok'
         },
         'ip_address': {
-            'data': [u'10.4.253.124'],
-            'status': u'ok'
+            'data': ['10.4.253.124'],
+            'status': 'ok'
         },
         'volumes_present': {
             'data': [
                 {'free': '0', 'name': 'ubuntu12-vg', 'size': '16.76g'}
             ],
-            'status': u'ok'
+            'status': 'ok'
         }
     },
-    'host_agent': {'status': 'running', 'version': u'2.2.0-1463.5ae865b'},
+    'host_agent': {'status': 'running', 'version': '2.2.0-1463.5ae865b'},
     'host_id': TEST_HOST['id'],
     'hypervisor_info': {'hypervisor_type': 'kvm'},
     'info': {
@@ -118,7 +118,7 @@ class match_dict_to_jsonified(object):
         self._dict = dictionary
         self._other = None
     def __eq__(self, jsonified):
-        other = json.loads(jsonified.decode())
+        other = json.loads(jsonified)
         return self._dict == other
     def __repr__(self):
         return str(self._dict)
@@ -202,7 +202,7 @@ class TestProvider(DbTestCase):
     def _assert_role_state(self, host_id, rolename, state):
         role_assoc = self._db.get_current_role_association(host_id,
                                                            rolename)
-        self.assertEquals(state, role_assoc.current_state)
+        self.assertEqual(state, role_assoc.current_state)
 
     def _lookup_rabbit_creds(self,
                           host_id=TEST_HOST['id'],
@@ -223,17 +223,17 @@ class TestProvider(DbTestCase):
         events = sys.modules['test_auth_events']
         method = getattr(events, event_name)
         host_config = {
-            u'test_conf': {
-                u'DEFAULT': {
-                    u'conf1': u'conf1_value',
-                    u'rabbit_user': RABBIT_USER,
-                    u'rabbit_password': RABBIT_PASS,
-                    u'rabbit_transport_url': RABBIT_URL,
-                    u'legacy_rabbit_transport_url': RABBIT_URL,
-                    u'endpoint_spec': 'http://something/%(project_id)s'
+            'test_conf': {
+                'DEFAULT': {
+                    'conf1': 'conf1_value',
+                    'rabbit_user': RABBIT_USER,
+                    'rabbit_password': RABBIT_PASS,
+                    'rabbit_transport_url': RABBIT_URL,
+                    'legacy_rabbit_transport_url': RABBIT_URL,
+                    'endpoint_spec': 'http://something/%(project_id)s'
                 },
-                u'customizable_section': {
-                    u'customizable_key': custom_value
+                'customizable_section': {
+                    'customizable_key': custom_value
                 }
             }
         }
@@ -275,7 +275,7 @@ class TestProvider(DbTestCase):
 
         # make sure the rabbit creds on the host didn't change
         self._assert_same_rabbit_creds(host_id, init_rabbit_creds)
-        self.assertEquals(init_delete_calls, self._delete_rabbit_user.call_count)
+        self.assertEqual(init_delete_calls, self._delete_rabbit_user.call_count)
 
     def _add_and_converge_role(self, rolename):
         host_id = TEST_HOST['id']
@@ -307,7 +307,7 @@ class TestProvider(DbTestCase):
         Remove the environment variable so all events succeed
         """
         popped = os.environ.pop('PF9_RESMGR_FAIL_EVENT', None)
-        self.assertEquals(event_name, popped)
+        self.assertEqual(event_name, popped)
 
     def test_valid_roles(self):
         good_role = self._provider.get_role('test-role')
@@ -385,7 +385,7 @@ class TestProvider(DbTestCase):
             match_dict_to_jsonified(BBONE_PUSH))
 
         hosts = self._provider.get_all_hosts()
-        self.assertEquals(1, len(hosts))
+        self.assertEqual(1, len(hosts))
         host = hosts.get(host_id)
         self.assertTrue(host)
         self.assertTrue('test-role' in host['roles'])
@@ -495,12 +495,12 @@ class TestProvider(DbTestCase):
         # The host is still authorized, and the role's still there
         host = self._inventory.get_authorized_host(host_id)
         self.assertTrue(host)
-        self.assertEquals(['test-role', 'test-role-2'], host['roles'])
+        self.assertEqual(['test-role', 'test-role-2'], host['roles'])
 
         # still in the database with test-role-2 still bound
         hosts_in_db = self._db.query_hosts()
         self.assertTrue(hosts_in_db)
-        self.assertEquals(['test-role', 'test-role-2'],
+        self.assertEqual(['test-role', 'test-role-2'],
                           hosts_in_db[0]['roles'])
 
         # cleanup's still in process on the host.
@@ -513,11 +513,11 @@ class TestProvider(DbTestCase):
         self._get_backbone_host.return_value = converging
         self._bbone.process_hosts()
         hosts = self._inventory.get_all_hosts()
-        self.assertEquals(1, len(hosts))
+        self.assertEqual(1, len(hosts))
         host = hosts.get(host_id)
         self.assertTrue(host)
-        self.assertEquals('converging', host['role_status'])
-        self.assertEquals(['test-role', 'test-role-2'],
+        self.assertEqual('converging', host['role_status'])
+        self.assertEqual(['test-role', 'test-role-2'],
                           host.get('roles'))
         self._assert_event_handler_not_called('on_deauth_converged')
         self._assert_role_state(host_id, 'test-role',
@@ -572,8 +572,8 @@ class TestProvider(DbTestCase):
         self._bbone.process_hosts()
         host = self._inventory.get_authorized_host(host_id)
         self.assertTrue(host)
-        self.assertEquals('converging', host['role_status'])
-        self.assertEquals(['test-role'], host.get('roles'))
+        self.assertEqual('converging', host['role_status'])
+        self.assertEqual(['test-role'], host.get('roles'))
         self._assert_role_state(host_id, 'test-role',
                                 role_states.AUTH_CONVERGING)
         self._assert_fails_puts_deletes(host_id, 'test-role')
@@ -589,9 +589,9 @@ class TestProvider(DbTestCase):
         self.assertEqual(['test-role'], authed_host.get('roles'))
 
         roles = self._db.query_roles_for_host(host_id)
-        self.assertEquals(1, len(roles))
-        self.assertEquals('test-role_2.0', roles[0].id)
-        self.assertEquals('2.0', roles[0].version)
+        self.assertEqual(1, len(roles))
+        self.assertEqual('test-role_2.0', roles[0].id)
+        self.assertEqual('2.0', roles[0].version)
         self._assert_role_state(host_id, 'test-role', role_states.APPLIED)
 
     def test_edit_role(self):
@@ -625,8 +625,8 @@ class TestProvider(DbTestCase):
         self._bbone.process_hosts()
         host = self._inventory.get_authorized_host(host_id)
         self.assertTrue(host)
-        self.assertEquals('converging', host['role_status'])
-        self.assertEquals(['test-role'], host.get('roles'))
+        self.assertEqual('converging', host['role_status'])
+        self.assertEqual(['test-role'], host.get('roles'))
         self._assert_role_state(host_id, 'test-role',
                                 role_states.AUTH_CONVERGING)
         self._assert_fails_puts_deletes(host_id, 'test-role')
@@ -681,7 +681,7 @@ class TestProvider(DbTestCase):
 
         # make sure the rabbit creds didn't change
         self._assert_same_rabbit_creds(host_id, init_rabbit_creds)
-        self.assertEquals(init_delete_calls, self._delete_rabbit_user.call_count)
+        self.assertEqual(init_delete_calls, self._delete_rabbit_user.call_count)
 
     def test_failed_on_auth_converged_event(self):
         host_id = TEST_HOST['id']
@@ -1221,7 +1221,7 @@ class TestProvider(DbTestCase):
 
         # upgrade from 1.0 to 1.50 by 0.01 at random intervals
         random.seed()
-        for i in xrange(1, 50):
+        for i in range(1, 50):
             new_version = '1.%0.2d' % i
             LOG.info('upgrading to %s', new_version)
             new_role = {
@@ -1260,9 +1260,9 @@ class TestProvider(DbTestCase):
             self.assertEqual(['test-role'], authed_host.get('roles'))
 
             roles = self._db.query_roles_for_host(host_id)
-            self.assertEquals(1, len(roles))
-            self.assertEquals('test-role_%s' % new_version, roles[0].id)
-            self.assertEquals(new_version, roles[0].version)
+            self.assertEqual(1, len(roles))
+            self.assertEqual('test-role_%s' % new_version, roles[0].id)
+            self.assertEqual(new_version, roles[0].version)
             self._assert_role_state(host_id, 'test-role', role_states.APPLIED)
 
             # random sleep between .25 and 2.25 seconds

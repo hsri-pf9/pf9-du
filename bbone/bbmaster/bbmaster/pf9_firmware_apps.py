@@ -7,9 +7,9 @@ from bbcommon.exceptions import Pf9FirmwareAppsError
 from glob import glob
 from os import path, environ
 import logging
-import pf9_comms
-import pf9_vmw_mgmt
-import pf9_muster
+from bbmaster import pf9_comms
+from bbmaster import pf9_vmw_mgmt
+from bbmaster import pf9_muster
 import subprocess
 
 LOG = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ def _app_package_and_version(app_name, base_dir):
                                                             app=app_name))
         raise Pf9FirmwareAppsError
     pkg_filename = path.basename(pkgs[0])
-    return pkg_filename, version
+    return pkg_filename, version.decode()
 
 
 def _get_base_dir_url(app_name, config=None):

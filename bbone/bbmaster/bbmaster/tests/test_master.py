@@ -195,7 +195,7 @@ class TestBbMaster(FunctionalTest):
     """
 
     def setUp(self):
-        self.temp_conf = tempfile.NamedTemporaryFile(delete=False)
+        self.temp_conf = tempfile.NamedTemporaryFile(delete=False, mode='w')
         config.write(self.temp_conf)
         self.temp_conf.close()
         os.environ['BBMASTER_CONFIG_FILE'] = self.temp_conf.name
@@ -287,7 +287,7 @@ class TestBbMaster(FunctionalTest):
 class TestBBMasterBadStatus (FunctionalTest):
 
     def setUp(self):
-        self.temp_conf = tempfile.NamedTemporaryFile(delete=False)
+        self.temp_conf = tempfile.NamedTemporaryFile(delete=False, mode='w')
         config.write(self.temp_conf)
         self.temp_conf.close()
         os.environ['BBMASTER_CONFIG_FILE'] = self.temp_conf.name
@@ -325,7 +325,7 @@ class TestBBMasterBadStatus (FunctionalTest):
 class TestBBMasterBadSetOp(FunctionalTest):
 
     def setUp(self):
-        self.temp_conf = tempfile.NamedTemporaryFile(delete=False)
+        self.temp_conf = tempfile.NamedTemporaryFile(delete=False, mode='w')
         config.write(self.temp_conf)
         self.temp_conf.close()
         os.environ['BBMASTER_CONFIG_FILE'] = self.temp_conf.name

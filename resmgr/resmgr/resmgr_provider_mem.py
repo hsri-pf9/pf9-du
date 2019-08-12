@@ -7,8 +7,8 @@ __author__ = "Platform9"
 This module is mock implementation of resource manager provider interface
 """
 
-from resmgr_provider import ResMgrProvider
-from exceptions import RoleNotFound, HostNotFound
+from resmgr.resmgr_provider import ResMgrProvider
+from resmgr.exceptions import RoleNotFound, HostNotFound
 import notifier
 import logging
 import json
