@@ -16,7 +16,6 @@ Group=pf9group
 RestartSec=30
 StartLimitIntervalSec=600
 StartLimitBurst=6
-RestartPreventExitStatus=0
 
 [Install]
 Alias=pf9-hostd
