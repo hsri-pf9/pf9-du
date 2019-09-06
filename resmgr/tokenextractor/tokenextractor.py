@@ -1,14 +1,12 @@
-# Copyright (c) 2015 Platform9 Systems Inc.
+# Copyright (c) 2019 Platform9 Systems Inc.
 # All Rights reserved
 
-import base64
 import logging
-import zlib
 from six.moves.http_cookies import SimpleCookie
 
 """
-Middleware to decode compressed Auth token that is passed in the request.
-It decompresses the token and adds it back to the header.
+Middleware to extract Auth token that is passed in the request as part of the
+Cookie
 """
 
 log = logging.getLogger('resmgr')
@@ -30,34 +28,34 @@ class MiniResp(object):
         self.headers.append(('Content-type', 'text/plain'))
 
 
-class TokenDecoder(object):
+class TokenExtractor(object):
     """
-    Middleware class which decodes the token
+    Middleware class which extracts the token
     """
     def __init__(self, app, conf):
-        log.info("Setting up token decoder middleware")
+        log.info("Setting up token extractor middleware")
         self.app = app
         self.conf = conf
 
     def __call__(self, environ, start_response):
         """
         Process the request. Extracts the actual token out of the
-        compressed token and sets the HTTP_X_AUTH_TOKEN attribute
+        cookie and sets the HTTP_X_AUTH_TOKEN attribute
         in the request.
         """
         try:
             token = self.extract_token(environ)
             environ['HTTP_X_AUTH_TOKEN'] = token
         except Exception as e:
-            # We could not decode the token, mark it as authentication failure
-            log.exception('Decoding token failed: %s, environ: %s', e, environ)
+            # We could not extract the token, mark it as authentication failure
+            log.exception('Extracting token failed: %s, environ: %s', e, environ)
             resp = MiniResp('Authentication required', environ)
             start_response('401 Unauthorized', resp.headers)
             log.error('Returning error response from token '
-                      'decoder middleware: %s', resp.body)
+                      'extractor middleware: %s', resp.body)
             return resp.body
 
-        # Things look ok in the decode process, pass it down the pipeline
+        # Things look ok in the extract process, pass it down the pipeline
         return self.app(environ, start_response)
 
     def extract_token(self, environ):
@@ -66,23 +64,15 @@ class TokenDecoder(object):
         """
 
         # Try the cookie first, and fall back to the header
-        encoded_token = None
+        token = None
         if 'HTTP_COOKIE' in environ:
             cookie = SimpleCookie(environ['HTTP_COOKIE'])
             if 'X-Auth-Token' in cookie:
-                encoded_token = cookie['X-Auth-Token'].value
+                token = cookie['X-Auth-Token'].value
                 log.debug('Extracted token from cookie')
-        if not encoded_token:
-            encoded_token = environ['HTTP_X_AUTH_TOKEN']
-        try:
-            # Decode the base64 encoded token string.
-            compressed_token = base64.b64decode(encoded_token)
+        if not token:
+            token = environ['HTTP_X_AUTH_TOKEN']
 
-            # Decompress the string to get the actual token
-            token = zlib.decompress(compressed_token)
-        except (zlib.error, TypeError):
-            log.info('Token is not compressed, sending raw cookie value')
-            token = encoded_token
         return token
 
 def filter_factory(global_conf, **local_conf):
@@ -92,7 +82,7 @@ def filter_factory(global_conf, **local_conf):
     conf = global_conf.copy()
     conf.update(local_conf)
 
-    def token_decoder(app):
-        return TokenDecoder(app, conf)
+    def token_extractor(app):
+        return TokenExtractor(app, conf)
 
-    return token_decoder
+    return token_extractor
