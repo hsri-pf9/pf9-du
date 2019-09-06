@@ -35,9 +35,8 @@ HOSTAGENT_DEPS = setuptools==33.1.1 \
 SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(PF9_VERSION)/"
 
 PYTHON_DOWNLOAD_URL := artifacts.platform9.horse/repository/yum-repo-frozen/hostagent-components/python.tgz
-
 # Include pf9-lib, which contains .so files used by all pf9 apps
-SO_DOWNLOAD_URL := artifacts.platform9.horse/service/rest/repository/browse/yum-repo-frozen/hostagent-components/libs/pf9-lib/
+SO_DOWNLOAD_URL := "http://artifacts.platform9.horse/service/rest/v1/search/assets?repository=yum-repo-frozen&name=hostagent-components/libs/pf9-lib/*.so.*"
 
 $(HOSTAGENT_TARBALL_SRCDIR):
 	mkdir -p $@
@@ -49,8 +48,7 @@ $(PYTHON_DIR): $(HOSTAGENT_TARBALL_SRCDIR)
 	mkdir -p $@
 	wget -q -O- $(PYTHON_DOWNLOAD_URL) | tar zxf - --strip-components=3 -C $@
 	mkdir -p $@/pf9-lib
-	wget --no-host-directories --recursive --no-parent --accept '*.so.*' --cut-dirs=4 \
-		--directory-prefix=$@/pf9-lib $(SO_DOWNLOAD_URL)
+	curl -X GET $(SO_DOWNLOAD_URL) -H  "accept: application/json" | jq '.items[] | .downloadUrl' | xargs -I {} wget --directory-prefix=$@/pf9-lib {}
 
 $(VENV_DIR): $(PYTHON_DIR)
 	mkdir -p $@
