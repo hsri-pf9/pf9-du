@@ -554,20 +554,29 @@ class HostInventoryMgr(object):
         self.sleep_time = config.get("backbone", "requestWaitPeriod")
         self.timeout = config.get("backbone", "requestTimeout")
 
-    def get_all_hosts(self):
+    def get_all_hosts(self, role_settings=False):
         """
         Returns information about all known hosts.
+        :param role_settings: Boolean indicating whether role settings need to
+                              be returned in the response dict
         :rtype: dict:
         """
         result = {}
         query_op = self.db_handler.query_hosts()
         for host in query_op:
-            if _authorized_host_role_status.get(host['id']):
-                host['role_status'] = _authorized_host_role_status[host['id']]
-            host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
-            host['extensions'] = _hosts_extension_data.get(host['id'], '')
-            host['message'] = _hosts_message_data.get(host['id'], '')
-            result[host['id']] = host
+            host_id = host['id']
+            if _authorized_host_role_status.get(host_id):
+                host['role_status'] = _authorized_host_role_status[host_id]
+            if role_settings is not None:
+                # /v1/hosts sends role_settings as None.
+                host['role_settings'] = {}
+            if role_settings:
+                host['role_settings'] = \
+                    self.db_handler.get_all_custom_settings(host_id)
+            host['hypervisor_info'] = _hosts_hypervisor_info.get(host_id, '')
+            host['extensions'] = _hosts_extension_data.get(host_id, '')
+            host['message'] = _hosts_message_data.get(host_id, '')
+            result[host_id] = host
 
         # Add unauthorized hosts into the result
         log.debug('Looking up unauthorized hosts')
@@ -1248,13 +1257,14 @@ class ResMgrPf9Provider(ResMgrProvider):
     def get_app_versions(self, role_name):
         return self.roles_mgr.get_app_versions(role_name)
 
-    def get_all_hosts(self):
+    def get_all_hosts(self, role_settings=False):
         """
         Returns information about all known hosts
         :return: dictionary of hosts and their information
         :rtype: dict
         """
-        return self.host_inventory_mgr.get_all_hosts()
+        return self.host_inventory_mgr.get_all_hosts(
+            role_settings=role_settings)
 
     def get_host(self, host_id):
         """

@@ -303,7 +303,7 @@ class HostsController(RestController):
         :rtype: list
         """
         log.debug('Getting details for all hosts')
-        res = _provider.get_all_hosts()
+        res = _provider.get_all_hosts(**{'role_settings': None})
 
         if not res:
             log.info('No hosts present')
@@ -314,7 +314,7 @@ class HostsController(RestController):
     @expose('json')
     def get_one(self, host_id):
         """
-        Handles requests of type GET /v1/hosts/<id>
+        Handles requests of type GET /<v1/v2>/hosts/<id>
         :return: dictionary of attributes about the host
         :rtype: dict
         """
@@ -331,7 +331,7 @@ class HostsController(RestController):
     @expose('json')
     def delete(self, host_id):
         """
-        Handles requests of type DELETE /v1/hosts/<id>
+        Handles requests of type DELETE /<v1/v2>/hosts/<id>
         :param str host_id: ID of host to be removed
         """
         log.debug('Deleting host %s', host_id)
@@ -349,6 +349,38 @@ class HostsController(RestController):
         except DuConfigError as e:
             log.exception('Host %s removal failed', host_id)
             return _json_error_response(pecan.response, 400, e)
+
+class HostsControllerV2(HostsController):
+
+    @expose('json')
+    def get_all(self, **kwargs):
+        """
+        Handles requests of type GET /v2/hosts. Returns all hosts known
+        to the resource manager.
+        :return: list of hosts. Empty list if no hosts are present.
+        :rtype: list
+        """
+        log.debug('Getting details for all hosts')
+        # Currently this API is experimental and subject to change if more
+        # filters, flags and pagination need to be added. Till that is
+        # formalized perform a "static" validation of parameters being passed.
+        valid_keys = ['role_settings']
+        valid_values = ['true', 'false']
+        params = {}
+        for key, val in kwargs.items():
+            if key not in valid_keys:
+                pecan.abort(400, 'Invalid flag {}'.format(key))
+            elif val.lower() not in valid_values:
+                pecan.abort(400, 'Malformed request')
+            params[key] = val.lower() == 'true'
+
+        res = _provider.get_all_hosts(**params)
+
+        if not res:
+            log.info('No hosts present')
+            return []
+
+        return [val for val in itervalues(res)]
 
 class ServicesController(RestController):
     @enforce(required=['admin'])

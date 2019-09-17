@@ -50,7 +50,7 @@ class ResMgrProvider(object):
         pass
 
     @abstractmethod
-    def get_all_hosts(self):
+    def get_all_hosts(self, role_settings=False):
         """
         Returns information about all known hosts
         :rtype: dict

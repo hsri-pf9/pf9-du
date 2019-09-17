@@ -477,15 +477,23 @@ class ResMgrDB(object):
         table. If the host does not exist, returns the default settings
         for the specified role.
         """
+        role_settings = self.get_all_custom_settings(host_id)
+        if role_name not in role_settings:
+            log.error('Host %s does not have role %s', host_id, role_name)
+            raise RoleNotFound(role_name)
+        return role_settings[role_name]
+
+    def get_all_custom_settings(self, host_id):
+        """
+        Gets the custom config for all roles associated with the host
+        identified by host_id.
+        """
         with self.dbsession() as session:
             try:
                 host = session.query(Host).filter_by(id=host_id).first()
                 if host:
                     role_settings = host.role_settings
-                    if role_name not in role_settings:
-                        log.error('Host %s does not have role %s', host_id, role_name)
-                        raise RoleNotFound(role_name)
-                    return role_settings[role_name]
+                    return role_settings
                 else:
                     log.error('Host %s is not a recognized host', host_id)
                     raise HostNotFound(host_id)

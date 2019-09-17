@@ -82,7 +82,7 @@ class ResMgrMemProvider(ResMgrProvider):
         ## TODO: error handling
         return sub_roles
 
-    def get_all_hosts(self):
+    def get_all_hosts(self, role_settings=False):
         return self._get_hosts()
 
     def get_host(self, host_id):
