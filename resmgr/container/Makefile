@@ -34,8 +34,11 @@ $(RABBIT_DIST): SETUP_ROOT = $(SRCROOT)/lib/rabbit
 FIRKINIZE_DIST = $(STAGE)/firkinize-sdist.tgz
 $(FIRKINIZE_DIST): SETUP_ROOT = $(abspath $(SRCROOT)/../firkinize)
 
+METRICS_SDK_DIST = $(STAGE)/metrics_sdk-sdist.tgz
+$(METRICS_SDK_DIST): SETUP_ROOT = $(abspath $(SRCROOT)/../pf9-metrics-sdk/python)
+
 DISTS = $(RESMGR_DIST) $(BBLIB_DIST) $(BBMASTER_DIST) $(CONFIGUTILS_DIST) \
-        $(NOTIFIER_DIST) $(RABBIT_DIST) $(FIRKINIZE_DIST)
+        $(NOTIFIER_DIST) $(RABBIT_DIST) $(FIRKINIZE_DIST) $(METRICS_SDK_DIST)
 
 dist: $(DISTS)
 

@@ -14,6 +14,7 @@ COPY bblib-sdist.tgz \
      rabbitmgmt-sdist.tgz \
      resmgr-sdist.tgz \
      firkinize-sdist.tgz \
+     metrics_sdk-sdist.tgz \
      upper-constraints.txt \
      /root/
 
@@ -25,6 +26,7 @@ RUN pip install bblib-sdist.tgz \
                 rabbitmgmt-sdist.tgz \
                 resmgr-sdist.tgz \
                 firkinize-sdist.tgz \
+                metrics_sdk-sdist.tgz \
                 supervisor \
                 -c upper-constraints.txt \
                 setuptools==33.1.1
