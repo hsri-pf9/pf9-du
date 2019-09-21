@@ -227,6 +227,7 @@ def parse_args():
     parser = ArgumentParser(description='Initialize keystone for a region')
     parser.add_argument('--config-url', default='http://localhost:8500',
         help='Address of the config node, default http://localhost:8500')
+    parser.add_argument('--config-token', help='Config access token')
     parser.add_argument('--customer-id',
         help='The keystone customer id', required=True)
     parser.add_argument('--region-id',
@@ -238,7 +239,7 @@ def main():
     mkdir_p('/var/log/pf9/resmgr')
     mkdir_p('/var/log/confd')
     args = parse_args()
-    consul = Consul(args.config_url)
+    consul = Consul(args.config_url, args.config_token)
     config = ResmgrConfig(consul, args.customer_id, args.region_id)
     config.add_keystone_endpoint()
     config.add_keystone_user()
