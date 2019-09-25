@@ -180,7 +180,7 @@ define image_build
 	docker build --rm -t $(CONTAINER_IMG):$(1) \
 		--build-arg BUILD_ID=$(BUILD_ID) \
 		--build-arg VERSION=$(PF9_VERSION) \
-		--build-arg BRANCH=$(BRANCH_NAME) \
+		--build-arg BRANCH="$(BRANCH_NAME)" \
 		--build-arg APP_METADATA=`cat $(APP_METADATA_JSON)` \
 		$(STAGE)
 endef
