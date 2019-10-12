@@ -8,7 +8,7 @@
 # ADMINPASS - password
 # ADMINEMAIL - email
 
-from keystoneclient.v2_0 import client
+from keystoneclient.v3 import client
 from keystoneclient.apiclient.exceptions import Conflict
 from keystoneclient.exceptions import ConnectionError
 
@@ -20,7 +20,7 @@ import uuid
 from novaclient.v1_1 import client as nv_client
 from subprocess import call, check_call
 
-keystone_endpoint = 'http://localhost:35357/v2.0'
+keystone_endpoint = 'http://localhost:5000/v3'
 default_tenant = 'service'
 default_role = 'admin'
 self_service_role = '_member_'

@@ -35,7 +35,7 @@ log.setLevel(logging.INFO)
 _bbmaster_endpoint = 'http://localhost:8082/v1/hosts'
 _resmgr_endpoint = 'http://localhost:8083/v1'
 _sidekick_endpoint = 'http://localhost:3011/v1'
-_keystone_endpoint = 'http://localhost:8080/keystone_admin/v2.0/tokens'
+_keystone_endpoint = 'http://localhost:8080/keystone/v3/auth/tokens'
 
 debug_parser = argparse.ArgumentParser(add_help=False)
 debug_parser.add_argument("--debug",
@@ -65,23 +65,42 @@ def login(username, password, tenant):
     """
     data = {
         "auth": {
-            "tenantName": tenant,
-            "passwordCredentials": {
-            "username": username,
-            "password": password
+            "identity": {
+                "methods": [
+                    "password"
+                ],
+                "password": {
+                    "user": {
+                        "domain": {
+                            "id": "default"
+                        },
+                        "name": username,
+                        "password": password
+                    }
+                }
+            },
+            "scope": {
+                "project": {
+                    "domain": {
+                        "id": "default"
+                    },
+                    "name": tenant
+                }
             }
         }
     }
+
     r = requests.post(_keystone_endpoint,
                       json=data,
                       verify=False)
     r.raise_for_status()
-    return r.json()
+    return r
 
 def _get_login_token(args):
     user, password = get_user_pass(args)
     login_resp = login(user, password, 'service')
-    return login_resp['access']['token']['id']
+    token_id = login_resp.headers['X-Subject-Token']
+    return token_id
 
 def _build_role_parser(subparsers):
     """
