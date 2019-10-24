@@ -10,7 +10,9 @@ import mock
 import os
 import random
 import requests
+import shutil
 import sys
+import tempfile
 import threading
 import time
 
@@ -148,6 +150,10 @@ class TestProvider(DbTestCase):
         # FIXME: check service config
         self._patchobj(ResMgrPf9Provider, 'run_service_config')
 
+        self.tempdirpath = tempfile.mkdtemp()
+        os.environ['prometheus_multiproc_dir'] = self.tempdirpath
+        os.environ['PF9SRESDK_SERVICE_NAME'] = 'pf9-resmgr'
+
         # don't start the BbonePoller in a thread. The tests will call
         # process_hosts directly when appropriate.
         self._real_thread_start = threading.Thread.start
@@ -186,6 +192,7 @@ class TestProvider(DbTestCase):
 
     def tearDown(self):
         super(TestProvider, self).tearDown()
+        shutil.rmtree(self.tempdirpath)
 
     @staticmethod
     def _reset_provider_global_state():

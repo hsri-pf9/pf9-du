@@ -38,6 +38,7 @@ from resmgr.dbutils import ResMgrDB, role_app_map
 from resmgr.exceptions import *
 from resmgr.resmgr_provider import ResMgrProvider
 from resmgr.consul_roles import ConsulRoles, ConsulUnavailable
+from pf9_sre_sdk.api import set_gauge
 
 log = logging.getLogger(__name__)
 
@@ -74,6 +75,18 @@ def call_remote_service(url):
     except requests.exceptions.RequestException as e:
         log.error('GET call on %s failed', url)
         raise BBMasterNotFound(e)
+
+def _record_host_up_metric(responding_state, host_id, host_name):
+    set_gauge(responding_state, 'resmgr_host_up', "Is host responding?",
+              labels={'host_id': host_id, 'host_name': host_name})
+
+def _record_host_converged_metric(converged_state, host_id, host_name):
+    set_gauge(converged_state, "resmgr_host_role_converged", "Resmgr host role converged",
+              labels={'host_id': host_id, 'host_name': host_name})
+
+def _record_host_has_pmk_role_metric(has_pmk, host_id, host_name):
+    set_gauge(has_pmk, "resmgr_host_is_pmk_host", "Is PMK host?",
+              labels={'host_id': host_id, 'host_name': host_name})
 
 def _update_custom_role_settings(app_info, role_settings, roles):
     """
@@ -806,6 +819,8 @@ class BbonePoller(object):
             if host in authorized_hosts and authorized_hosts[host]['responding']:
                 log.info('Host %s being marked as not responding', host)
                 self.db_handle.mark_host_state(host, responding=False)
+                _record_host_up_metric(int(responding), host,
+                                       authorized_hosts[host]['hostname'])
                 self.notifier.publish_notification('change', 'host', host)
 
     def _update_role_status(self, host_id, host):
@@ -875,6 +890,8 @@ class BbonePoller(object):
                     # If host status is responding and is marked as not
                     # responding, tag it as responding. And vice versa
                     self.db_handle.mark_host_state(host, responding=(responding or responding_on_du))
+                    _record_host_up_metric(int(responding or responding_on_du), host,
+                                           authorized_hosts[host]['hostname'])
                     self.notifier.publish_notification('change', 'host', host)
                     log.info('Marking %s as %s responding, status time: %s',
                              host, '' if (responding or responding_on_du) else 'not', host_info['timestamp'])
@@ -1062,11 +1079,30 @@ class BbonePoller(object):
                 log.warn("Unauthorized hosts that are being removed: %s", cleanup_hosts)
 
             for id in cleanup_hosts:
+                _record_host_up_metric(0, id, _unauthorized_hosts[id]['info']['hostname'])
                 _unauthorized_hosts.pop(id, None)
                 _unauthorized_host_status_time.pop(id, None)
                 _unauthorized_host_status_time_on_du.pop(id, None)
                 _hosts_message_data.pop(id, None)
                 self.notifier.publish_notification('delete', 'host', id)
+
+    def process_metrics(self):
+        authorized_hosts = self.db_handle.query_host_and_app_details()
+
+        for ak, av in authorized_hosts.items():
+            _record_host_up_metric(av['responding'], ak, av['hostname'])
+            _record_host_converged_metric(_authorized_host_role_status.get(ak, 'unknown') == 'ok',
+                                          ak, av['hostname'])
+
+            ispmkhost = False
+            for r in av['role_details']:
+                if r.rolename == 'pf9-kube':
+                    ispmkhost = True
+                    break
+            _record_host_has_pmk_role_metric(ispmkhost, ak ,av['hostname'])
+
+        for uk, uv in _unauthorized_hosts.items():
+            _record_host_up_metric(1, uk, uv['info']['hostname'])
 
     def process_hosts(self, post_db_read_hook_func=None):
         """
@@ -1099,6 +1135,9 @@ class BbonePoller(object):
             self._process_existing_hosts(exist_ids, authorized_hosts)
             # Cleanup older unauthorized hosts
             self._cleanup_unauthorized_hosts()
+
+            # Process metrics at the end of the loop
+            self.process_metrics()
 
     def run(self):
         """
