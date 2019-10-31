@@ -87,8 +87,8 @@ def get_keystone_credentials(configfile):
     cfg = ConfigParser()
     cfg.read(configfile)
 
-    return cfg.get('keystone_authtoken', 'admin_user'), \
-           cfg.get('keystone_authtoken', 'admin_password'), \
-           cfg.get('keystone_authtoken', 'admin_tenant_name')
+    return cfg.get('keystone_authtoken', 'username'), \
+           cfg.get('keystone_authtoken', 'password'), \
+           cfg.get('keystone_authtoken', 'project_name')
 
 
