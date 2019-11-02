@@ -15,5 +15,8 @@ def app_factory(global_config, **local_conf):
 
 
 def version_factory(global_conf, **local_conf):
-    config = {'app': {'modules': ['resmgr'], 'root': 'resmgr.controllers.root.VersionsController'}}
-    return deploy(config)
+    config = conf_from_file(global_conf['config'])
+    # Update the config to use a different controller. Potentially this can be
+    # done in the pecan config as well. But this is good enough too.
+    config.update({'app': {'modules': ['resmgr'], 'root': 'resmgr.controllers.root.VersionsController'}})
+    return deploy(config.to_dict())
