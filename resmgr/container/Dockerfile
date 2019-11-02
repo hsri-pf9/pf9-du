@@ -51,8 +51,7 @@ RUN yum install -y pf9-*-wrapper-*.rpm
 COPY init-region .
 RUN chmod 755 /usr/bin/run-resmgr init-region
 
-# destination dirs for confd-generated config files
-RUN mkdir -p /opt/pf9/www/private/etc/pf9/certs/{ca,hostagent} /var/log/pf9
+RUN mkdir -p /opt/pf9/www/private/etc/pf9/certs/{ca,hostagent} /var/log/pf9  /var/metrics-db/pf9-resmgr
 RUN mkdir -p /etc/pf9/resmgr_roles/conf.d
 
 # bbmaster=8082, resmgr=8083
