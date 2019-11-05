@@ -53,7 +53,7 @@ function usage()
 
 CURL_INSECURE=''
 
-while getopts ":-:" optchar; do
+while getopts ":h-:" optchar; do
     case "${optchar}" in
         -)
             case "${OPTARG}" in
@@ -66,7 +66,12 @@ while getopts ":-:" optchar; do
                     ;;
                 proxy=*)
                     PROXY_FULL_URL="${OPTARG#*=}"
-                    PROXY_URL=($(./nettool urlparse "${OPTARG#*=}"))
+                    ;& #fall through to next case. Needs bash>=4.0
+                proxy)
+                    if [ -z "${PROXY_FULL_URL}" ]; then
+                        PROXY_FULL_URL="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                    fi
+                    PROXY_URL=($(./nettool urlparse "${PROXY_FULL_URL}"))
                     if [[ $? != 0 ]]; then
                         echo "Error parsing proxy url"
                         exit 1
@@ -109,22 +114,54 @@ while getopts ":-:" optchar; do
                     ;;
                 controller=*)
                     # overrides the value in globals.sh
-                    DU_FQDN="${OPTARG#*=}"
+                    DU="${OPTARG#*=}"
+                    ;& #fall through to next case. Needs bash>=4.0
+                controller)
+                    if [ -z "${DU}" ]; then
+                        DU="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                    fi
+                    DU_PARSED=($(./nettool urlparse "${DU}"))
+                    if [[ $? != 0 ]]; then
+                        echo "Error parsing controller URL"
+                        exit 1
+                    fi
+                    # DU_PARSED will have 3 elements -
+                    # 0th - protocol (if not specified default is set to http}
+                    # 1st - hostname
+                    # 2nd - port (if not specified default is 3128)
+                    # The defaults are set from the perspective of a proxy
+                    # For controller arg we just need the hostname.
+                    DU_FQDN="${DU_PARSED[1]}"
                     ;;
                 depl-env-webhook=*)
                     DEPL_ENV_WEBHOOK="${OPTARG#*=}"
                     ;;
+                depl-env-webhook)
+                    DEPL_ENV_WEBHOOK="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                    ;;
                 inf-790-webhook=*)
                     INF_790_WEBHOOK="${OPTARG#*=}"
+                    ;;
+                inf-790-webhook)
+                    INF_790_WEBHOOK="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
                     ;;
                 project-name=*)
                     OS_TENANT_NAME="${OPTARG#*=}"
                     ;;
+                project-name)
+                    OS_TENANT_NAME="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                    ;;
                 username=*)
                     OS_USERNAME="${OPTARG#*=}"
                     ;;
+                username)
+                    OS_USERNAME="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                    ;;
                 password=*)
                     OS_PASSWORD="${OPTARG#*=}"
+                    ;;
+                password)
+                    OS_PASSWORD="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
                     ;;
                 insecure)
                     CURL_INSECURE='-k'
@@ -138,7 +175,10 @@ while getopts ":-:" optchar; do
                     exit 1
                     ;;
             esac;;
-
+        h)
+            usage
+            exit 0
+            ;;
         *)
             if [[ "$OPTERR" = 1 ]] && [[ "${optspec:0:1}" != ":" ]]; then
                 echo "Unknown option: '-${OPTARG}'" >&2
@@ -147,6 +187,27 @@ while getopts ":-:" optchar; do
             ;;
     esac
 done
+
+# If installer is invoked without any args
+if [ $# -eq "0" ]; then
+    usage
+    exit 0
+fi
+
+# Check for required params
+missing_params=""
+if ! packages_present ${EXT}; then
+    if [ -z "${DU_FQDN}" ]; then missing_params="--controller "; fi
+    if [ -z "${OS_USERNAME}" ]; then missing_params="${missing_params} --username"; fi
+    if [ -z "${OS_PASSWORD}" ]; then missing_params="${missing_params} --password"; fi
+    if [ -z "${OS_TENANT_NAME}" ] && [ ! -z "${DONT_ASK_PROJECT}" ]; then missing_params="${missing_params} --project-name"; fi
+fi
+
+if [ ! -z "${missing_params}" ]; then
+    echo "Required arg(s): ${missing_params} not specified"
+    usage
+    exit 1
+fi
 
 function check_services_running()
 {
