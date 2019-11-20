@@ -5,7 +5,7 @@
 Module that builds a bundle of all support information from a host
 """
 
-__author__ = 'Platform 9'
+__author__ = 'Platform9'
 
 import glob
 import logging
@@ -54,7 +54,7 @@ def generate_support_bundle(out_tgz_file, logger=logging):
         for file in glob.iglob(expanded_pattern):
             try:
                 tgzfile.add(file)
-            except OSError as e:
+            except (IOError, OSError) as e:
                 logger.warn(e)
     tgzfile.close()
 
