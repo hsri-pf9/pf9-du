@@ -200,7 +200,11 @@ if ! packages_present ${EXT}; then
     if [ -z "${DU_FQDN}" ]; then missing_params="--controller "; fi
     if [ -z "${OS_USERNAME}" ]; then missing_params="${missing_params} --username"; fi
     if [ -z "${OS_PASSWORD}" ]; then missing_params="${missing_params} --password"; fi
-    if [ -z "${OS_TENANT_NAME}" ] && [ ! -z "${DONT_ASK_PROJECT}" ]; then missing_params="${missing_params} --project-name"; fi
+    if [ -z "${DONT_ASK_PROJECT}" ]; then
+        if [ -z "${$OS_TENANT_NAME}" ]; then
+            missing_params="${missing_params} --project-name"
+        fi
+    fi
 fi
 
 if [ ! -z "${missing_params}" ]; then
