@@ -20,6 +20,8 @@
     localPort: 15672
   - endpoint: keystone-internal
     localPort: 8080
+  memoryRequest: "190Mi"
+  memoryLimit: "190Mi"
   logfiles:
   - path: "/var/log/pf9/resmgr.log"
   - path: "/var/log/pf9/bbmaster.log"
