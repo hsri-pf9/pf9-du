@@ -16,7 +16,6 @@ NOTIFIER_DIR :=$(SRC_ROOT)/lib/notifier
 RABBIT_MGMT_DIR :=$(SRC_ROOT)/lib/rabbit
 
 FIRKINIZE = $(PARENT_DIR)/firkinize
-METRICS_SDK = $(PARENT_DIR)/pf9-metrics-sdk/python
 
 PF9_VERSION ?= 1.3.0
 BUILD_NUMBER ?= 0
@@ -29,7 +28,7 @@ PF9_OPT_DIR = ${RESMGR_SRC_STAGE}/opt/pf9
 CONSTRAINTS_FILE=${SRC_DIR}/upper-constraints.txt
 PROD_VENV = ${PF9_OPT_DIR}/resmgr
 # These are additional modules needed to setup for production purposes
-PROD_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${CONFIGUTILS_DIR} ${NOTIFIER_DIR} ${RABBIT_MGMT_DIR} ${FIRKINIZE} ${METRICS_SDK}
+PROD_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${CONFIGUTILS_DIR} ${NOTIFIER_DIR} ${RABBIT_MGMT_DIR} ${FIRKINIZE}
 PROD_VENV_INSTALL_CMD=${PROD_VENV}/bin/python ${PROD_VENV}/bin/pip install -c${CONSTRAINTS_FILE}
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${PROD_SETUP_DEPS}
@@ -60,7 +59,6 @@ ${VENV}: ${BUILD_DIR}
 
 ${RESMGR_SRC_STAGE}: pre-reqs
 	mkdir -p ${RESMGR_SRC_STAGE}/var/log/pf9
-	mkdir -p ${RESMGR_SRC_STAGE}/var/metrics-db/resmgr
 	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9
 	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9/resmgr_roles
 	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9/resmgr_svc_configs

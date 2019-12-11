@@ -21,7 +21,8 @@ setup(
         'requests',
         'mysqlclient',
         'Paste',
-        'PasteDeploy'
+        'PasteDeploy',
+        'prometheus-client==0.7.1'
     ],
     test_suite='resmgr',
     zip_safe=False,

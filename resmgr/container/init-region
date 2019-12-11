@@ -238,7 +238,6 @@ def parse_args():
 def main():
     mkdir_p('/var/log/pf9/resmgr')
     mkdir_p('/var/log/confd')
-    mkdir_p('/var/metrics-db/resmgr')
     args = parse_args()
     consul = Consul(args.config_url, args.config_token)
     config = ResmgrConfig(consul, args.customer_id, args.region_id)

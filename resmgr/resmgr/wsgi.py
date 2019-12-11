@@ -20,3 +20,8 @@ def version_factory(global_conf, **local_conf):
     # done in the pecan config as well. But this is good enough too.
     config.update({'app': {'modules': ['resmgr'], 'root': 'resmgr.controllers.root.VersionsController'}})
     return deploy(config.to_dict())
+
+def metrics_factory(global_conf, **local_conf):
+    config = conf_from_file(global_conf['config'])
+    config.update({'app': {'modules': ['resmgr'], 'root': 'resmgr.controllers.root.MetricsController'}})
+    return deploy(config.to_dict())

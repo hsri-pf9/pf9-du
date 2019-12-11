@@ -38,7 +38,7 @@ from resmgr.dbutils import ResMgrDB, role_app_map
 from resmgr.exceptions import *
 from resmgr.resmgr_provider import ResMgrProvider
 from resmgr.consul_roles import ConsulRoles, ConsulUnavailable
-from pf9_sre_sdk.api import set_gauge
+from prometheus_client import Gauge
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +57,13 @@ _hosts_extension_data = {}
 _hosts_message_data = {}
 _host_lock = threading.Lock()
 _role_update_lock = threading.RLock()
+
+# Prometheus metrics for host information.
+g_host_up = Gauge('resmgr_host_up', "Is host responding?", ['host_id', 'host_name'])
+g_host_converged = Gauge("resmgr_host_role_converged", "Resmgr host role converged",
+                         ['host_id', 'host_name'])
+g_host_has_pmk_role = Gauge("resmgr_host_is_pmk_host", "Is PMK host?",
+                            ['host_id', 'host_name'])
 
 def call_remote_service(url):
     """
@@ -77,16 +84,54 @@ def call_remote_service(url):
         raise BBMasterNotFound(e)
 
 def _record_host_up_metric(responding_state, host_id, host_name):
-    set_gauge(responding_state, 'resmgr_host_up', "Is host responding?",
-              labels={'host_id': host_id, 'host_name': host_name})
+    g_host_up.labels(host_id, host_name).set(responding_state)
+
+def _remove_host_up_metric(host_id, host_name):
+    try:
+        g_host_up.remove(host_id, host_name)
+    except KeyError:
+        log.info('KeyError exception encountered while removing'\
+                 ' host_up guage for hostid: %s hostname: %s',
+                 host_id, host_name)
+    except Exception as e:
+        log.exception('Generic exception encountered while removing'\
+                      ' host_up guage for hostid: {} hostname: {}, ' \
+                      ' Exception details: {}'.format(host_id, host_name, e))
 
 def _record_host_converged_metric(converged_state, host_id, host_name):
-    set_gauge(converged_state, "resmgr_host_role_converged", "Resmgr host role converged",
-              labels={'host_id': host_id, 'host_name': host_name})
+    g_host_converged.labels(host_id, host_name).set(converged_state)
+
+def _remove_host_converged_metric(host_id, host_name):
+    try:
+        g_host_converged.remove(host_id, host_name)
+    except KeyError:
+        log.info('KeyError exception encountered while removing'\
+                 ' host_converged guage for hostid: %s hostname: %s',
+                 host_id, host_name)
+    except Exception as e:
+        log.exception('Generic exception encountered while removing'\
+                      ' host_converged guage for hostid: {} hostname: {}, ' \
+                      ' Exception details: {}'.format(host_id, host_name, e))
 
 def _record_host_has_pmk_role_metric(has_pmk, host_id, host_name):
-    set_gauge(has_pmk, "resmgr_host_is_pmk_host", "Is PMK host?",
-              labels={'host_id': host_id, 'host_name': host_name})
+    g_host_has_pmk_role.labels(host_id, host_name).set(has_pmk)
+
+def _remove_host_has_pmk_role_metric(host_id, host_name):
+    try:
+        g_host_has_pmk_role.remove(host_id, host_name)
+    except KeyError:
+        log.info('KeyError exception encountered while removing'\
+                 ' pmk_role guage for hostid: %s hostname: %s',
+                 host_id, host_name)
+    except Exception as e:
+        log.exception('Generic exception encountered while removing'\
+                      ' pmk_role guage for hostid: {} hostname: {}, ' \
+                      ' Exception details: {}'.format(host_id, host_name, e))
+
+def _remove_all_host_metrics(host_id, host_name):
+    _remove_host_up_metric(host_id, host_name)
+    _remove_host_converged_metric(host_id, host_name)
+    _remove_host_has_pmk_role_metric(host_id, host_name)
 
 def _update_custom_role_settings(app_info, role_settings, roles):
     """
@@ -808,6 +853,7 @@ class BbonePoller(object):
             with _host_lock:
                 if host in _unauthorized_hosts:
                     log.warn("Unauthorized host being removed: %s", host)
+                    _remove_all_host_metrics(id, _unauthorized_hosts[id]['info']['hostname'])
                     _unauthorized_hosts.pop(host, None)
                     _unauthorized_host_status_time.pop(host, None)
                     _unauthorized_host_status_time_on_du.pop(host, None)
@@ -1079,7 +1125,7 @@ class BbonePoller(object):
                 log.warn("Unauthorized hosts that are being removed: %s", cleanup_hosts)
 
             for id in cleanup_hosts:
-                _record_host_up_metric(0, id, _unauthorized_hosts[id]['info']['hostname'])
+                _remove_all_host_metrics(id, _unauthorized_hosts[id]['info']['hostname'])
                 _unauthorized_hosts.pop(id, None)
                 _unauthorized_host_status_time.pop(id, None)
                 _unauthorized_host_status_time_on_du.pop(id, None)
