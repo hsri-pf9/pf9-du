@@ -448,8 +448,7 @@ class ResMgrDB(object):
             Calculate the remaining connections and check them against
             a threshold value.
             If the number of remaining connections is less than the
-            threshold, then log a warning message. Else keep logging a
-            debug message with the Queuepool information.
+            threshold, then log a warning message.
             Note: All other pool types except QueuePool do not support
             functions like size() and checkedout(). Also there is no
             explicit way of finding out if the pool is QueuePool apart
@@ -460,8 +459,6 @@ class ResMgrDB(object):
                 pool_rem_conns = self.dbengine.pool.size() - self.dbengine.pool.checkedout()
                 if pool_rem_conns <= self.pool_rem_conns_threshold :
                    log.warn('Connection pool status: %s', self.dbengine.pool.status())
-                else:
-                   log.debug('Connection pool status: %s', self.dbengine.pool.status())
             if self._has_uncommitted_changes(session):
                 session.commit()
         except:
