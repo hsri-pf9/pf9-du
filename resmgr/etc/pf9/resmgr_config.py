@@ -14,7 +14,7 @@ logging = {
     'loggers': {
         'root': {'level': 'INFO', 'handlers': ['filelogger']},
         'resmgr': {'level': 'DEBUG', 'handlers': ['filelogger']},
-        'keystonemiddleware.auth_token': {'level': 'DEBUG', 'handlers': ['filelogger']},
+        'keystonemiddleware.auth_token': {'level': 'INFO', 'handlers': ['filelogger']},
         'py.warnings': {'handlers': ['filelogger']},
         '__force_dict__': True
     },
