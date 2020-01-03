@@ -472,6 +472,11 @@ class RolesMgr(object):
             # now we can drop the association and remove from the host
             self.db_handler.remove_role_from_host(host_id, rolename)
             if not self.db_handler.get_all_role_associations(host_id):
+                # There is a chance that we are trying to delete a host when
+                # the host is offline. Remove the metrics entries too since
+                # the host will not become an unauthorized host prior to being
+                # removed.
+                _remove_all_host_metrics(host_id, host_details['hostname'])
                 self.db_handler.delete_host(host_id)
         except Exception as e:
             log.error('Failed to remove role %s from host %s: %s',
@@ -1559,6 +1564,11 @@ class ResMgrPf9Provider(ResMgrProvider):
                     self._rabbit_mgmt_cl.delete_user(rabbit_user)
                     self.res_mgr_db.remove_role_from_host(host_id, role_name)
                     if not self.res_mgr_db.query_roles_for_host(host_id):
+                        # There is a chance that we are trying to delete a host when
+                        # the host is offline. Remove the metrics entries too since
+                        # the host will not become an unauthorized host prior to being
+                        # removed.
+                        _remove_all_host_metrics(host_id, host_inst['info']['hostname'])
                         self.res_mgr_db.delete_host(host_id)
                 raise
 
