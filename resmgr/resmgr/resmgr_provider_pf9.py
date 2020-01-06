@@ -867,6 +867,14 @@ class BbonePoller(object):
                     self.notifier.publish_notification('delete', 'host', host)
                     continue
 
+            with _role_update_lock:
+                # There may be hosts that need to be deauthorized but are offline (and
+                # bbmaster may be unaware of them anymore). Such hosts appear in the
+                # absent host list. We should try to transition them through the resmgr
+                # state machine.
+                self._advance_from_transient_state(host,
+                                                   authorized_hosts.get(host))
+
             if host in authorized_hosts and authorized_hosts[host]['responding']:
                 log.info('Host %s being marked as not responding', host)
                 self.db_handle.mark_host_state(host, responding=False)
