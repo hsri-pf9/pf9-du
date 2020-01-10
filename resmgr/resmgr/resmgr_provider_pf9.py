@@ -870,7 +870,7 @@ class BbonePoller(object):
             if host in authorized_hosts and authorized_hosts[host]['responding']:
                 log.info('Host %s being marked as not responding', host)
                 self.db_handle.mark_host_state(host, responding=False)
-                _record_host_up_metric(int(responding), host,
+                _record_host_up_metric(0, host,
                                        authorized_hosts[host]['hostname'])
                 self.notifier.publish_notification('change', 'host', host)
 
