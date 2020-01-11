@@ -7,6 +7,13 @@
     port: 8083
     httpPath: "/resmgr"
     rewritePath: "/"
+  - name: resmgr-metrics
+    # Using a port that is not serviced to ensure that
+    # the /resmgr/metrics endpoint cannot be accessed
+    # externally. Use the resmgr-internal endpoint instead.
+    port: 55788
+    httpPath: "/resmgr/metrics"
+    rewritePath: "/"
   - name: protected
     port: 8083
     httpPath: "/protected"
