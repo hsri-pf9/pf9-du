@@ -38,7 +38,8 @@ logging = {
             'format': ('%(asctime)s %(levelname)s [%(name)s]'
                        '[%(threadName)s] %(message)s')
         }
-    }
+    },
+    'disable_existing_loggers': False
 }
 
 resmgr ={
