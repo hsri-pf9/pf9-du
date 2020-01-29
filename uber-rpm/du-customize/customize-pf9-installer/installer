@@ -187,12 +187,6 @@ while getopts ":h-:" optchar; do
     esac
 done
 
-# If installer is invoked without any args
-if [ $# -eq "0" ]; then
-    usage
-    exit 0
-fi
-
 # Check for required params
 missing_params=""
 if ! packages_present ${EXT}; then
@@ -200,7 +194,7 @@ if ! packages_present ${EXT}; then
     if [ -z "${OS_USERNAME}" ]; then missing_params="${missing_params} --username"; fi
     if [ -z "${OS_PASSWORD}" ]; then missing_params="${missing_params} --password"; fi
     if [ -z "${DONT_ASK_PROJECT}" ]; then
-        if [ -z "${$OS_TENANT_NAME}" ]; then
+        if [ -z "${OS_TENANT_NAME}" ]; then
             missing_params="${missing_params} --project-name"
         fi
     fi
