@@ -2,11 +2,11 @@
 # All Rights Reserved.
 
 __author__ = 'leb'
-import exceptions
+import pf9app.exceptions
 import logging
 
-from app_db import AppDb
-from app import App
+from pf9app.app_db import AppDb
+from pf9app.app import App
 
 class MockAppDb(AppDb):
 

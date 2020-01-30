@@ -3,15 +3,15 @@
 
 __author__ = 'leb'
 
-from app import App, RemoteApp
-from app_db import AppDb
-from app_cache import AppCache
+from pf9app.app import App, RemoteApp
+from pf9app.app_db import AppDb
+from pf9app.app_cache import AppCache
 from configutils.configutils import is_dict_subset
 import logging
 from logging import Logger
-from exceptions import InvalidSupportedDistro, UrlNotSpecified
+from pf9app.exceptions import InvalidSupportedDistro, UrlNotSpecified
 import platform
-from pf9_app_cache import get_supported_distro
+from pf9app.pf9_app_cache import get_supported_distro
 
 def process_apps(app_db, app_cache, remote_app_class, new_config,
                  non_destructive=False, probe_only=False, log=logging,

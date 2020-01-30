@@ -10,8 +10,8 @@ import os
 import subprocess
 import sys
 
-from exceptions import ServiceCtrlError, ConfigOperationError
-from app import App, RemoteApp
+from pf9app.exceptions import ServiceCtrlError, ConfigOperationError
+from pf9app.app import App, RemoteApp
 from six import iteritems
 
 CFGSCRIPTCMD = "%s /opt/pf9/%s/config"

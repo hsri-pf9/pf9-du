@@ -5,6 +5,7 @@ __author__ = 'leb'
 
 import pf9app.exceptions
 from pf9app.app import App, RemoteApp
+from six import iteritems
 import re
 import copy
 import logging
@@ -145,7 +146,7 @@ class MockRemoteAppWithDifferentNumberOfServices(MockRemoteApp):
         assert self.implements_service_states
         self.services_dict = services
         self.log.info("set_desired_service_state: There are {0} services".format(len(self.services_dict)))
-        for name, service_state in services.iteritems():
+        for name, service_state in iteritems(services):
             run_state = False if stop_all else service_state
             self._set_run_state(name, run_state)
 

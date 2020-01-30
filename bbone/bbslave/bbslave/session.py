@@ -25,7 +25,7 @@ import sys
 import logging
 import shlex
 import re
-from sysinfo import get_sysinfo, get_host_id
+from bbslave.sysinfo import get_sysinfo, get_host_id
 from bbcommon.utils import is_satisfied_by, get_ssl_options
 from os.path import exists, join
 from os import makedirs, rename, unlink, environ, listdir
@@ -469,7 +469,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
             datagatherer.generate_support_bundle(_support_file_location, log)
             with open(_support_file_location, 'rb') as f:
                 # Choose base64 encoding to transfer binary content
-                msg['data']['contents'] = base64.b64encode(f.read())
+                contents_str_binary = base64.b64encode(f.read())
+                msg['data']['contents'] = contents_str_binary.decode()
             msg['status'] = 'success'
             msg['error_message'] = ''
         except Exception as e:

@@ -4,7 +4,7 @@
 __author__ = 'leb'
 
 from abc import ABCMeta, abstractmethod
-from app import App
+from pf9app.app import App
 from six import iteritems
 
 class AppDb(object):

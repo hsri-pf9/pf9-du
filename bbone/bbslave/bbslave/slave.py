@@ -8,7 +8,7 @@ Main entry point for backbone slave agent (a.k.a pf9-hostagent)
 __author__ = 'leb'
 
 from pika.exceptions import AMQPConnectionError
-import session
+from bbslave.session import start
 import logging, logging.handlers
 from six.moves.configparser import ConfigParser
 import time
@@ -79,7 +79,7 @@ def reconnect_loop(config):
 
     while True:
         try:
-            session.start(config, log, app_db, agent_app_db, app_cache,
+            start(config, log, app_db, agent_app_db, app_cache,
                           RemoteApp, Pf9AgentApp,
                           channel_retry_period=retry_period)
             # Clean exit

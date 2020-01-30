@@ -4,7 +4,7 @@
 __author__ = 'leb'
 
 from pf9app.app_cache import AppCache
-from urlparse import urlsplit
+from six.moves.urllib.parse import urlsplit
 
 class MockAppCache(AppCache):
 

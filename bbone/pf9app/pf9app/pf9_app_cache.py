@@ -7,7 +7,7 @@ import contextlib
 import logging
 import os
 from six.moves.urllib.parse import urlparse
-from urlparse import urlsplit
+from six.moves.urllib.parse import urlsplit
 from pf9app.app_cache import AppCache
 from pf9app.exceptions import DownloadFailed
 import requests

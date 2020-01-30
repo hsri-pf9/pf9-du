@@ -92,8 +92,10 @@ TEST_VENV_DEVELOP_CMD=${TEST_VENV}/bin/python setup.py develop
 COVERAGE_ZIP = ${SRC_ROOT}/coverage.zip
 DISTUTILS_DEBUG = 1
 
+# TODO : Uncomment this while switching to python3.
+#PY_VERSION=py3
 ${TEST_VENV}: ${BUILD_DIR}
-	$(SRC_ROOT)/build-venv.sh ${TEST_VENV}
+	$(SRC_ROOT)/build-venv.sh ${TEST_VENV} ${PY_VERSION}
 
 pre-reqs : ${TEST_VENV}
 	for pkg in ${TEST_SETUP_DEPS}; do \

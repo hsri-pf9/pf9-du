@@ -11,10 +11,10 @@ import subprocess
 import time
 from six import iteritems
 
-from app_db import AppDb
-from pf9_app_cache import get_supported_distro
-from pf9_app import Pf9App, _run_command_with_custom_pythonpath
-from exceptions import NotInstalled, UpdateOperationFailed, \
+from pf9app.app_db import AppDb
+from pf9app.pf9_app_cache import get_supported_distro
+from pf9app.pf9_app import Pf9App, _run_command_with_custom_pythonpath
+from pf9app.exceptions import NotInstalled, UpdateOperationFailed, \
     RemoveOperationFailed, InstallOperationFailed, Pf9Exception
 
 if get_supported_distro() == 'debian':
