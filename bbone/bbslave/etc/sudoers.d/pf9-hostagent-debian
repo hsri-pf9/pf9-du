@@ -14,6 +14,7 @@ pf9	ALL = NOPASSWD: /opt/pf9/hostagent/bin/pf9-apt install /var/cache/pf9apps/*.
           NOPASSWD: /usr/bin/apt-get update, \
           NOPASSWD: /bin/rm -rf /var/lib/apt/lists, \
           NOPASSWD: /usr/bin/ovs-vsctl list-br, \
-          NOPASSWD: /opt/pf9/pf9-onboarding/bin/onboarding-runner
+          NOPASSWD: /opt/pf9/pf9-onboarding/bin/onboarding-runner, \
+          NOPASSWD: /opt/pf9/hostagent/bin/host-certs
 
 Defaults:pf9 !requiretty

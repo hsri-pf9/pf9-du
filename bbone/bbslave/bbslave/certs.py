@@ -144,13 +144,13 @@ def restart_comms():
     """
     LOG.info('Restarting pf9-comms...')
     try:
-        subprocess.check_call(['systemctl', 'restart', 'pf9-comms'])
+        subprocess.check_call(['sudo', 'systemctl', 'restart', 'pf9-comms'])
         return True
     except subprocess.CalledProcessError:
         LOG.exception('systemctl failed, trying init-style service restart...')
 
     try:
-        subprocess.check_call(['service', 'pf9-comms', 'restart'])
+        subprocess.check_call(['sudo', 'service', 'pf9-comms', 'restart'])
         return True
     except subprocess.CalledProcessError:
         LOG.exception('service restart failed, giving up')

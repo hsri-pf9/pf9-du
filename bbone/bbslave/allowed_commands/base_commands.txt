@@ -2,3 +2,4 @@
 ^sudo /etc/init.d/pf9-[-\w]+ (stop|start|status|restart)$
 ^sudo systemctl (stop|start|status|restart) pf9-[-\w]+$
 ^rm -rf /var/cache/pf9apps/\*$
+^sudo /opt/pf9/hostagent/bin/host-certs [^;]*$
