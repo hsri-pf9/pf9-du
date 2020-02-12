@@ -4,8 +4,7 @@ dest = '/opt/pf9/www/private/etc/pf9/hostagent.conf'
 owner = 'root'
 mode = '0644'
 keys = [
-    '/rabbit_broker/users/bbslave/username',
-    '/rabbit_broker/users/bbslave/password',
-    '/certs/current_version',
-    '/fqdn'
+    '/rabbit_broker/users',
+    '/certs',
+    '/fqdn',
 ]

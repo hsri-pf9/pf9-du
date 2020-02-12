@@ -4,6 +4,6 @@ dest = '/etc/pf9/resmgr_roles/conf.d/role_settings.conf'
 owner = 'root'
 mode = '0644'
 keys = [
-    '/services/resmgr/role_settings'
+    '/services/resmgr',
 ]
 reload_cmd = 'supervisorctl restart resmgr'
