@@ -147,7 +147,7 @@ def backup_and_save_certs(cert_info):
 
 def restart_comms():
     """
-    Restart the comms service. Must be root.
+    Restart the comms service. Must be root or should have sudo rights.
     """
     LOG.info('Restarting pf9-comms...')
     try:
@@ -163,9 +163,9 @@ def restart_comms():
         LOG.exception('service restart failed, giving up')
     return False
 
-def check_connection():
+def check_connection(vouch_url=COMMS_VOUCH_URL):
     wait_time = 0
-    vouch = VouchCerts(COMMS_VOUCH_URL)
+    vouch = VouchCerts(vouch_url)
     while wait_time <= COMMS_RESTART_TIMEOUT:
         LOG.info('Checking connection by attempting to talk to vouch through '
                  'comms, wait = %d...', wait_time)

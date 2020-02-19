@@ -289,6 +289,46 @@ class HostSupportCommandController(RestController):
             log.exception("Request to run support command failed.")
             abort(503)
 
+class HostCertController(RestController):
+    """Controller for hosts' certs related requests"""
+    @enforce(required=['admin'])
+    @expose('json')
+    def put(self,host_id):
+        """
+        Handles requests of type PUT /v1/hosts/<host_id>/certs
+        Sends a request to the host agent on the specified host to refresh the
+        host certificates.
+        Returns a 404 error code if the specified host does not exist.
+        :param str host_id: ID of the host
+        """
+        if not _provider.get_host(host_id):
+            log.error('Unable to request host certificate refresh. No matching '\
+                'host found: {}'.format(host_id))
+            abort(404)
+        try:
+            _provider.request_cert_refresh(host_id)
+        except (CertRefreshRequestFailed, BBMasterNotFound):
+            log.exception("Request to refresh host certificate failed.")
+            abort(503)
+
+    @enforce(required=['admin'])
+    @expose('json')
+    def get(self, host_id):
+        """
+        Handles requests of type GET /v1/hosts/<host_id>/certs
+        Gets the details about certificate info for the specified host.
+
+        Returns a 404 error code if the specified host does not exist.
+        :param str host_id: ID of the host
+        """
+        try:
+            host_cert_info =  _provider.get_cert_info(host_id)
+            return host_cert_info
+        except HostNotFound:
+            log.error('Unable to fetch certificate information for the host.'\
+                ' No matching host found: {}'.format(host_id))
+            abort(404)
+
 class HostSupportController(RestController):
     """Controller for hosts' support related requests"""
     bundle = HostSupportBundleController()
@@ -298,6 +338,7 @@ class HostsController(RestController):
     """ Controller for hosts related requests"""
     roles = HostRolesController()
     support = HostSupportController()
+    certs = HostCertController()
 
     @expose('json')
     def get_all(self):

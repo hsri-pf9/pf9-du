@@ -16,6 +16,7 @@ import datetime
 import errno
 from bbcommon.utils import get_ssl_options
 import threading
+from bbslave.cert_update_thread import cert_update_thread
 
 def reconnect_loop(config):
     """
@@ -65,8 +66,16 @@ def reconnect_loop(config):
         from pf9app.pf9_app_db import Pf9AppDb as AppDb, Pf9AgentDb
         from pf9app.pf9_app_cache import Pf9AppCache as AppCache
 
+    # Start the cert update thread.
+    cert_thread = threading.Thread(
+            name='Cert-Update-Thread',
+            target=cert_update_thread,
+            args=(config, log))
+    log.info('Starting the cert update thread.')
+    cert_thread.start()
+
     log.info('-------------------------------')
-    log.info('Platform 9 host agent started at %s on thread %s',
+    log.info('Platform9 host agent started at %s on thread %s',
              datetime.datetime.now(), threading.current_thread().ident)
 
     app_db = AppDb(log)

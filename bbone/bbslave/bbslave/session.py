@@ -25,11 +25,16 @@ import sys
 import logging
 import shlex
 import re
+from bbslave import certs
+from bbslave import util
+from socket import gethostname
 from bbslave.sysinfo import get_sysinfo, get_host_id
 from bbcommon.utils import is_satisfied_by, get_ssl_options
 from os.path import exists, join
 from os import makedirs, rename, unlink, environ, listdir
 from pika.exceptions import AMQPConnectionError
+from six import iteritems
+from six.moves import queue as Queue
 
 _host_id = get_host_id()
 _desired_config_basedir_path = None
@@ -38,7 +43,9 @@ _common_config_path = None
 _hostagent_info = {}
 _pending_support_bundle = {'pending': False}
 
+
 HYPERVISOR_INFO_FILE = '/var/opt/pf9/hypervisor_details'
+
 
 def _handle_iaas_3166(log, disable_iaas_1366_handling, desired_config):
     """
@@ -138,7 +145,6 @@ def save_desired_config(log, desired_config):
         except Exception as e:
             log.error('Failed to save desired configuration: %s', e)
 
-
 def _run_command(command, log, run_env=environ):
     """
     Runs a command
@@ -154,7 +160,6 @@ def _run_command(command, log, run_env=environ):
     except subprocess.CalledProcessError as e:
         log.error('%s command failed: %s', command, e)
         return e.returncode, e.output
-
 
 def start(config, log, app_db, agent_app_db, app_cache,
           remote_app_class, agent_app_class,
@@ -360,8 +365,14 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 'extensions': get_extension_data()
             }
         }
+
+        if util.vouch_present:
+            # Check if cert data is available on the queue
+            msg['data']['cert_info'] = util.check_for_cert_data(log)
+
         if desired_config is not None:
             msg['data']['desired_apps'] = desired_config
+
         channel = state['channel']
         timestamp = datetime.datetime.utcnow().strftime('%Y-%m-%d '
                                                         '%H:%M:%S.%f')
@@ -567,6 +578,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
         channel.basic_publish(exchange=constants.BBONE_EXCHANGE,
                               routing_key=constants.MASTER_TOPIC,
                               body=json.dumps(msg))
+
     def handle_msg(msg):
         """
         Handles an incoming message, which can be an internal heartbeat.
@@ -577,7 +589,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
         try:
             if msg['opcode'] not in ('ping', 'heartbeat', 'set_config',
                                      'set_agent', 'exit', 'get_support',
-                                     'support_command'):
+                                     'support_command', 'update_cert'):
                 log.error('Invalid opcode: %s', msg['opcode'])
                 return
             if msg['opcode'] == 'exit':
@@ -595,6 +607,17 @@ def start(config, log, app_db, agent_app_db, app_cache,
             if msg['opcode'] == 'support_command':
                 log.info('Received support_command message: %s' % msg['command'])
                 process_support_command(msg['command'])
+                return
+            if msg['opcode'] == 'update_cert':
+                log.info('Received update_cert message.')
+                # Wake-up the cert update thread to process update_cert req.
+                if util.vouch_present:
+                    log.debug('Sending event to Cert-Update thread to update '\
+                        'host certs.')
+                    util.cert_update_event.set()
+                else:
+                    log.info('Hostagent was not able to connect to vouch '\
+                        'server. Ignoring update_cert message.')
                 return
             current_config = get_current_config()
             if msg['opcode'] == 'set_agent':

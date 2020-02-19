@@ -141,6 +141,18 @@ class bbone_provider_pf9(bbone_provider_memory):
         # TODO: Think if this should be done with a retry logic
         self._send_msg(host_id, body)
 
+    def update_host_certs(self, host_id):
+        """
+        Send update certificate command to specified host
+        """
+        if host_id not in self.hosts:
+            self.log.error('Host %s is not present in the identified '
+                           'hosts list.', host_id)
+            raise HostNotFound()
+
+        body = {'opcode':'update_cert'}
+        self._send_msg(host_id, body)
+
     # ----- these methods execute in the I/O thread -----
 
     def _io_thread(self):

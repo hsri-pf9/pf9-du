@@ -55,6 +55,7 @@ _authorized_host_role_status = {}
 _hosts_hypervisor_info = {}
 _hosts_extension_data = {}
 _hosts_message_data = {}
+_hosts_cert_data = {}
 _host_lock = threading.Lock()
 _role_update_lock = threading.RLock()
 
@@ -638,6 +639,7 @@ class HostInventoryMgr(object):
                     self.db_handler.get_all_custom_settings(host_id)
             host['hypervisor_info'] = _hosts_hypervisor_info.get(host_id, '')
             host['extensions'] = _hosts_extension_data.get(host_id, '')
+            host['cert_info'] = _hosts_cert_data.get(host_id, '')
             host['message'] = _hosts_message_data.get(host_id, '')
             result[host_id] = host
 
@@ -652,6 +654,7 @@ class HostInventoryMgr(object):
                 host = _unauthorized_hosts[id]
                 host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
                 host['extensions'] = _hosts_extension_data.get(host['id'], '')
+                host['cert_info'] = _hosts_cert_data.get(host['id'], '')
                 host['message'] = _hosts_message_data.get(host['id'], '')
                 result[host['id']] = host
             for id in iaas_9086_hosts:
@@ -673,6 +676,21 @@ class HostInventoryMgr(object):
 
         return result
 
+    def get_host_cert_info(self, host_id):
+        """
+        Get certificate information for the specified host
+        :param str host_id: ID of the host
+        :return: dictionary of the host attributes
+        :rtype: dict
+        :raises HostNotFound: if the host is not present
+        """
+        if host_id in _hosts_cert_data:
+            host_cert_info = _hosts_cert_data.get(host_id, '')
+            return host_cert_info
+        else:
+            log.error('Host %s is not a recognized host', host_id)
+            raise HostNotFound(host_id)
+
     def get_host(self, host_id):
         """
         Get information for a host
@@ -689,6 +707,9 @@ class HostInventoryMgr(object):
                 if host_id in _unauthorized_hosts:
                     log.info('Found %s in unauthorized hosts', host_id)
                     result = _unauthorized_hosts[host_id]
+                    result['hypervisor_info'] = _hosts_hypervisor_info.get(host_id, '')
+                    result['extensions'] = _hosts_extension_data.get(host_id, '')
+                    result['cert_info'] = _hosts_cert_data.get(host_id, '')
 
         return result
 
@@ -707,6 +728,7 @@ class HostInventoryMgr(object):
                 host['role_status'] = _authorized_host_role_status[host_id]
             host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
             host['extensions'] = _hosts_extension_data.get(host['id'], '')
+            host['cert_info'] = _hosts_cert_data.get(host['id'], '')
             return host
 
         return {}
@@ -843,6 +865,8 @@ class BbonePoller(object):
             _unauthorized_host_status_time_on_du[host] = status_time_on_du
             _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
             _hosts_extension_data[host] = host_info.get('extensions', '')
+            _hosts_cert_data[host] = host_info.get('cert_info', '')
+
 
             # Trigger the notifier so that clients know about it.
             self.notifier.publish_notification('add', 'host', host)
@@ -864,6 +888,7 @@ class BbonePoller(object):
                     _unauthorized_host_status_time_on_du.pop(host, None)
                     _hosts_hypervisor_info.pop(host, None)
                     _hosts_extension_data.pop(host, None)
+                    _hosts_cert_data.pop(host, None)
                     self.notifier.publish_notification('delete', 'host', host)
                     continue
 
@@ -928,6 +953,7 @@ class BbonePoller(object):
                 hostname = None
             _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
             _hosts_extension_data[host] = host_info.get('extensions', '')
+            _hosts_cert_data[host] = host_info.get('cert_info')
 
             host_status = host_info['status']
             if host_status in ('converging', 'retrying'):
@@ -1332,6 +1358,32 @@ class ResMgrPf9Provider(ResMgrProvider):
                 raise SupportCommandRequestFailed('Error in POST request response: %d, host %s' %
                                            (r.status_code, host_id))
 
+        except requests.exceptions.RequestException as exc:
+            raise BBMasterNotFound(exc)
+
+    def get_cert_info(self, host_id):
+        """
+        Returns certificate information about a host
+        :param str host_id: ID of the host
+        :return: dictionary containing certificate info of the host
+        :rtype: dict
+        """
+        return self.host_inventory_mgr.get_host_cert_info(host_id)
+
+    def request_cert_refresh(self, host_id):
+        """
+        Sends a request for certificate update on the host
+        :param str host_id: ID of the host
+        :return: None
+        :raises: CertRefreshRequestFailed If unable to send cert refresf request
+        :raises: BBMasterNotFound If communication to the backbone fails
+        """
+        url = "%s/v1/hosts/%s/certs" % (self.bb_url, host_id)
+        try:
+            r = requests.put(url)
+            if r.status_code != requests.codes.ok:
+                raise CertRefreshRequestFailed('Error in PUT request response: %d, host %s' %
+                                            (r.status_code, host_id))
         except requests.exceptions.RequestException as exc:
             raise BBMasterNotFound(exc)
 

@@ -49,7 +49,6 @@ $(BUILD_DIR)/dockstage/run-build-in-container.sh: $(BUILD_DIR)/dockstage
 
 CENTOS65_IMG ?= docker-registry.platform9.horse:5000/centos65
 CENTOS7_IMG ?= artifactory.platform9.horse/docker-local/pf9-centos7
-
 redhat-container: $(BUILD_DIR)/dockstage/run-build-in-container.sh
 	sudo docker pull $(CENTOS7_IMG) && \
 	sudo docker run -i --rm -a stdout -a stderr \

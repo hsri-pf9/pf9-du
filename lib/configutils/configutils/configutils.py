@@ -299,4 +299,3 @@ def merge_and_delete_params(params, inifile):
     ini_obj = json_to_ini(ini_json)
     with open(inifile, "w") as fp:
         ini_obj.write(fp)
-

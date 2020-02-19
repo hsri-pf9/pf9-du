@@ -98,6 +98,21 @@ class HostAgentController(RestController):
         except HostNotFound:
             abort(404)
 
+class HostAgentCertController(RestController):
+    """
+    Controller for the .../certs endpoint
+    """
+    @expose('json')
+    def put(self, host_id):
+        """
+        Handles request of type: PUT /v1/hosts/<host_id>/certs
+        This will update the certificates on the specified host
+        """
+        try:
+            _provider.update_host_certs(host_id)
+        except HostNotFound:
+            abort(404)
+
 class SupportBundleController(RestController):
     """ Controller for the .../support/ request"""
 
@@ -152,6 +167,7 @@ class HostsController(RestController):
     apps_internal = AppsController(show_comms=True)
     hostagent = HostAgentController()
     support = SupportController()
+    certs = HostAgentCertController()
 
     @expose('json')
     def get_all(self):

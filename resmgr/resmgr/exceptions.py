@@ -54,6 +54,10 @@ class SupportCommandRequestFailed(ResMgrException):
     def __init__(self, reason):
         super(SupportCommandRequestFailed, self).__init__('Support command request failed: %s' % reason)
 
+class CertRefreshRequestFailed(ResMgrException):
+    def __init__(self, reason):
+        super(CertRefreshRequestFailed, self).__init__('Host cert refresh request failed: %s' % reason)
+
 class RabbitCredentialsConfigureError(ResMgrException):
     def __init__(self, reason):
         super(RabbitCredentialsConfigureError, self).__init__('Failed to get rabbit credentials: %s' % reason)
