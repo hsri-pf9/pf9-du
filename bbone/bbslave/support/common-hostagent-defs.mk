@@ -34,9 +34,9 @@ HOSTAGENT_DEPS = setuptools==33.1.1 \
                  $(SRC_DIR)
 SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(PF9_VERSION)/"
 
-PYTHON_DOWNLOAD_URL := artifacts.platform9.horse/repository/yum-repo-frozen/hostagent-components/python.tgz
+PYTHON_DOWNLOAD_URL := artifacts.platform9.horse/repository/yum-repo-frozen/hostagent-components/python3.6.7.tgz
 # Include pf9-lib, which contains .so files used by all pf9 apps
-SO_DOWNLOAD_URL := "http://artifacts.platform9.horse/service/rest/v1/search/assets?repository=yum-repo-frozen&name=hostagent-components/libs/pf9-lib/*.so.*"
+SO_DOWNLOAD_URL := "http://artifacts.platform9.horse/service/rest/v1/search/assets?repository=yum-repo-frozen&name=hostagent-components/libs/pf9-lib-py3/*.so.*"
 
 $(HOSTAGENT_TARBALL_SRCDIR):
 	mkdir -p $@

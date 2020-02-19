@@ -11,7 +11,7 @@
 include ../../../../common-defs.mk
 
 BUILD_DIR := $(BUILD_ROOT)/hostagent/redhat
-PYTHON_VERSION = 2.7
+PYTHON_VERSION = 3.6
 
 # This defines SRC_DIR, VENV_DIR, HOSTAGENT_TARBALL,
 # HOSTAGENT_TARBALL_SRCDIR and SED_CMD
@@ -48,9 +48,10 @@ $(BUILD_DIR)/dockstage/run-build-in-container.sh: $(BUILD_DIR)/dockstage
 	cp $(SRC_DIR)/run-build-in-container.sh $@
 
 CENTOS65_IMG ?= docker-registry.platform9.horse:5000/centos65
+CENTOS7_IMG ?= artifactory.platform9.horse/docker-local/pf9-centos7
 
 redhat-container: $(BUILD_DIR)/dockstage/run-build-in-container.sh
-	sudo docker pull $(CENTOS65_IMG) && \
+	sudo docker pull $(CENTOS7_IMG) && \
 	sudo docker run -i --rm -a stdout -a stderr \
 		-v $(BUILD_DIR)/dockstage:/dockstage \
 		-v $(SRC_ROOT):/buildroot/pf9-du \
@@ -58,7 +59,7 @@ redhat-container: $(BUILD_DIR)/dockstage/run-build-in-container.sh
 		-e GITHASH=$(GITHASH) \
 		-e BUILD_NUMBER=$(BUILD_NUMBER) \
 		-e PARENT_UID=$(UID) -e PARENT_GID=$(GID) \
-		$(CENTOS65_IMG) \
+		$(CENTOS7_IMG) \
 		/dockstage/run-build-in-container.sh
 
 hostagent-tarball-rpm-redhat:
@@ -92,8 +93,7 @@ TEST_VENV_DEVELOP_CMD=${TEST_VENV}/bin/python setup.py develop
 COVERAGE_ZIP = ${SRC_ROOT}/coverage.zip
 DISTUTILS_DEBUG = 1
 
-# TODO : Uncomment this while switching to python3.
-#PY_VERSION=py3
+PY_VERSION=py3
 ${TEST_VENV}: ${BUILD_DIR}
 	$(SRC_ROOT)/build-venv.sh ${TEST_VENV} ${PY_VERSION}
 

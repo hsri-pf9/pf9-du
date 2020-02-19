@@ -3,7 +3,7 @@
 import sys
 
 # For apt
-sys.path.append('/usr/lib/python2.7/dist-packages')
+sys.path.append('/usr/lib/python3/dist-packages')
 
 # Start the backbone slave
 import bbslave.main

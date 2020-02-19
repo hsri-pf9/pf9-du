@@ -192,9 +192,9 @@ class BBoneIntegrationTest(unittest.TestCase):
                     if callback(body, *args):
                         return
                 else:
-                    print('HTTP GET returned %d, retrying...' % r.status_code)
+                    print ('HTTP GET returned %d, retrying...' % r.status_code)
             except requests.ConnectionError:
-                print('Connection refused, retrying ...')
+                print ('Connection refused, retrying ...')
             time.sleep(self.wait_period)
             elapsed += self.wait_period
         raise Exception('Timeout waiting for: %s' % repr(callback))

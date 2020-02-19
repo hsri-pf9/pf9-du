@@ -7,7 +7,7 @@
 include ../../../../common-defs.mk
 
 BUILD_DIR := $(BUILD_ROOT)/hostagent/debian
-PYTHON_VERSION = 2.7
+PYTHON_VERSION = 3.6
 
 # This defines SRC_DIR, VENV_DIR, HOSTAGENT_TARBALL,
 # HOSTAGENT_TARBALL_SRCDIR and SED_CMD

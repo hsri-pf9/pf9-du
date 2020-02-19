@@ -62,7 +62,7 @@ tar -xzf $HOSTAGENT_TARBALL -C $HOSTAGENT_TARBALL_EXPANDEDDIR
 # in the on-DU config-time build of hostagent, but for the nocert build-time
 # installer build, it remains readonly, and rpmbuild fails when it tries to
 # strip the binary. Fix the permissions here.
-chmod u+w ${HOSTAGENT_TARBALL_EXPANDEDDIR}/opt/pf9/python/lib/libpython2.7.a
+chmod u+w ${HOSTAGENT_TARBALL_EXPANDEDDIR}/opt/pf9/python/lib/libpython3.6m.a
 
 # Copy certificates
 # For backward compatibility, CERT_VERSION may be an empty string.
