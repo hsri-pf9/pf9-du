@@ -9,7 +9,7 @@ on simulated hosts.
 __author__ = 'leb'
 
 import unittest
-import ConfigParser
+from six.moves.configparser import ConfigParser
 from bbcommon import vhost
 from os import unlink
 from os.path import join, realpath, dirname
@@ -78,7 +78,7 @@ class BBoneIntegrationTest(unittest.TestCase):
         master_key = join(bbone_dir, 'etc/pf9/certs/bbmaster/key.pem')
         master_cert = join(bbone_dir, 'etc/pf9/certs/bbmaster/cert.pem')
 
-        self.config = ConfigParser.ConfigParser()
+        self.config = ConfigParser()
         self.config.read([slave_conf, master_conf])
         amqp_host = self.config.get('amqp_host', 'host')
         self.amqp_endpoint = "http://%s:15672/api" % amqp_host
@@ -91,14 +91,14 @@ class BBoneIntegrationTest(unittest.TestCase):
             self.config.set('ssl', 'ca_certs', ca_certs)
             self.config.set('ssl', 'certfile', slave_cert)
             self.config.set('ssl', 'keyfile', slave_key)
-        self.tmp_slave_conf = tempfile.NamedTemporaryFile(delete=False)
+        self.tmp_slave_conf = tempfile.NamedTemporaryFile(mode="w", delete=False)
         self.config.write(self.tmp_slave_conf)
         self.tmp_slave_conf.close()
 
         if use_ssl:
             self.config.set('ssl', 'certfile', master_cert)
             self.config.set('ssl', 'keyfile', master_key)
-        self.tmp_master_conf = tempfile.NamedTemporaryFile(delete=False)
+        self.tmp_master_conf = tempfile.NamedTemporaryFile(mode="w", delete=False)
         self.config.write(self.tmp_master_conf)
         self.tmp_master_conf.close()
 
@@ -181,9 +181,9 @@ class BBoneIntegrationTest(unittest.TestCase):
                     if callback(body, *args):
                         return
                 else:
-                    print 'HTTP GET returned %d, retrying...' % r.status_code
+                    print('HTTP GET returned %d, retrying...' % r.status_code)
             except requests.ConnectionError:
-                print 'Connection refused, retrying ...'
+                print('Connection refused, retrying ...')
             time.sleep(self.wait_period)
             elapsed += self.wait_period
         raise Exception('Timeout waiting for: %s' % repr(callback))

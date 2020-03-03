@@ -22,7 +22,7 @@ ${BUILD_DIR}:
 	mkdir -p $@
 
 ${TEST_VENV}: ${BUILD_DIR}
-	virtualenv ${TEST_VENV}
+	virtualenv -p python3 ${TEST_VENV}
 	${TEST_VENV}/bin/pip install setuptools==33.1.1
 
 pre-reqs : ${TEST_VENV}
