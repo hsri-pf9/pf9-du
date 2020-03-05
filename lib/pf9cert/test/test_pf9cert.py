@@ -31,7 +31,7 @@ class TestPf9Cert(TestCase):
             c = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
             assert c.get_subject().commonName == id
             not_after = c.get_notAfter()
-            not_after = dt.strptime(not_after,"%Y%m%d%H%M%SZ")
+            not_after = dt.strptime(not_after.decode(),"%Y%m%d%H%M%SZ")
             days_left = (not_after - dt.now()).days
             assert days_left == days or days_left == (days - 1)
             self._verify_key_usage(c, KEY_USAGE_CERT_SIGN)
@@ -53,7 +53,7 @@ class TestPf9Cert(TestCase):
             assert c.get_subject().commonName == svc
             assert c.get_issuer().commonName == id
             not_after = c.get_notAfter()
-            not_after = dt.strptime(not_after,"%Y%m%d%H%M%SZ")
+            not_after = dt.strptime(not_after.decode(),"%Y%m%d%H%M%SZ")
             days_left = (not_after - dt.now()).days
             assert days_left == days or days_left == (days - 1)
             self._verify_key_usage(c, KEY_USAGE_DIGITAL_SIGNATURE)
@@ -77,11 +77,11 @@ class TestPf9Cert(TestCase):
             ext = c.get_extension(i)
             short_name = ext.get_short_name()
             data = ext.get_data()
-            print 'Found extension %s with length %d' % (short_name, len(data))
-            if short_name == 'keyUsage':
+            print ('Found extension %s with length %d' % (short_name, len(data)))
+            if short_name.decode() == 'keyUsage':
                 assert len(data) == 4
                 word = struct.unpack('I', data)[0]
-                print 'keyUsage: %s' % hex(word)
+                print ('keyUsage: %s' % hex(word))
                 assert word == key_usage
                 return
         raise Exception('KeyUsage extension not found')

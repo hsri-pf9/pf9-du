@@ -4,6 +4,7 @@
 __author__ = 'Platform9'
 
 import os
+import json
 
 from configutils import configutils
 
@@ -24,7 +25,7 @@ def _no_file_test(method):
         method("nofile")
     except Exception as e:
         nofilecheck = True
-        assert type(e) == OSError
+        assert type(e) == FileNotFoundError
         assert e.errno == 2
 
     assert nofilecheck
@@ -48,7 +49,7 @@ def test_jsonfile_to_ini():
     # Valid JSON
     inicfg = configutils.jsonfile_to_ini(VALIDJSON)
     assert set(inicfg.sections()) == set(["key1", "key2", "key3"])
-    assert inicfg.items("key1") == [('subkey2', 'subval2'), ('subkey1', 'subval1')]
+    assert inicfg.items("key1") == [('subkey1', 'subval1'), ('subkey2', 'subval2')]
     assert inicfg.items("key3") == [('subkey4', 'subval4')]
 
     # Valid JSON with default
@@ -57,10 +58,10 @@ def test_jsonfile_to_ini():
     assert inicfg.defaults()["subkey2"] == "subval2"
 
     # Bad JSON
-    _json_error_test(INVALIDJSON, ValueError)
+    _json_error_test(INVALIDJSON, json.decoder.JSONDecodeError)
 
     # Nested JSON
-    _json_error_test(NESTEDJSON, configutils.NestedSectionError)
+    _json_error_test(NESTEDJSON, configutils.MissingSectionError)
 
     # Missing section JSON
     _json_error_test(NOSECTIONJSON, configutils.MissingSectionError)

@@ -15,7 +15,7 @@ from os.path import dirname, realpath, join
 from tempfile import mkdtemp
 from shutil import copytree, rmtree
 import subprocess
-import persistence_mem as persist
+from . import persistence_mem as persist
 _cur_dir = realpath(dirname(__file__))
 
 class TempRootCADir(object):

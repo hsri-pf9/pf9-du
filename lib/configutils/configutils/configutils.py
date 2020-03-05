@@ -15,6 +15,7 @@ import shutil
 import tempfile
 import six
 from six.moves.configparser import ConfigParser
+from six import iteritems
 import errno
 import json
 import os
@@ -59,7 +60,7 @@ def ini_to_json(iniConfig):
     # of name, value tuples. Diff the actual section set with this defaults set.
     defaults = iniConfig.defaults()
     out["DEFAULT"] = defaults
-    defaultslist = [(k,v) for (k,v) in defaults.iteritems()]
+    defaultslist = [(k,v) for (k,v) in iteritems(defaults)]
     defaultsset = set(defaultslist)
 
     for section in iniConfig.sections():
@@ -110,7 +111,13 @@ def json_to_ini(jsonConfig):
                 # levels of dicts (i.e. other than first level), raise exception
                 raise NestedSectionError(key)
 
-            out.set(section, key, str(val))
+            try:
+                out.set(section, key, str(val))
+            except ValueError:
+                # ValueError produces val, that needs to be converted to raw format
+                # so as not to invalid interpolation error.
+                val = val.replace("%", "%%")
+                out.set(section, key, val)
 
     return out
 
@@ -215,7 +222,7 @@ def merge_params(params, inifile):
     # end of a section. Leftover sections are added at the end of the file.
     currsect = None
     unset = copy.deepcopy(params)
-    with tempfile.NamedTemporaryFile(prefix=os.path.basename(inifile),
+    with tempfile.NamedTemporaryFile(mode='w',prefix=os.path.basename(inifile),
                                      delete=False) as ofile:
         with open(inifile, 'r') as ifile:
             for line in ifile.readlines():
@@ -254,10 +261,10 @@ def merge_params(params, inifile):
                     ofile.write('%s = %s\n' % (key, unset[currsect][key]))
                 ofile.write('\n')
                 del unset[currsect]
-            for section, vals in unset.iteritems():
+            for section, vals in iteritems(unset):
                 if vals:
                     ofile.write('[%s]\n' % section)
-                    for key, val in vals.iteritems():
+                    for key, val in iteritems(vals):
                         #if val is None or val == "":
                             #ofile.write('%s = \n' % key)
                         #else:
@@ -279,10 +286,10 @@ def merge_and_delete_params(params, inifile):
     ## If there is a new section or a new key to a section, add it to the
     ## ini_json completing the merge.
 
-    for section, conf_pair_dict in params.iteritems():
+    for section, conf_pair_dict in iteritems(params):
         if section not in ini_json:
             ini_json[section] = {}
-        for config_name, config_value in conf_pair_dict.iteritems():
+        for config_name, config_value in iteritems(conf_pair_dict):
             if config_value == 'REMOVE_KEY':
                 ini_json[section].pop(config_name,"")
                 continue

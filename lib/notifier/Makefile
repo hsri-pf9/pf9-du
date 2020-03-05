@@ -17,7 +17,7 @@ COVERAGE_ZIP = ${BUILD_DIR}/coverage.zip
 DISTUTILS_DEBUG = 1
 
 ${TEST_VENV}: ${BUILD_DIR}
-	virtualenv ${TEST_VENV}
+	virtualenv -p python3 ${TEST_VENV}
 
 pre-reqs : ${TEST_VENV}
 	cd $(SRC_ROOT)/lib/configutils && ${TEST_VENV_DEVELOP_CMD}

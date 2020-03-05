@@ -2,7 +2,7 @@
 # All Rights Reserved.
 
 from unittest import TestCase
-import ConfigParser
+from six.moves.configparser import ConfigParser
 import json
 import logging
 import pika, pika.channel, pika.connection
@@ -12,7 +12,7 @@ from bbcommon.amqp import io_loop
 import notifier
 import time
 
-config = ConfigParser.ConfigParser()
+config = ConfigParser()
 config.add_section('amqp')
 config.set('amqp', 'host', 'rabbitmq')
 config.set('amqp', 'username', 'guest')
