@@ -21,7 +21,7 @@ def get_addresses_and_names():
     interface_info = {}
 
     ignore_ip_re = re.compile('^(0.0.0.0|127.0.0.1)$')
-    ignore_if_re = re.compile('^(q.*-[0-9a-fA-F]{2}|tap.*)$')
+    ignore_if_re = re.compile('^(q.*-[0-9a-fA-F]{2}|tap.*|kube-ipvs.*)$')
 
     # Get list of ovs-bridges if present.
     ovs_list = []
