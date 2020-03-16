@@ -210,7 +210,7 @@ function check_services_running()
 {
     # verify that pf9-hostagent is running
     echo "Checking if services are running"
-    service pf9-hostagent status
+    ${SYSTEMCTL_CMD} is-active pf9-hostagent
     if [[ $? != "0" ]]; then
         support_generate_bundle
         exit 1
@@ -240,11 +240,11 @@ function start_services()
 {
     echo "Starting services"
     # order is important here
-    service pf9-comms start
+    ${SYSTEMCTL_CMD} start pf9-comms
     wait_service_running 30 "pf9-comms"
     check_exit_code_and_generate_support_bundle $?
 
-    service pf9-hostagent start
+    ${SYSTEMCTL_CMD} start pf9-hostagent
     wait_service_running 30 "pf9-hostagent"
     check_exit_code_and_generate_support_bundle $?
 }

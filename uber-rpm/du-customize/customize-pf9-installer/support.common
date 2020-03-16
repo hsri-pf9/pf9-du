@@ -1,8 +1,8 @@
 uname -a
 cat /etc/*release*
-service pf9-hostagent status
-service pf9-comms status
-chkconfig
+systemctl --no-pager status pf9-hostagent
+systemctl --no-pager status  pf9-comms
+systemctl --no-pager list-units
 ps aux | grep pf9
 getenforce
 iptables -L

@@ -40,11 +40,10 @@ wait_service_running()
     local max_tries=$((seconds * 2))
 
     until [[ $retval == "0" ]]; do
-        service ${service} status
+        ${SYSTEMCTL_CMD} is-active ${service}
         retval=$?
         tries=$((tries + 1))
         [[ $tries -eq $max_tries ]] && { echo; echo "Timeout waiting for ${service} to start"; return 1; }
         sleep .5
     done
 }
-

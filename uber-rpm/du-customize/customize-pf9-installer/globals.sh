@@ -37,9 +37,11 @@ SUPPORT_DIRS=("/var/log/pf9" \
               "/var/opt/pf9" \
               "/etc/opt/pf9")
 
-# For RHEL 7+, this avoids calls to sysctl,
-# which breaks the init scripts.
-export SYSTEMCTL_SKIP_REDIRECT=1
+# Use systemctl with no-pager option because some automation tools
+# use tty mode which can trigger systemctl to work in pager mode
+# causing commands to hang waiting for users to quit the pager.
+# More details: https://www.freedesktop.org/software/systemd/man/systemctl.html#%24SYSTEMD_PAGER
+SYSTEMCTL_CMD="systemctl --no-pager"
 
 # Check if /sbin is in the path
 echo $PATH | grep "/sbin" -q
@@ -50,9 +52,9 @@ if [[ $? != "0" ]]; then
 fi
 
 # Check if the service command exists at the very least
-which service > /dev/null 2>&1
+which systemctl > /dev/null 2>&1
 if [[ $? != "0" ]]; then
-    echo "Cannot find the command 'service' in $PATH. Exiting..."
+    echo "Cannot find the command 'systemctl' in $PATH. Exiting..."
     exit 1
 fi
 

@@ -660,7 +660,7 @@ def do_agent_restart(options):
     """
     _ensure_host_exists(options)
     url = ''.join([_bbmaster_endpoint, '/', options.host_id, '/support/command'])
-    body = {'command': 'sudo service pf9-hostagent restart'}
+    body = {'command': 'sudo systemctl --no-pager restart pf9-hostagent'}
     _do_post(url, body)
 
 def do_set_host_role(options):

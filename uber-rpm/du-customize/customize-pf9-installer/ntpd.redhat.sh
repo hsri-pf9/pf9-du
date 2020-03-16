@@ -5,9 +5,9 @@ function install_ntpd
         echo "Error: Could not install the ntp package"
         exit 1
     fi
-    systemctl start ntpd
-    systemctl enable ntpd
-    systemctl status ntpd
+    ${SYSTEMCTL_CMD} start ntpd
+    ${SYSTEMCTL_CMD} enable ntpd
+    ${SYSTEMCTL_CMD} is-active ntpd
     if [[ $? != "0" ]]; then
         echo "Error: The ntpd service failed to start"
         exit 1
