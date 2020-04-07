@@ -147,7 +147,10 @@ class Pf9AppCache(AppCache):
                 url = "".join(os.path.splitext(url)[:-1]) + ".deb"
                 localdest = "".join(os.path.splitext(localdest)[:-1]) + ".deb"
 
-            self._download_file(url, localdest)
+            if os.path.isfile(localdest):
+                self.log.info("Using previously cached file %s", localdest)
+            else:
+                self._download_file(url, localdest)
             self.downloads[key] = localdest
 
         self.log.debug("App cache state: %s", str(self.downloads))
