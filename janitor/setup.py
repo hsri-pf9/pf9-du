@@ -20,7 +20,8 @@ setup(
         "python-daemon==1.6.1",
         "requests",
         "pyyaml",
-        "python-keystoneclient==3.13.0"
+        "python-keystoneclient==3.13.0",
+        "pyparsing==2.4.7"
     ],
     test_suite='janitor',
     zip_safe=False,
