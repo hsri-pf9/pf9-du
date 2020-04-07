@@ -48,6 +48,12 @@ class VouchCerts(object):
         :returns: (new cert, issuing CA cert)
         """
         LOG.info('Sending CSR to vouch for signature, pem = %s', csr)
+
+        # The signing request through vouch leverages Vault to sign certs. Vault
+        # follows the spec https://tools.ietf.org/html/rfc5280 which has an
+        # upperbound of 64 chars for CN. Truncate the CN to the first 63 chars
+        common_name = common_name[:62]
+        LOG.info('Using the CN: %s', common_name)
         body = {
             'common_name': common_name,
             'csr': csr
