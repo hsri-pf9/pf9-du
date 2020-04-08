@@ -25,6 +25,7 @@ $(HOSTAGENT_TARBALL): | $(VENV_DIR)
 	cp $(SRC_DIR)/service_scripts/pf9-hostagent-prestart.sh $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/
 	cp $(SRC_DIR)/etc/sudoers.d/pf9-hostagent-debian $(HOSTAGENT_TARBALL_SRCDIR)/etc/sudoers.d/pf9-hostagent
 	cp $(SRC_DIR)/support/debian/hostagent-deb-build.sh $(HOSTAGENT_TARBALL_SRCDIR)
+	cp $(SRC_DIR)/support/debian/before-install.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/debian/after-install.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/debian/before-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
 	cp $(SRC_DIR)/support/debian/after-remove.sh $(HOSTAGENT_TARBALL_SRCDIR)
