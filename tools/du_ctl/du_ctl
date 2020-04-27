@@ -239,6 +239,24 @@ def _add_credential_arguments(parser):
                         dest='password',
                         help='User account password. Optional if OS_PASSWORD is set.')
 
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+       return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+       return False
+    else:
+       raise argparse.ArgumentTypeError('Boolean value expected.')
+
+def bool2str(b):
+    if b == True:
+       return "true"
+    elif b == False:
+       return "false"
+    else:
+       raise argparse.ArgumentTypeError('Boolean value expected.')
+
 def _build_host_parser(subparsers):
     """
     Build subparser for host related operations
@@ -273,6 +291,15 @@ def _build_host_parser(subparsers):
     host_support_bundle_parser.add_argument("--host_id",
                                             required=True,
                                             help='ID of host to get support bundle from. ')
+    host_support_bundle_parser.add_argument("--upload",
+                                            type=str2bool, nargs='?',
+                                            const=True,
+                                            default=False,
+                                            required=False,
+                                            help='Flag to setup support bundle upload.')
+    host_support_bundle_parser.add_argument("--label",
+                                            required=False,
+                                            help='Label to be appended to upload directory. ')
     _add_credential_arguments(host_support_bundle_parser)
 
     host_support_command_parser = host_support_sub_parser.add_parser('command',
@@ -486,8 +513,11 @@ def do_support_bundle(args):
 
     bundles_before = _get_bundles(support_dir)
 
+    upload_str = bool2str(args.upload)
+    body = {'upload' : upload_str, 'label' : args.label}
+
     resp = requests.post('%s/hosts/%s/support/bundle' % (_resmgr_endpoint, args.host_id),
-                         headers=headers)
+                         headers=headers, json=body)
     resp.raise_for_status()
 
     # Number of attempts to check for creation of the support bundle

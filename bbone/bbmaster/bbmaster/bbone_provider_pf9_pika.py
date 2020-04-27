@@ -25,6 +25,7 @@ import copy
 from bbmaster.pf9_firmware_apps import (get_fw_apps_cfg,
     insert_fw_apps_config, remove_fw_apps_config)
 from pika.exceptions import AMQPConnectionError
+from bbmaster.file_writer import FileWriterS3
 
 class bbone_provider_pf9(bbone_provider_memory):
     """
@@ -49,14 +50,24 @@ class bbone_provider_pf9(bbone_provider_memory):
                                                     'support_file_store')
         self.pending_msgs = []
         self.firmware_apps_config = get_fw_apps_cfg(config=self.config)
+
+        self.global_config = ConfigParser()
+        global_conf = os.environ.get('GLOBAL_CONFIG_FILE',
+                                       constants.GLOBAL_CONFIG_FILE)
+        self.global_config.read(global_conf)
+        self.du_fqdn = self.global_config.get('DEFAULT', 'DU_FQDN')
+
         t = threading.Thread(target=self._io_thread)
         t.daemon = True
         t.start()
 
     # ----- these methods execute in an arbitrary http server thread -----
 
-    def request_support_bundle(self, host_id):
-        self._send_msg(host_id, {'opcode': 'get_support'})
+    def request_support_bundle(self, host_id, upload, label=None):
+        msg = {'opcode' : 'get_support',
+               'upload' : upload,
+               'label': label}
+        self._send_msg(host_id, msg)
 
     def run_support_command(self, host_id, command):
         msg = {'opcode' : 'support_command',
@@ -178,16 +189,37 @@ class bbone_provider_pf9(bbone_provider_memory):
             time_now = datetime.datetime.now()
             host_name = msg['data']['info']['hostname']
             host_id = msg['data']['host_id']
+
+            # host_id/file.tgz
+            hostfile = os.path.join(host_id, '%s-%s.tgz' % (host_name,
+                                   time_now.strftime("%Y-%m-%d-%H-%M-%S")))
+
+            # Append label to the destination path.
+            if msg['data']['label'] != None:
+                # du_fqdn/label/host_id/file.tgz
+                du_dir = os.path.join(self.du_fqdn, msg['data']['label'],
+                                      hostfile)
+            else:
+                # du_fqdn/host_id/file.tgz
+                du_dir = os.path.join(self.du_fqdn, hostfile)
+
+            #/opt/pf9/support/host_id
             out_dir = os.path.join(self.support_dir_location, host_id)
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
-            outfile = os.path.join(out_dir, '%s-%s.tgz' % (host_name,
-                                   time_now.strftime("%Y-%m-%d-%H-%M-%S")))
+            outfile = os.path.join(self.support_dir_location, hostfile)
             outfile_temp = outfile + '.part'
             try:
                 with open(outfile_temp, 'wb') as f:
                     f.write(base64.b64decode(msg['data']['contents']))
                 os.rename(outfile_temp, outfile)
+                self.log.info('Received upload flag value as %s', msg['data']['upload'])
+                if msg['data']['upload'].lower() == "true":
+                    self.log.info('Uploading up the support bundle.')
+                    fb = FileWriterS3(self.log)
+                    fb.upload(outfile, du_dir)
+                else:
+                    self.log.info('Not uploading the support bundle.')
             except:
                 self.log.exception('Writing out support bundle failed')
 

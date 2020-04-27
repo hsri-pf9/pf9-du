@@ -69,6 +69,7 @@ class BBoneIntegrationTest(unittest.TestCase):
     def setUp(self):
         bbone_dir = realpath(join(dirname(__file__), '..'))
         master_conf = join(bbone_dir, 'bbmaster/etc/bbmaster_test.conf')
+        global_conf = join(bbone_dir, 'bbmaster/etc/global_test.conf')
         pecan_conf = join(bbone_dir, 'bbmaster/test_config.py')
         slave_conf = join(bbone_dir, 'bbslave/etc/pf9/hostagent_test.conf')
         slave_script = join(bbone_dir, 'bbslave/bbslave/main.py')
@@ -84,6 +85,11 @@ class BBoneIntegrationTest(unittest.TestCase):
         self.amqp_endpoint = "http://%s:15672/api" % amqp_host
         self.config.set('amqp', 'virtual_host', vhost.generate_amqp_vhost())
         vhost.prep_amqp_broker(self.config, logging, self.amqp_endpoint)
+
+        global_config = ConfigParser()
+        global_config.read(global_conf)
+        global_config.read(global_conf)
+        global_config.set('DEFAULT', 'DU_FQDN', 'test.platform9.com')
 
         use_ssl = 'BBONE_TEST_USE_SSL' in env
         if use_ssl:
@@ -101,6 +107,11 @@ class BBoneIntegrationTest(unittest.TestCase):
         self.tmp_master_conf = tempfile.NamedTemporaryFile(mode="w", delete=False)
         self.config.write(self.tmp_master_conf)
         self.tmp_master_conf.close()
+
+        self.global_conf = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        global_config.write(self.global_conf)
+        self.global_conf.close()
+        env['GLOBAL_CONFIG_FILE'] = self.global_conf.name
 
         self.slaves = []
         num_slaves = int(env.get('BBONE_TEST_NUM_SLAVES', '5'))

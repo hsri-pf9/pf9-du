@@ -449,7 +449,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
         # All error/exception case, reload the host agent info
         _load_host_agent_info(agent_app_db)
 
-    def process_support_request():
+    def process_support_request(upload, label):
         """
         Handle the request to generate the support bundle and send the file
         to the backbone master through rabbitmq broker.
@@ -462,6 +462,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
             'data': {
                 'host_id': _host_id,
                 'info': get_sysinfo(),
+                'upload': upload,
+                'label': label,
             }
         }
 
@@ -566,7 +568,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 return
             if msg['opcode'] == 'get_support':
                 log.info('Received get_support message')
-                process_support_request()
+                process_support_request(msg['upload'], msg['label'])
                 return
             if msg['opcode'] == 'support_command':
                 log.info('Received support_command message: %s' % msg['command'])
@@ -623,7 +625,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 # This is the last convergence attempt. Generate the support
                 # request and send it to the DU as part of the last
                 # convergence attempt
-                process_support_request()
+                process_support_request(True, None)
 
         try:
             process_apps(app_db, app_cache, remote_app_class,

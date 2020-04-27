@@ -18,7 +18,9 @@ setup(
         "pika==0.10.0",
         "cryptography==1.5",
         "webob==1.7.4",
-        "MarkupSafe==1.0"
+        "MarkupSafe==1.0",
+        "boto3==1.12.44",
+        "python-dateutil==2.7.3"
     ],
     test_suite='bbmaster',
     zip_safe=False,

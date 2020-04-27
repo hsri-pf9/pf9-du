@@ -249,8 +249,13 @@ class HostSupportBundleController(RestController):
             log.error('Unable to request support bundle. No matching host found: %s',
                       host_id)
             abort(404)
+
+        msg_body = {}
+        if hasattr(pecan.core.state, "request") and hasattr(pecan.core.state.request, "json_body"):
+            msg_body = pecan.core.state.request.json_body
+
         try:
-            _provider.request_support_bundle(host_id)
+            _provider.request_support_bundle(host_id, msg_body)
         except (SupportRequestFailed, BBMasterNotFound):
             log.exception("Request to generate support bundle failed.")
             abort(503)

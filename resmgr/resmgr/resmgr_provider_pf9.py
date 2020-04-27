@@ -1312,10 +1312,10 @@ class ResMgrPf9Provider(ResMgrProvider):
                                                  rabbit_permissions['write'],
                                                  rabbit_permissions['read'])
 
-    def request_support_bundle(self, host_id):
+    def request_support_bundle(self, host_id, body):
         url = "%s/v1/hosts/%s/support/bundle" % (self.bb_url, host_id)
         try:
-            r = requests.post(url)
+            r = requests.post(url, data=json.dumps(body))
             if r.status_code != requests.codes.ok:
                 raise SupportRequestFailed('Error in POST request response: %d, host %s' %
                                            (r.status_code, host_id))

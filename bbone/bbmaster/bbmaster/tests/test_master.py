@@ -30,6 +30,12 @@ log.basicConfig(level=getattr(log, 'INFO'))
 amqp_host = config.get('amqp', 'host')
 amqp_endpoint = "http://%s:15672/api" % amqp_host
 
+global_conf = join(bbmaster_dir, 'etc/global_test.conf')
+global_config = ConfigParser()
+global_config.read(global_conf)
+global_config.read(global_conf)
+global_config.set('DEFAULT', 'DU_FQDN', 'test.platform9.com')
+
 bad_opcode_msg = {
     'opcode': 'bogus'
 }
@@ -200,6 +206,11 @@ class TestBbMaster(FunctionalTest):
         self.temp_conf.close()
         os.environ['BBMASTER_CONFIG_FILE'] = self.temp_conf.name
 
+        self.global_conf = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        global_config.write(self.global_conf)
+        self.global_conf.close()
+        os.environ['GLOBAL_CONFIG_FILE'] = self.global_conf.name
+
         self.app = load_test_app(os.path.join(
             os.path.dirname(__file__),
             'master_config.py'
@@ -292,6 +303,11 @@ class TestBBMasterBadStatus (FunctionalTest):
         self.temp_conf.close()
         os.environ['BBMASTER_CONFIG_FILE'] = self.temp_conf.name
 
+        self.global_conf = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        global_config.write(self.global_conf)
+        self.global_conf.close()
+        os.environ['GLOBAL_CONFIG_FILE'] = self.global_conf.name
+
         self.app = load_test_app(os.path.join(
             os.path.dirname(__file__),
             'master_config.py'
@@ -329,6 +345,11 @@ class TestBBMasterBadSetOp(FunctionalTest):
         config.write(self.temp_conf)
         self.temp_conf.close()
         os.environ['BBMASTER_CONFIG_FILE'] = self.temp_conf.name
+
+        self.global_conf = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        global_config.write(self.global_conf)
+        self.global_conf.close()
+        os.environ['GLOBAL_CONFIG_FILE'] = self.global_conf.name
 
         self.app = load_test_app(os.path.join(
             os.path.dirname(__file__),

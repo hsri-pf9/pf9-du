@@ -105,10 +105,21 @@ class SupportBundleController(RestController):
     def post(self, host_id):
         """
         Handles request of type: POST /v1/hosts/<host_id>/support/bundle
+        Example JSON body: {'upload' : '<true/false for bundle upload>',
+                            'ticket_id' : <ticket_str>'}
         """
         if not _provider.get_hosts([host_id]):
             abort(404)
-        _provider.request_support_bundle(host_id)
+
+        label = None
+        upload = False
+
+        msg_body = pecan.core.state.request.json_body
+        if msg_body:
+            label = msg_body.get('label', None)
+            upload = msg_body.get('upload', False)
+
+        _provider.request_support_bundle(host_id, upload, label)
 
 class SupportCommandController(RestController):
     """ Controller for the .../support/command request"""
