@@ -42,7 +42,6 @@ function test_connect_fail()
     if [[ $? != 1 ]] || ! [[ "${actual}" =~ "${expected}" ]]; then
         echo "expected: ${expected}"
         echo "actual: ${actual}"
-
         format_print $host "FAILED"
         exit 1
     else
@@ -76,7 +75,8 @@ function test_urlparse_fail() {
     actual="$("$nettool" urlparse "$url" 2>&1)"
 
     if [[ $? != 1 ]] || ! [[ "${actual}" =~ "${expected}" ]]; then
-
+        echo "expected: ${expected}"
+        echo "actual: ${actual}"
         format_print $url "FAILED"
         exit 1
     fi
