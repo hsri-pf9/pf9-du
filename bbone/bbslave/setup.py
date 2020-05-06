@@ -19,7 +19,8 @@ setup(
         'psutil==5.4.5',
         'pf9app',
         'bbcommon',
-        'configutils'
+        'configutils',
+        'pyyaml==5.3.1',
     ],
     test_suite='bbslave',
     zip_safe=False,
