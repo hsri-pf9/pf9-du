@@ -92,25 +92,25 @@ function main()
     fi
 
     # Test direct connects
-    test_connect_success --host pf9.platform9.net --port 443
+    test_connect_success --host df.platform9.net --port 443
     test_connect_success --host ipv4.google.com --port 443
     test_connect_success --host 8.8.8.8 --port 53
 
     # Test http proxy connect
-    test_connect_success --host pf9.platform9.net --port 443 \
+    test_connect_success --host df.platform9.net --port 443 \
         --proxy-host squid-01.platform9.horse --proxy-port 3128
 
     # Test https proxy connect
-    test_connect_success --host pf9.platform9.net --port 443 \
+    test_connect_success --host df.platform9.net --port 443 \
         --proxy-protocol https --proxy-host squid-01.platform9.horse --proxy-port 443
 
     # Test http proxy with basic auth connect
-    test_connect_success --host pf9.platform9.net --port 443 \
+    test_connect_success --host df.platform9.net --port 443 \
         --proxy-host squid-basic-auth-01.platform9.horse --proxy-port 3128 \
         --proxy-user pf9 --proxy-pass dummy
 
     # Test https proxy with basic auth connect
-    test_connect_success --host pf9.platform9.net --port 443 \
+    test_connect_success --host df.platform9.net --port 443 \
         --proxy-protocol https --proxy-host squid-basic-auth-01.platform9.horse --proxy-port 443 \
         --proxy-user pf9 --proxy-pass dummy
 
@@ -128,13 +128,13 @@ function main()
         --proxy-protocol https --proxy-port 443
 
     # Test connection timeouts
-    test_connect_fail "connection timed out" --host "pf9.platform9.net" --port 442
+    test_connect_fail "connection timed out" --host "df.platform9.net" --port 442
 
     # Test invalid passwords
-    test_connect_fail "407 Proxy Authentication Required" --host "pf9.platform9.com" --port 443 \
+    test_connect_fail "407 Proxy Authentication Required" --host "df.platform9.net" --port 443 \
         --proxy-host squid-basic-auth-01.platform9.horse --proxy-user pf9 --proxy-pass wrongPassword \
         --proxy-protocol https --proxy-port 443
-    test_connect_fail "407 Proxy Authentication Required" --host "pf9.platform9.com" --port 443 \
+    test_connect_fail "407 Proxy Authentication Required" --host "df.platform9.net" --port 443 \
         --proxy-host squid-basic-auth-01.platform9.horse --proxy-user wrongUser --proxy-pass dummy
 
 
@@ -146,12 +146,12 @@ function main()
 
     test_urlparse_success http://pf9:dummyPass@squid.platform9.net:3128 \
         "http squid.platform9.net 3128 pf9 dummyPass"
-    test_urlparse_success pf9@platform9.net:dummyAgain@squid.platform9.net:3128 \
-        "http squid.platform9.net 3128 pf9@platform9.net dummyAgain"
+    test_urlparse_success df@platform9.net:dummyAgain@squid.platform9.net:3128 \
+        "http squid.platform9.net 3128 df@platform9.net dummyAgain"
     test_urlparse_success usernames:cant:have:colons@squid.platform9.net \
         "http squid.platform9.net 3128 usernames cant:have:colons"
-    test_urlparse_success pf9@platform9.net:dummy:again@squid.platform9.net \
-        "http squid.platform9.net 3128 pf9@platform9.net dummy:again"
+    test_urlparse_success df@platform9.net:dummy:again@squid.platform9.net \
+        "http squid.platform9.net 3128 df@platform9.net dummy:again"
     test_urlparse_success https://squid.platform9.net \
         "https squid.platform9.net 3128"
     test_urlparse_success https://squid.platform9.net:443 \
