@@ -14,7 +14,7 @@ Restart=always
 User=pf9
 Group=pf9group
 RestartSec=30
-StartLimitIntervalSec=600
+StartLimitInterval=600
 StartLimitBurst=6
 
 [Install]
