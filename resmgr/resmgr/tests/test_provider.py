@@ -502,12 +502,12 @@ class TestProvider(DbTestCase):
         # The host is still authorized, and the role's still there
         host = self._inventory.get_authorized_host(host_id)
         self.assertTrue(host)
-        self.assertEqual(['test-role', 'test-role-2'], host['roles'])
+        self.assertCountEqual(['test-role', 'test-role-2'], host['roles'])
 
         # still in the database with test-role-2 still bound
         hosts_in_db = self._db.query_hosts()
         self.assertTrue(hosts_in_db)
-        self.assertEqual(['test-role', 'test-role-2'],
+        self.assertCountEqual(['test-role', 'test-role-2'],
                           hosts_in_db[0]['roles'])
 
         # cleanup's still in process on the host.
@@ -524,7 +524,7 @@ class TestProvider(DbTestCase):
         host = hosts.get(host_id)
         self.assertTrue(host)
         self.assertEqual('converging', host['role_status'])
-        self.assertEqual(['test-role', 'test-role-2'],
+        self.assertCountEqual(['test-role', 'test-role-2'],
                           host.get('roles'))
         self._assert_event_handler_not_called('on_deauth_converged')
         self._assert_role_state(host_id, 'test-role',

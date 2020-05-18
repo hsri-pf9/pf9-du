@@ -134,7 +134,7 @@ class HostRoleAssociation(Base):
     current_state = Column('current_state', String(120))
     host = relationship('Host', back_populates='roles')
     role = relationship('Role', back_populates='hosts')
-    __table_args__ = (UniqueConstraint('rolename', 'res_id'),)
+    UniqueConstraint('rolename', 'res_id', name='host_role_map_unique1')
 
 class Service(Base):
     """ ORM class for service_configs table"""
