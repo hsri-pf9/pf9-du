@@ -36,6 +36,7 @@ _desired_config_basedir_path = None
 _support_file_location = None
 _common_config_path = None
 _hostagent_info = {}
+_pending_support_bundle = {'pending': False}
 
 HYPERVISOR_INFO_FILE = '/var/opt/pf9/hypervisor_details'
 
@@ -449,11 +450,13 @@ def start(config, log, app_db, agent_app_db, app_cache,
         # All error/exception case, reload the host agent info
         _load_host_agent_info(agent_app_db)
 
-    def process_support_request(upload, label):
+    def process_support_request(upload, label, reupload=False):
         """
         Handle the request to generate the support bundle and send the file
         to the backbone master through rabbitmq broker.
         """
+        _pending_support_bundle = {'upload': upload, 'label': label,
+                                   'pending': True }
         if 'channel' not in state:
             log.warn('Not sending support bundle because channel is closed')
             return
@@ -468,7 +471,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
         }
 
         try:
-            datagatherer.generate_support_bundle(_support_file_location, log)
+            if not reupload or not os.path.exists(_support_file_location):
+                datagatherer.generate_support_bundle(_support_file_location, log)
             with open(_support_file_location, 'rb') as f:
                 # Choose base64 encoding to transfer binary content
                 contents_str_binary = base64.b64encode(f.read())
@@ -483,9 +487,22 @@ def start(config, log, app_db, agent_app_db, app_cache,
 
         channel = state['channel']
         log.info('Publishing support bundle message to broker')
-        channel.basic_publish(exchange=constants.BBONE_EXCHANGE,
-                              routing_key=constants.MASTER_TOPIC,
-                              body=json.dumps(msg))
+        try:
+            channel.basic_publish(exchange=constants.BBONE_EXCHANGE,
+                                  routing_key=constants.MASTER_TOPIC,
+                                  body=json.dumps(msg))
+        except Exception:
+            if reupload:
+                # If 'reupload' was set to True and we still could not publish
+                # the support bundle then give up on this bundle.
+                log.exception("Exception uploading support bundle second time"
+                              ". Upload will not be retried.")
+                _pending_support_bundle = {'pending': False}
+            # Same behavior as before. This will force hostagent to
+            # re-create the channel
+            raise
+
+        _pending_support_bundle = {'pending': False}
 
     def process_support_command(command):
         """
@@ -686,6 +703,21 @@ def start(config, log, app_db, agent_app_db, app_cache,
 
     def heartbeat():
         handle_msg({'opcode': 'heartbeat'})
+        # Special handling for retrying a failed support bundle upload. If
+        # _pending_support_bundle['pending'] is set to True it indicates
+        # that support bundle could not uploaded and an exception was raised
+        # in process_support_request. The exception would have caused the
+        # start loop to re-initiated. This behavior is similar to behavior
+        # prior to this change. If handle_msg is successful then we have a
+        # functioning connection to the broker and we can retry uploading the
+        # bundle. This is the second attempt and if this is unsuccessful as
+        # well then _pending_support_bundle['pending'] will be reset in
+        # process_support_request to prevent further retries to upload same
+        # bundle.
+        if _pending_support_bundle.get('pending', False):
+            process_support_request(_pending_support_bundle.get('upload'),
+                                    _pending_support_bundle.get('label'),
+                                    reupload=True)
 
     # Process one heartbeat now to try to converge towards cached desired
     # state, regardless of whether we can establish an AMQP connection. This is
