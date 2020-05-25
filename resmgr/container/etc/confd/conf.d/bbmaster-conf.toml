@@ -6,5 +6,6 @@ mode = '0644'
 keys = [
     '/rabbit_broker/users',
     '/environment',
+    '/services/bbmaster',
 ]
 reload_cmd = 'supervisorctl restart bbmaster'

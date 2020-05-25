@@ -1,5 +1,8 @@
+import os
 import boto3
 from botocore.exceptions import ClientError
+from six.moves.configparser import ConfigParser
+from bbcommon import constants
 
 class FileWriter:
     """ Implementation of interfaces to do file upload """
@@ -11,13 +14,6 @@ class FileWriter:
         self.log = log
 
 
-# TODO : Fill these up for testing. Will be removed once
-# devops defines a way to fetch them.
-BUCKET_NAME = ""
-REGION_NAME = ""
-AWS_KEY_ID = ""
-AWS_SECRET_KEY = ""
-
 class FileWriterS3(FileWriter):
     """ Implementation of interfaces to do file upload to S3 buckets"""
     def __init__(self, log=None):
@@ -27,22 +23,38 @@ class FileWriterS3(FileWriter):
         """
 
         FileWriter.__init__(self, log=log)
-        self.bucket, self.region = self._get_bucket_info()
-        self.access_key, self.secret_key = self._get_keys()
+        self.aws_info_available, self.bucket, self.region, self.access_key, self.secret_key = self._get_aws_info()
 
-    # TODO: Implement these once devops define a way to fetch bucket info
-    def _get_bucket_info(self):
-        return BUCKET_NAME, REGION_NAME
+    def _get_aws_info(self):
+        config = ConfigParser()
+        bbmaster_conf = os.environ.get('BBMASTER_CONFIG_FILE',
+                                       constants.BBMASTER_CONFIG_FILE)
+        config.read(bbmaster_conf)
+        bucket_name = ""
+        region_name = ""
+        aws_key_id = ""
+        aws_secret_key = ""
+        try:
+            bucket_name = config.get('aws', 's3_bucket_name')
+            region_name = config.get('aws', 's3_region_name')
+            aws_key_id = config.get('aws', 'aws_access_key_id')
+            aws_secret_key = config.get('aws', 'aws_secret_access_key')
+            aws_info_available = True
+        except Exception:
+            aws_info_available = False
 
-    # TODO: Implement these once devops define a way to fetch aws credentials
-    def _get_keys(self):
-        return AWS_KEY_ID, AWS_SECRET_KEY
+        return aws_info_available, bucket_name, region_name, aws_key_id, aws_secret_key
+
 
     def upload(self, file_to_upload, dst_path=None):
         """
         :param file_to_upload : File to be backed up.
         :param dst_path       : Destination path in S3
         """
+
+        if not self.aws_info_available:
+            self.log.info('AWS info is not available, File upload failed !')
+            return
 
         # Upload the file with same name if destination path is not available.
         if dst_path is None:

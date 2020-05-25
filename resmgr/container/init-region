@@ -138,6 +138,52 @@ class ResmgrConfig(object):
                     for (k, v) in RABBIT_PERMISSIONS[username].iteritems()})
             self._consul.kv_put_txn(updates)
 
+    def get_aws_credentials(self):
+        """
+        Fetch the AWS credentials from the config path of consul.
+        """
+        config_prefix = 'config/support_bundle'
+        LOG.info('Fetching config information for support_bundle.')
+        support_bundle = {}
+        try:
+            support_bundle = self._consul.kv_get_prefix(config_prefix)
+            LOG.info('Found support bundle information in config.')
+
+        except requests.HTTPError as e:
+           if e.response.status_code == 404:
+               LOG.info('Support bundle information not found in config.')
+           else:
+               # Something went wrong while fetching config from consul.
+               raise
+        return support_bundle
+
+    def update_aws_credentials_in_bbmaster_service(self, support_bundle):
+        print(support_bundle)
+        config_prefix = 'config/support_bundle'
+        bbmaster_prefix = 'customers/%s/regions/%s/services/bbmaster/' % \
+                          (self._customer_uuid, self._region_uuid)
+        LOG.info('Updating config information for support_bundle in bbmaster service.')
+        if not support_bundle:
+            LOG.info('Support bundle information is empty.')
+            return
+
+        bucket_name = support_bundle['%s/s3_bucket_name' % config_prefix]
+        region_name = support_bundle['%s/bucket_region_name' % \
+                                     config_prefix]
+        access_key_id = support_bundle['%s/aws_access_key_id' % \
+                                       config_prefix]
+        secret_access_key = support_bundle['%s/aws_secret_access_key' %\
+                                           config_prefix]
+
+        updates = {}
+        # Populate the updates
+        updates[bbmaster_prefix + 's3_bucket_name'] = bucket_name
+        updates[bbmaster_prefix + 'bucket_region_name'] = region_name
+        updates[bbmaster_prefix + 'aws_access_key_id'] = access_key_id
+        updates[bbmaster_prefix + 'aws_secret_access_key'] = secret_access_key
+        self._consul.kv_put_txn(updates)
+        LOG.info('Support bundle information updated in bbmaster service.')
+
     def add_db(self):
         """
         Create the database using the location and admin credentials associated
@@ -245,6 +291,9 @@ def main():
     config.add_keystone_user()
     config.copy_keystone_uris()
     config.add_rabbit_users()
+    config_info = config.get_aws_credentials()
+    if config_info:
+        config.update_aws_credentials_in_bbmaster_service(config_info)
     dbinfo = config.add_db()
     config.migrate_db(dbinfo)
 
