@@ -310,9 +310,14 @@ def start(config, log, app_db, agent_app_db, app_cache,
                         }
                     else:
                         # Running the extension failed
+                        # Check for blank output in byte format.
+                        if output == b'':
+                            data = ""
+                        else:
+                            data = json.loads(output.decode())
                         ext_result = {
                             'status': 'error',
-                            'data': output
+                            'data': data
                         }
                 else:
                     try:

@@ -169,7 +169,7 @@ class Pf9App(App):
             return False, []
 
         if len(out) > 0:
-            return True, out.split(' ')
+            return True, out.decode().split(' ')
         else:
             return True, []
 

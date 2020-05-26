@@ -20,7 +20,7 @@ def cache_mounted_nfs():
                                    stderr=subprocess.PIPE)
         out, err = process.communicate()
         if not process.returncode:
-            groups = re.split('\n', out)
+            groups = re.split('\n', out.decode())
             groups = [x for x in groups if x]
             res = []
             for g in groups:

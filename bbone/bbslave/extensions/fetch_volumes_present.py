@@ -30,9 +30,9 @@ def get_volumes_list():
     process_lines = False
     for line in volume_data:
         if process_lines:
-            required_data.append(dict(name=line[0], size=line[5],
-                                      free=line[6]))
-        if line[0] == "VG":
+            required_data.append(dict(name=line[0].decode(), size=line[5].decode(),
+                                      free=line[6].decode()))
+        if line[0].decode() == "VG":
             process_lines = True
     return required_data
 

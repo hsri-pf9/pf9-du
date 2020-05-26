@@ -32,7 +32,7 @@ def get_addresses_and_names():
                                        stderr=subprocess.PIPE)
             out, err = process.communicate()
             if not process.returncode:
-                ovs_list = out.split()
+                ovs_list = out.decode().split()
     except:
         pass
     for iface in nw_ifs:

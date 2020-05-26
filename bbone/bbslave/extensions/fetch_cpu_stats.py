@@ -48,7 +48,7 @@ def get_process_cpu_utilization(process_list):
             if cmd1.returncode == 0:
                 # We only grab the cpu percent of the first process if there
                 # are more than 1 process with the same name.
-                pid = out.split()[0]
+                pid = out.decode().split()[0]
                 cmd2 = subprocess.Popen(["top","-b","-n1","-p",pid],
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 out, err = cmd2.communicate()
@@ -56,7 +56,7 @@ def get_process_cpu_utilization(process_list):
                     # Instead of running another shell command to tail -n1 and then awk
                     # the o/p for %CPU, doing it the python way.
                     for line in out.splitlines():
-                        items = line.split()
+                        items = line.decode().split()
                         # Have to use PID here to search for the process line since the
                         # process name is truncated if there are more than 11 chars
                         # Need to do this on the first column since other stats (Ram,
