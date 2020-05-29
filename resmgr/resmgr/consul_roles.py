@@ -31,7 +31,7 @@ class ConsulRoles(object):
         customers/<id>/regions/<id>/roles/<rolename>/<roleversion>/config
 
         Parameters are loaded from
-        customers/<id>/regions/<id>/params/<rolename>/<paramname>.
+        customers/<id>/regions/<id>/roles/params/<rolename>/<paramname>.
 
         Parameters show up in the resmgr configuration as rolename.paramname,
         similar to the way we load ini files from /etc/pf9/resmgr_roles/conf.d
