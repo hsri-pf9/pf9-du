@@ -33,6 +33,9 @@ class RemoveOperationFailed(Pf9Exception):
 class InstallOperationFailed(Pf9Exception):
     pass
 
+class PackageFileNameNotSpecified(Pf9Exception):
+    pass
+
 class UrlNotSpecified(Pf9Exception):
     pass
 

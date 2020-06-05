@@ -12,6 +12,7 @@ from pf9app.app_cache import AppCache
 from pf9app.exceptions import DownloadFailed
 import requests
 import platform
+import distro
 
 DOWNLOAD_CHUNK_SIZE = 512 * 1024
 
@@ -24,9 +25,9 @@ def get_supported_distro(log=None):
     Returns 'redhat' or 'debian' depending on the supported distro detected.
     If no supported distro can be detected, returns 'redhat' and logs the error.
     """
-    dist_name = platform.linux_distribution()[0].lower()
-    if dist_name in SUPPORTED_DEBIAN_DISTROS:
-        return 'debian'
+    dist_name = distro.linux_distribution()[0].lower()
+    if dist_name in SUPPORTED_DEBIAN_DISTROS.union(SUPPORTED_REDHAT_DISTROS):
+        return dist_name
     else:
         if log and (dist_name not in SUPPORTED_REDHAT_DISTROS):
             log.warn("Could not detect OS distro. Defaulting to Red Hat Linux.")
@@ -143,7 +144,8 @@ class Pf9AppCache(AppCache):
             localdest = os.path.join(localdir, filename)
             self.log.info("Downloading %s.%s", name, version)
 
-            if change_extension and get_supported_distro(self.log) == "debian":
+            if change_extension and get_supported_distro(self.log) in \
+                SUPPORTED_DEBIAN_DISTROS:
                 url = "".join(os.path.splitext(url)[:-1]) + ".deb"
                 localdest = "".join(os.path.splitext(localdest)[:-1]) + ".deb"
 

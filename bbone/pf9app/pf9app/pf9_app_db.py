@@ -12,12 +12,12 @@ import time
 from six import iteritems
 
 from pf9app.app_db import AppDb
-from pf9app.pf9_app_cache import get_supported_distro
+from pf9app.pf9_app_cache import get_supported_distro, SUPPORTED_DEBIAN_DISTROS
 from pf9app.pf9_app import Pf9App, _run_command_with_custom_pythonpath
 from pf9app.exceptions import NotInstalled, UpdateOperationFailed, \
     RemoveOperationFailed, InstallOperationFailed, Pf9Exception
 
-if get_supported_distro() == 'debian':
+if get_supported_distro() in SUPPORTED_DEBIAN_DISTROS:
     import apt
     import apt.debfile
 
@@ -268,7 +268,7 @@ class Pf9AppDb(AppDb):
         """
         Set the package manager depending on the distro being used.
         """
-        if get_supported_distro(self.log) == 'debian':
+        if get_supported_distro(self.log) in SUPPORTED_DEBIAN_DISTROS:
             self.pkgmgr = AptPkgMgr(self.log)
         else:
             self.pkgmgr = YumPkgMgr(self.log)

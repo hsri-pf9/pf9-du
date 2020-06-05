@@ -3,14 +3,17 @@
 
 __author__ = 'leb'
 
+import logging
+import re
+import distro
+from logging import Logger
+
 from pf9app.app import App, RemoteApp
 from pf9app.app_db import AppDb
 from pf9app.app_cache import AppCache
 from configutils.configutils import is_dict_subset
-import logging
-from logging import Logger
-from pf9app.exceptions import InvalidSupportedDistro, UrlNotSpecified
-import platform
+from pf9app.exceptions import InvalidSupportedDistro, UrlNotSpecified,\
+    PackageFileNameNotSpecified
 from pf9app.pf9_app_cache import get_supported_distro
 
 def process_apps(app_db, app_cache, remote_app_class, new_config,
@@ -70,23 +73,11 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
 
     def get_os_name():
         supported_distro = get_supported_distro(log)
-        version = platform.linux_distribution()[1].lower()
-        if supported_distro == 'redhat':
-            if version.startswith('7'):
-                return 'el7'
-            if not version.startswith('6'):
-                log.warn('Could not detect OS name. Defaulting to el6.')
-            return 'el6'
-        elif supported_distro == 'debian':
-            if 'jessie' in version or version.startswith('14'):
-                return 'trusty'
-            if 'wheezy' not in version and not version.startswith('12'):
-                log.warn('Could not detect OS name. Defaulting to precise.')
-            return 'precise'
-        # This code should not be reached if it is kept in sync
-        # with get_supported_distro
-        raise InvalidSupportedDistro('Unexpected supported distro: %s'
-                                     % supported_distro)
+        version = distro.linux_distribution()[1].lower()
+        if supported_distro.startswith('centos'):
+            supported_distro = 'centos'
+
+        return supported_distro + '_' + version
 
     def url_from_app_spec(spec):
         """
@@ -95,7 +86,25 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
         """
         if 'pkginfo' in spec:
             baseurl = spec['pkginfo']['baseurl']
-            filename = spec['pkginfo']['filenames_by_os'][get_os_name()]
+            filename_dict = spec['pkginfo']['filenames_by_os']
+            os_name = get_os_name()
+            # Check if we have exact match for os name in the dictionary keys.
+            if os_name in filename_dict.keys():
+                filename = filename_dict[os_name]
+            # Else check if any key regex match
+            else:
+                filename_list = [val for key, val in filename_dict.items() \
+                        if re.search(key, os_name)]
+                if not filename_list:
+                    log.error('Package file name for OS name {} was not found '\
+                        'in app spec'.format(os_name))
+                    raise PackageFileNameNotSpecified
+
+                filename = filename_dict[filename_list[0]]
+                if len(filename_list) > 1:
+                    log.warn('More than one keys are matching the OS name {} in '\
+                        'app spec. Selecting {}'.format(os_name, filename_list[0]))
+
             url = ''.join([baseurl, filename])
             change_extension = False
         elif 'url' in spec:
