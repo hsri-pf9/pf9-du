@@ -45,8 +45,8 @@ class ConsulRoles(object):
             consul_url = os.environ.get('CONFIG_URL', 'http://localhost:8500')
             consul_token = os.environ.get('CONSUL_HTTP_TOKEN', None)
             self._prefix = 'customers/%s/regions/%s/roles' % (customer_id, region_id)
-            consul = Consul(consul_url, consul_token)
-            self._watch = consul.prefix_watch(self._prefix, self._callback)
+            self._consul = Consul(consul_url, consul_token)
+            self._watch = self._consul.prefix_watch(self._prefix, self._callback)
             self._watch_thread = threading.Thread(target=self._watch.run)
             self._watch_thread.daemon = True
             self._pending_role_updates = set()
@@ -67,6 +67,7 @@ class ConsulRoles(object):
             (re.compile(r'%s/params/([^\/]*)/([^\/]*)' % self._prefix),
              self._on_params_change)
         ]
+        self._active_roles = {}
 
     def startwatch(self):
         LOG.info('Starting consul role watch')
@@ -83,12 +84,35 @@ class ConsulRoles(object):
     def _on_config_change(self, key_elems, value):
         rolename = key_elems[0]
         version = key_elems[1]
+        LOG.info("Fetching active version for role: %s", rolename)
+        key = '/'.join([self._prefix, rolename, 'active_version'])
+        active_version = None
+        try:
+            active_version = self._consul.kv_get(key)
+            LOG.info("Fetched active version:%s for role: %s",
+                     active_version, rolename)
+        except Exception:
+            LOG.warn("Could not fetch active version for role: %s", rolename)
         LOG.info('Updating role %s, version %s', rolename, version)
         config = json.loads(value.decode())
+        if active_version and version == active_version:
+            self._active_roles[rolename] = {
+                'active_version': active_version,
+                'config': config
+            }
         try:
             self._db.save_role_in_db(rolename, version, config)
             LOG.info('Saved %s role, version %s in the database',
                      rolename, version)
+            if rolename in self._active_roles and \
+                    version != self._active_roles[rolename]['active_version']:
+                active_version = self._active_roles[rolename]['active_version']
+                active_config = self._active_roles[rolename]['config']
+                LOG.info('Current version: %s does not match active version: '
+                         '%s. Re-adding active version role.', version,
+                         active_version)
+                self._db.save_role_in_db(rolename, active_version,
+                                         active_config)
         except KeyError:
             LOG.exception('Role %s failed validation. Queueing for later in '
                           'case a new parameter shows up in consul', rolename)
