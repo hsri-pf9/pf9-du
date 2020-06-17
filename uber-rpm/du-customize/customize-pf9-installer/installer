@@ -244,6 +244,10 @@ function start_services()
     wait_service_running 30 "pf9-comms"
     check_exit_code_and_generate_support_bundle $?
 
+    ${SYSTEMCTL_CMD} start pf9-sidekick
+    wait_service_running 30 "pf9-sidekick"
+    check_exit_code_and_generate_support_bundle $?
+
     ${SYSTEMCTL_CMD} start pf9-hostagent
     wait_service_running 30 "pf9-hostagent"
     check_exit_code_and_generate_support_bundle $?

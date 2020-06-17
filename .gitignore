@@ -46,3 +46,6 @@ tags
 
 vendor
 .*.swp
+
+#VS code files
+.DS_Store 
