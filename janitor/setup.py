@@ -21,6 +21,7 @@ setup(
         "requests",
         "pyyaml",
         "python-keystoneclient==3.13.0",
+        "netaddr==0.7.19",
         "pyparsing==2.4.7"
     ],
     test_suite='janitor',
