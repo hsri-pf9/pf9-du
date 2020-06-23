@@ -82,9 +82,27 @@ function get_certs_from_vouch() {
     if $host_certs can-sign ${vouch_args}; then
         local hostname=$(hostname) || true
         if [ -n "${hostname}" ]; then
-            common_name=${hostname}-
+            # Get first 54 chars of hostname
+            adj_host_name=$(echo ${hostname} | cut -c 1-54)
+            # Append the - to hostname to tack on the uuid later
+            adj_host_name=${adj_host_name}-
         fi
-        common_name=${common_name}$2
+        # Get first 8 chars of host uuid
+        local short_host_uuid=$(echo $2 | cut -c 1-8)
+        # CN = adjusted hostname + first 8 chars of uuid
+        common_name=${adj_host_name}${short_host_uuid}
+
+        # Best attempt to implement hostname regex as per RFC https://tools.ietf.org/html/rfc1123
+        # More consumable writeup here https://en.wikipedia.org/wiki/Hostname#Syntax
+        # Below regex tries to ensure alphanumeric start and end of the CN,
+        # with alphanumeric, - characters between . separated strings.
+        # Note that it doesn't impose length restrictions on the strings.
+        # Valid CN: host1, host1.example.com, host-1.example-1.com
+        # Invalid CN: -host1, host1.example.com-, host1.example!
+        valid_cn_regex='^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$'
+        if ! $(echo ${common_name} | grep -P ${valid_cn_regex} > /dev/null); then
+            echo "WARNING: ${common_name} doesn't appear to meet the CN requirements for the CSR. Proceeding anyway but the signing request may fail."
+        fi
         echo "Using certificate common name = ${common_name}."
         $host_certs refresh ${vouch_args} --common-name ${common_name} || return_code=$?
     else
