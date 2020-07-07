@@ -1,5 +1,15 @@
 %global _python_bytecompile_errors_terminate_build 0
 
+# Turn off the brp-python-bytecompile script
+# It is recommended that if any python module needs specific
+# byte compilation, it should be done manually.
+# The rpm macro __os_install_post is defined to execute
+# brp-python-bytecompile script which internally does python
+# byte compile automatically. Below code removes the
+# brp-python-bytecompile script from the __os_install_post macro,
+# thus disabling the automatic python byte compile.
+%global __os_install_post %(echo '%{__os_install_post}' | sed -e 's!/usr/lib[^[:space:]]*/brp-python-bytecompile[[:space:]].*$!!g')
+
 Name:           pf9-hostagent
 Version:        %{_version}
 Release:        %{_release}
