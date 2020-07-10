@@ -392,7 +392,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
             # Assume 256 fds
             maxfd = 256
 
-        for fd in xrange(3, maxfd):
+        for fd in range(3, maxfd):
             try:
                 os.fsync(fd)
                 os.close(fd)
