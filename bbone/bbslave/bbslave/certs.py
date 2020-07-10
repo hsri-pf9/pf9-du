@@ -10,6 +10,7 @@ import requests
 import subprocess
 import time
 
+from six import iteritems
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -75,7 +76,7 @@ class VouchCerts(object):
             resp.raise_for_status()
             resp_json = resp.json()
             LOG.info('Vouch version response: %s', resp_json)
-            return resp_json.has_key('v1')
+            return 'v1' in resp_json
         except (requests.ConnectionError, requests.HTTPError) as e:
             LOG.info('Could not fetch version info from vouch, cannot sign '
                       'certs using %s: %s', self._vouch_addr, e)
@@ -93,7 +94,7 @@ def generate_key_and_csr(common_name):
     builder = x509.CertificateSigningRequestBuilder()
     builder = builder.subject_name(x509.Name([
                 x509.NameAttribute(NameOID.COMMON_NAME,
-                                   unicode(common_name))]))
+                                   str(common_name))]))
     builder = builder.add_extension(
         x509.BasicConstraints(ca=False, path_length=None), critical=True)
     request = builder.sign(private_key, hashes.SHA256(), default_backend())
@@ -115,7 +116,7 @@ def backup_and_save_certs(cert_info):
     pf9_uid = pwd.getpwnam('pf9')[2]
     pf9group_gid = grp.getgrnam('pf9group')[2]
     backups = {}
-    for path, data in cert_info.iteritems():
+    for path, data in iteritems(cert_info):
         try:
             parent = os.path.dirname(path)
             os.makedirs(parent)
@@ -179,6 +180,6 @@ def check_connection():
     return False
 
 def restore_backups(backups):
-    for dest, src in backups.iteritems():
+    for dest, src in iteritems(backups):
         os.unlink(dest)
         os.rename(src, dest)

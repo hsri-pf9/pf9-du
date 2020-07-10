@@ -22,7 +22,7 @@ def _isroot():
     return os.getuid() == uid
 
 def _refresh(args):
-    print 'Requesting certs from %s...' % args.vouch_url
+    print (('Requesting certs from %s...' % args.vouch_url))
     vouch = certs.VouchCerts(args.vouch_url, args.keystone_token)
     privatekey, csr = certs.generate_key_and_csr(args.common_name)
     cert, ca = vouch.sign_csr(csr, args.common_name)
@@ -32,9 +32,9 @@ def _refresh(args):
         args.cacert: ca
     })
 
-    print 'Updating pf9-comms with new certs...'
+    print ('Updating pf9-comms with new certs...')
     if certs.restart_comms() and certs.check_connection():
-        print 'Refreshed host certs and verified controller connection.'
+        print ('Refreshed host certs and verified controller connection.')
         return 0
     else:
         sys.stderr.write('Failed to bring up pf9_comms with new certs, '
