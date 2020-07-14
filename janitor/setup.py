@@ -18,6 +18,7 @@ setup(
     author_email='pf9@platform9.net',
     install_requires=[
         "python-daemon==1.6.1",
+        "stevedore==2.0.1",
         "requests",
         "pyyaml",
         "python-keystoneclient==3.13.0",
