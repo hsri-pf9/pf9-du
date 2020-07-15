@@ -25,11 +25,13 @@ def _refresh(args):
     print (('Requesting certs from %s...' % args.vouch_url))
     vouch = certs.VouchCerts(args.vouch_url, args.keystone_token)
     privatekey, csr = certs.generate_key_and_csr(args.common_name)
+    privatekey = privatekey.decode("utf-8")
+    csr = csr.decode("utf-8")
     cert, ca = vouch.sign_csr(csr, args.common_name)
     backups = certs.backup_and_save_certs({
-        args.privatekey: privatekey,
-        args.cert: cert,
-        args.cacert: ca
+        args.privatekey: privatekey..encode("utf-8"),
+        args.cert: cert..encode("utf-8"),
+        args.cacert: ca..encode("utf-8")
     })
 
     print ('Updating pf9-comms with new certs...')

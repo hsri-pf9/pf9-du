@@ -94,7 +94,7 @@ def generate_key_and_csr(common_name):
     builder = x509.CertificateSigningRequestBuilder()
     builder = builder.subject_name(x509.Name([
                 x509.NameAttribute(NameOID.COMMON_NAME,
-                                   str(common_name))]))
+                                   common_name)]))
     builder = builder.add_extension(
         x509.BasicConstraints(ca=False, path_length=None), critical=True)
     request = builder.sign(private_key, hashes.SHA256(), default_backend())
@@ -139,7 +139,7 @@ def backup_and_save_certs(cert_info):
                 else:
                     idx += 1
 
-        with open(path, 'w') as f:
+        with open(path, 'wb') as f:
             f.write(data)
         os.chown(path, pf9_uid, pf9group_gid)
 
