@@ -29,9 +29,9 @@ def _refresh(args):
     csr = csr.decode("utf-8")
     cert, ca = vouch.sign_csr(csr, args.common_name)
     backups = certs.backup_and_save_certs({
-        args.privatekey: privatekey..encode("utf-8"),
-        args.cert: cert..encode("utf-8"),
-        args.cacert: ca..encode("utf-8")
+        args.privatekey: privatekey.encode("utf-8"),
+        args.cert: cert.encode("utf-8"),
+        args.cacert: ca.encode("utf-8")
     })
 
     print ('Updating pf9-comms with new certs...')
