@@ -13,19 +13,24 @@ import json
 import logging
 import os
 import threading
+import random
+import string
+import base64
 
 from six.moves.configparser import ConfigParser
 from six import iteritems
 from contextlib import contextmanager
 from sqlalchemy import create_engine, Column, String, Text, ForeignKey
 from sqlalchemy import Boolean, DateTime, UniqueConstraint, types
+from sqlalchemy import TypeDecorator
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
+from Crypto.Cipher import AES
 
 from resmgr import role_states
-from resmgr.exceptions import HostNotFound, HostConfigFailed, RoleNotFound
+from resmgr.exceptions import HostNotFound, HostConfigFailed, RoleNotFound, ResmgrConfigError
 
 
 log = logging.getLogger(__name__)
@@ -63,13 +68,114 @@ class JsonBlob(types.TypeDecorator):
 
         return json.loads(value)
 
+RESMGR_CONF_PATH = '/etc/pf9/resmgr.conf'
+
+def load_config(config_file):
+    config = ConfigParser()
+    config.read(config_file)
+    return config
+
+global_config = load_config(RESMGR_CONF_PATH)
+
+class SafeValue(TypeDecorator):
+    """
+    Custom SQLAlchemy data class to persist data in encrypted form.
+    """
+    impl = String
+
+    def process_bind_param(self, value, dialect):
+        """
+        Override the bind method used when setting the data. Encrypts the data
+        and return.
+        """
+        # If incoming data is empty, return None
+        if not value:
+            return None
+
+        iv_bytes = self.get_iv()
+        value_bytes = self.encrypt(value, iv_bytes)
+        data_str = iv_bytes.decode('utf8') + value_bytes.decode('utf8')
+        return data_str
+
+    def process_result_value(self, value, dialect):
+        """
+        Override the result method used when getting the data. Decrypts the data
+        and return.
+        """
+        # If incoming data is empty, return None
+        if not value:
+            return None
+
+        iv_bytes = value[:AES.block_size].encode('utf8')
+        data_bytes = value[AES.block_size:]
+        data_str = self.decrypt(data_bytes, iv_bytes)
+        return data_str
+
+    def get_resmgr_db_cipher_key(self):
+        """
+        Returns cipher key for resmgr DB from resmgr config file.
+        """
+        config = global_config
+        if config.has_option('database', 'dbcipherkey') and \
+           config.get('database', 'dbcipherkey'):
+            cipher_key = config.get('database', 'dbcipherkey')
+        else:
+            """ cipher key has to be configured in resmgr config file. """
+            raise ResmgrConfigError('cipher key not configured for resmgr database.')
+
+        return cipher_key
+
+    def get_iv(self):
+        """
+        Returns a random initialization vector.
+        :return: generated random bytes
+        """
+        iv_str = ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase
+                                   + string.digits) for _ in range(AES.block_size))
+        iv_bytes = iv_str.encode(encoding='utf8')
+        return iv_bytes
+
+    def encrypt(self, data, iv):
+        """
+        Method that encrypts given data using AES cipher (CBC mode). Gives a base64
+        encoded encrypted string
+        :param str data: Data to be encrypted
+        :param bytes iv: Initialization vector for the encryption
+        :return: Base64 encoded encrypted string
+        """
+        cipher_key = self.get_resmgr_db_cipher_key()
+        cipher = AES.new(cipher_key.encode('utf8'), AES.MODE_CBC, iv=iv)
+
+        data_padded = data + (" " * (16 - (len(data) % 16))) # To align data, padding with " "
+        data_bytes = data_padded.encode(encoding='utf8')
+        data_encrypted = cipher.encrypt(data_bytes)
+        data_encoded = base64.b64encode(data_encrypted)
+        return data_encoded
+
+    def decrypt(self, data, iv):
+        """
+        Method that decrypts given data using AES cipher (CBC mode). Input data is
+        assumed to be a base64 string. Returns the deciphered string.
+        :param str data: Data to be decrypted
+        :param bytes iv: Initialization vector for the decryption
+        :return: decrypted string
+        """
+        cipher_key = self.get_resmgr_db_cipher_key()
+        cipher = AES.new(cipher_key.encode('utf8'), AES.MODE_CBC, iv)
+        # Data may have been padded with spaces. So, rstrip it. See encrypt() method
+        # for details
+        data_decoded = base64.b64decode(data)
+        data_unencrypted = cipher.decrypt(data_decoded)
+        data = data_unencrypted.decode(encoding='utf8').rstrip()  # strip padding
+        return data
+
 class RabbitCredential(Base):
     __tablename__ = 'rabbit_credentials'
 
     host_id = Column(String(50), ForeignKey('hosts.id'), primary_key=True)
     rolename = Column(String(120), ForeignKey('roles.rolename'), primary_key=True)
     userid = Column(String(60))
-    password = Column(String(50))
+    password = Column(SafeValue(60))
 
 class Role(Base):
     """The ORM class for the roles table in the database."""

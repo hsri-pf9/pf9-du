@@ -110,7 +110,7 @@ requests-unixsocket===0.1.5
 asn1crypto===0.24.0
 croniter===0.3.20
 python-watcherclient===1.6.0
-MarkupSafe===1.0
+MarkupSafe===1.1.1
 pypowervm===1.1.10
 doc8===0.8.0
 pymongo===3.6.0
@@ -537,3 +537,4 @@ sysv-ipc===0.7.0
 scikit-learn===0.19.1
 python-blazarclient===1.0.1
 mysqlclient===1.4.2.post1
+pycryptodome===3.9.6

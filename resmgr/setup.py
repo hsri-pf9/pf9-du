@@ -22,7 +22,8 @@ setup(
         'mysqlclient',
         'Paste',
         'PasteDeploy',
-        'prometheus-client==0.7.1'
+        'prometheus-client==0.7.1',
+        'pycryptodome',
     ],
     test_suite='resmgr',
     zip_safe=False,

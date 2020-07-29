@@ -25,6 +25,7 @@ from resmgr.resmgr_provider_pf9 import ResMgrPf9Provider, BbonePoller
 from resmgr.resmgr_provider_pf9 import log as provider_logger
 from resmgr.tests.dbtestcase import DbTestCase
 from resmgr.tests.dbtestcase import TEST_HOST, TEST_ROLE
+from resmgr.dbutils import SafeValue
 
 logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
@@ -149,6 +150,10 @@ class TestProvider(DbTestCase):
 
         # FIXME: check service config
         self._patchobj(ResMgrPf9Provider, 'run_service_config')
+
+        self._db_cipher_key = \
+            self._patchobj(SafeValue, 'get_resmgr_db_cipher_key')
+        self._db_cipher_key.return_value = "wjFGEGAmdEaaaaaa"
 
         self.tempdirpath = tempfile.mkdtemp()
         os.environ['prometheus_multiproc_dir'] = self.tempdirpath

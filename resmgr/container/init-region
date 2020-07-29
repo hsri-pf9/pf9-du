@@ -54,6 +54,8 @@ class ResmgrConfig(object):
         self._consul = consul
         self._customer_uuid = customer_uuid
         self._region_uuid = region_uuid
+        self._resmgr_prefix = 'customers/%s/regions/%s/services/resmgr' % \
+                        (self._customer_uuid, self._region_uuid)
 
     def add_keystone_endpoint(self):
         key = 'customers/%s/regions/%s/fqdn' % (self._customer_uuid,
@@ -183,6 +185,38 @@ class ResmgrConfig(object):
         self._consul.kv_put_txn(updates)
         LOG.info('Support bundle information updated in bbmaster service.')
 
+    def set_resmgr_db_cipher_key(self):
+        """
+        Fetch the db cipher key from resmgr service db path of consul.
+        """
+        LOG.info('Fetching cipher key information for resmgr db.')
+        cipher_key = ""
+        try:
+            cipher_key = self._consul.kv_get('%s/db/cipher_key' % self._resmgr_prefix)
+            LOG.info('Found resmgr db cipher key.')
+
+        except requests.HTTPError as e:
+           if e.response.status_code == 404:
+               LOG.info('Cipher key for resmgr db not found.')
+           else:
+               # Something went wrong while fetching config from consul.
+               raise
+        if not cipher_key:
+           LOG.info("cipher key not found, creating a new one.")
+           cipher_key = random_string()
+           self.update_resmgr_db_cipher_key(cipher_key)
+        return cipher_key
+
+    def update_resmgr_db_cipher_key(self, cipher_key):
+        """
+        Updates the db cipher key in resmgr service db path of consul.
+        """
+        LOG.info('Updating the cipher key information for resmgr db.')
+        db_key = '%s/db/' % self._resmgr_prefix
+        db_info = {'cipher_key': cipher_key}
+        with self._consul.prefix(db_key):
+            self._consul.kv_put_txn(db_info)
+
     def add_db(self):
         """
         Create the database using the location and admin credentials associated
@@ -192,9 +226,7 @@ class ResmgrConfig(object):
         shortname = self._consul.kv_get('customers/%s/shortname' % \
                                         self._customer_uuid)
         LOG.info('Creating database for customer %s', shortname)
-        resmgr_prefix = 'customers/%s/regions/%s/services/resmgr' % \
-                        (self._customer_uuid, self._region_uuid)
-        dbserver_key = self._consul.kv_get('%s/dbserver_key' % resmgr_prefix)
+        dbserver_key = self._consul.kv_get('%s/dbserver_key' % self._resmgr_prefix)
         dbserver = self._consul.kv_get_prefix(dbserver_key)
         try:
             host = dbserver['%s/host' % dbserver_key]
@@ -204,7 +236,7 @@ class ResmgrConfig(object):
         except KeyError as e:
             LOG.info('The dbserver_key specified for resmgr has missing '
                      'components, key = %s: %s', dbserver_key, e)
-        dbkey = '%s/db/' % resmgr_prefix
+        dbkey = '%s/db/' % self._resmgr_prefix
         try:
             dbspec = self._consul.kv_get_prefix(dbkey)
             LOG.info('Found exising database spec in %s: %s', dbkey,
@@ -245,15 +277,17 @@ class ResmgrConfig(object):
         return final_dbinfo
 
     @staticmethod
-    def migrate_db(dbinfo):
+    def migrate_db(dbinfo, cipher_key):
         """
         Create or migrate the database schema. Resmgr's migration logic reads
         the connection info from resmgr.conf, so we have to create one first.
         """
-        config = \
+        db_config = \
             '[database]\n' \
             'sqlconnectURI = mysql://%(user)s:%(password)s@' \
             '%(host)s:%(port)s/%(name)s' % dbinfo
+        cipher_key_config = '\ndbcipherkey = %s' % cipher_key
+        config = db_config + cipher_key_config
         with open('/etc/pf9/resmgr.conf', 'w') as f:
             f.write(config)
         migrate_db()
@@ -294,7 +328,8 @@ def main():
     if config_info:
         config.update_aws_credentials_in_bbmaster_service(config_info)
     dbinfo = config.add_db()
-    config.migrate_db(dbinfo)
+    cipher_key = config.set_resmgr_db_cipher_key()
+    config.migrate_db(dbinfo, cipher_key)
 
 if __name__ == '__main__':
     sys.exit(main())

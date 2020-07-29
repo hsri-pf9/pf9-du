@@ -7,6 +7,7 @@ import os
 from resmgr import dbutils
 from resmgr import role_states
 from resmgr.tests.dbtestcase import DbTestCase, TEST_HOST, TEST_ROLE
+from resmgr.dbutils import SafeValue
 
 logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
@@ -18,6 +19,9 @@ class TestDb(DbTestCase):
     def setUp(self):
         super(TestDb, self).setUp()
         self._db = dbutils.ResMgrDB(self._cfg)
+        self._db_cipher_key = \
+            self._patchobj(SafeValue, 'get_resmgr_db_cipher_key')
+        self._db_cipher_key.return_value = "wjFGEGAmdEaaaaaa"
 
     def tearDown(self):
         super(TestDb, self).tearDown()
@@ -35,6 +39,9 @@ class TestDb(DbTestCase):
                                                       rolename,
                                                       rabbit_user,
                                                       rabbit_pass)
+        result = self._db._get_rabbit_credential_params(TEST_HOST['id'], rolename)
+        self.assertEqual(rabbit_user, result['rabbit_userid'])
+        self.assertEqual(rabbit_pass, result['rabbit_password'])
 
     def _add_host_with_customizable_role(self, apply_roleversion,
                                          applied_roleversion, customvalues):

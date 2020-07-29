@@ -84,3 +84,7 @@ class RoleUpdateConflict(ResMgrException):
 class HostDown(ResMgrException):
     def __init__(self, reason):
         super(HostDown, self).__init__('Host is down: %s' % reason)
+
+class ResmgrConfigError(ResMgrException):
+    def __init__(self, reason):
+        super(ResmgrConfigError, self).__init__('Failed to get resmgr config: %s' % reason)

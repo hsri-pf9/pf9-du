@@ -28,6 +28,7 @@ DU_FQDN = test_du_fqdn
 
 [database]
 sqlconnectURI = sqlite:///%(sqlite_temp_file)s
+dbcipherkey = wjFGEGAmdEaaaaaa
 
 [pf9-cindervolume]
 auth_user = cinder
