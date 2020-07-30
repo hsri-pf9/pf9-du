@@ -56,7 +56,7 @@ def _run_command(command, stdout=subprocess.PIPE, run_env=os.environ):
     out, err = proc.communicate()
     code = proc.returncode
 
-    return code, out, err
+    return code, out.decode(), err.decode()
 
 
 def _run_command_with_custom_pythonpath(command):
@@ -169,7 +169,7 @@ class Pf9App(App):
             return False, []
 
         if len(out) > 0:
-            return True, out.decode().split(' ')
+            return True, out.split(' ')
         else:
             return True, []
 
@@ -300,8 +300,7 @@ class Pf9App(App):
             self.log.error("%s:get_config failed: %s %s", self.app_name, out, err)
             raise ConfigOperationError()
         try:
-            # Python3: JSON object cannot be 'bytes'. It has to be a string.
-            cfg = json.loads(out.decode())
+            cfg = json.loads(out)
         except ValueError as e:
             self.log.error("%s:get_config output is malformed: %s",
                            self.app_name, e)

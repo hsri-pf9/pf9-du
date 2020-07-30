@@ -148,7 +148,7 @@ class YumPkgMgr(object):
             return out
 
         for line in response.splitlines():
-            name, version = line.decode().split(self.dummy_time_str, 1)
+            name, version = line.split(self.dummy_time_str, 1)
             out[name] = {
                 'name': name,
                 'version': version
@@ -197,7 +197,7 @@ class YumPkgMgr(object):
         # Strip trailing newline characters if any, from the response string.
         response = response.rstrip()
         # Convert the response string to the version list.
-        version = response.decode().split("\n")
+        version = response.split("\n")
         return version
 
     def remove_package(self, appname):
