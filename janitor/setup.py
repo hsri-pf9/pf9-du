@@ -23,7 +23,8 @@ setup(
         "pyyaml",
         "python-keystoneclient==3.13.0",
         "netaddr==0.7.19",
-        "pyparsing==2.4.7"
+        "pyparsing==2.4.7",
+        "oslo.config==8.2.0",
     ],
     test_suite='janitor',
     zip_safe=False,
