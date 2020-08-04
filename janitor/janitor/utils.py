@@ -5,30 +5,22 @@
 import logging
 import requests
 
-from ConfigParser import ConfigParser
 from keystoneauth1.identity import v3
 from keystoneauth1 import session
 
-LOG = logging.getLogger('janitor-daemon')
+LOG = logging.getLogger(__name__)
 
 
-def get_auth(tenant, user, password):
+def get_session(conf):
     auth = v3.Password(
-        auth_url="http://localhost:8080/keystone/v3",
-        username=user,
-        password=password, project_name=tenant,
-        user_domain_id="default", project_domain_id="default")
-    return auth
-
-
-def get_auth_token(auth):
+        auth_url=conf.get("keystone_authtoken", "auth_url"),
+        username=conf.get("keystone_authtoken", "username"),
+        password=conf.get("keystone_authtoken", "password"),
+        project_name=conf.get("keystone_authtoken", "project_name"),
+        user_domain_id=conf.get("keystone_authtoken", "user_domain_id"),
+        project_domain_id=conf.get("keystone_authtoken", "project_domain_id"))
     sess = session.Session(auth=auth)
-    return sess.get_token()
-
-
-def get_auth_project_id(auth):
-    sess = session.Session(auth=auth)
-    return sess.get_project_id()
+    return sess
 
 
 def get_resmgr_hosts(resmgr_url, token):
@@ -77,18 +69,3 @@ def get_ostackhost_role_data(resmgr_hosts, resmgr_url, token):
                           'than one ostackhost roles authorized. Taking none '
                           'in consideration.', resmgr_host)
     return clusters
-
-
-def get_keystone_credentials(configfile):
-    """
-    Get the keystone credentials from the nova or glance service config.
-    :param configfile: nova or glance config filename
-    """
-    cfg = ConfigParser()
-    cfg.read(configfile)
-
-    return cfg.get('keystone_authtoken', 'username'), \
-           cfg.get('keystone_authtoken', 'password'), \
-           cfg.get('keystone_authtoken', 'project_name')
-
-

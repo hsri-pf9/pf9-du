@@ -8,6 +8,8 @@ import re
 import requests
 from janitor import utils
 
+from six import iteritems
+
 LOG = logging.getLogger(__name__)
 
 STATUS_RE = re.compile(r'pf9status\.(\S*)')
@@ -19,12 +21,7 @@ class GlanceCleanup(object):
     def __init__(self, conf):
         self._resmgr_url = conf.get('resmgr', 'endpointURI')
         self._glance_url = conf.get('glance', 'apiEndpoint')
-        glance_config = conf.get('nova', 'configfile')
-        self._auth_user, self._auth_pass, self._auth_tenant = \
-                utils.get_keystone_credentials(glance_config)
-        self.auth = utils.get_auth(self._auth_tenant,
-                                   self._auth_user,
-                                   self._auth_pass)
+        self.session = utils.get_session(conf)
 
     def _get_images(self, token):
         url = '%s/v2/images?limit=100' % self._glance_url
@@ -115,7 +112,7 @@ class GlanceCleanup(object):
         """
         update image properties based on the health of the host and role
         """
-        token = utils.get_auth_token(self.auth)
+        token = self.session.get_token()
         resp = utils.get_resmgr_hosts(self._resmgr_url, token)
         resp.raise_for_status()
         resp_list = resp.json()
@@ -123,7 +120,7 @@ class GlanceCleanup(object):
         images = self._get_images(token)
         for image in images:
             updates = []
-            for name, val in image.iteritems():
+            for name, val in iteritems(image):
                 match = STATUS_RE.search(name)
                 if match:
                     host_id = match.group(1)

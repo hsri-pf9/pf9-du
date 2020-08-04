@@ -1,9 +1,6 @@
 __author__ = 'Platform9'
 
-from ConfigParser import ConfigParser
-from janitor.nova_cleanup import NovaCleanup
 from janitor.glance_cleanup import GlanceCleanup
-from janitor.network_cleanup import NetworkCleanup
 
 import os
 import logging
@@ -15,7 +12,9 @@ from datetime import datetime
 from requests import exceptions
 from time import sleep
 
-LOG = logging.getLogger('janitor-daemon')
+from six.moves.configparser import ConfigParser
+
+LOG = logging.getLogger(__name__)
 
 LOG_LEVELS = {
     'CRITICAL': logging.CRITICAL,
@@ -71,11 +70,6 @@ def _run_command(command, stdout=subprocess.PIPE):
     return code, out, err
 
 
-def check_for_neutron():
-    code, out, err = _run_command("/bin/crudini --get /etc/nova/nova.conf DEFAULT network_api_class")
-    LOG.info("Neutron check output, code=%d stdout=%s stderr=%s", code, out, err)
-    return code == 0 and out.strip() == "nova.network.neutronv2.api.API"
-
 def serve(config_file):
     """
     Run a bunch of periodic background tasks
@@ -86,37 +80,17 @@ def serve(config_file):
         try:
             cfg = _parse_config(config_file)
             _setup_logging(cfg)
-
-            nova_obj = NovaCleanup(conf=cfg)
             glance_obj = GlanceCleanup(conf=cfg)
-            nw_obj = NetworkCleanup(conf=cfg)
             break
         except Exception as e:
             LOG.error('Unexpected error during init: %s', e)
-
         sleep(int(cfg.get('DEFAULT', 'pollInterval')))
-
-    neutron_present = check_for_neutron()
 
     while True:
         try:
             glance_obj.cleanup()
-            # pshanbhag:
-            # See IAAS-5438. To avoid janitor triggering a VM network cleanup, we
-            # will temporarily make janitor do nothing on Neutron setups. This can
-            # go away once we have a good fix in place for IAAS-5438
-            # sarun: We are not going to do nova, nova  network cleanup.
-            # Opening  up glance cleanup.
-            if not neutron_present:
-                # Cleaning up of instances and nova service records is handled
-                # in resmgr auth events, therefore disabling nova cleanup in
-                # janitor
-                # nova_obj.cleanup()
-                nw_obj.cleanup()
         except (exceptions.ConnectionError, urllib_exceptions.ProtocolError) as e:
             LOG.info('Connection error: {err}, will retry in a bit'.format(err=e))
         except (RuntimeError, Exception) as e:
             LOG.error('Unexpected error %s', e)
-
         sleep(int(cfg.get('DEFAULT', 'pollInterval')))
-

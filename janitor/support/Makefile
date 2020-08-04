@@ -33,9 +33,10 @@ ${BUILD_DIR}:
 
 ${VENV}: ${BUILD_DIR}
 	mkdir -p $@
-	$(SRC_ROOT)/build-venv.sh ${VENV}
+	$(SRC_ROOT)/build-venv.sh ${VENV} "py3"
 	${PROD_VENV}/bin/python ${PROD_VENV}/bin/pip install -r ${JANITOR_DIR}/requirements.txt \
 		-c https://releases.openstack.org/constraints/upper/stein
+	sed -i 's/buffering=0/buffering=1/g' ${PROD_VENV}/lib/python3.*/site-packages/daemon/runner.py
 
 ${JANITOR_SRC_STAGE}: pre-reqs
 	mkdir -p ${JANITOR_SRC_STAGE}/var/log/pf9
