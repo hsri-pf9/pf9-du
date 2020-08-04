@@ -115,7 +115,7 @@ def serve(config_file):
                 nw_obj.cleanup()
         except (exceptions.ConnectionError, urllib_exceptions.ProtocolError) as e:
             LOG.info('Connection error: {err}, will retry in a bit'.format(err=e))
-        except RuntimeError as e:
+        except (RuntimeError, Exception) as e:
             LOG.error('Unexpected error %s', e)
 
         sleep(int(cfg.get('DEFAULT', 'pollInterval')))
