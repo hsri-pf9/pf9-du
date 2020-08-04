@@ -16,19 +16,8 @@ setup(
     description='General purpose maintenance task executor',
     author='pf9',
     author_email='pf9@platform9.net',
-    install_requires=[
-        "python-daemon==1.6.1",
-        "stevedore==2.0.1",
-        "requests",
-        "pyyaml",
-        "python-keystoneclient==3.13.0",
-        "netaddr==0.7.19",
-        "pyparsing==2.4.7",
-        "oslo.config==8.2.0",
-    ],
     test_suite='janitor',
     zip_safe=False,
     include_package_data=True,
     packages=find_packages(exclude=['ez_setup'])
 )
-

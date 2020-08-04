@@ -5,18 +5,13 @@
 include ../../common-defs.mk
 
 PARENT_DIR := $(abspath $(SRC_ROOT)/..)
-
-SRC_DIR := $(SRC_ROOT)/janitor
 BUILD_DIR := $(BUILD_ROOT)/janitor
-
-JANITOR_DIR :=$(SRC_DIR)
-NOTIFIER_DIR :=$(SRC_ROOT)/lib/notifier
-
+JANITOR_DIR := $(SRC_ROOT)/janitor
+NOTIFIER_DIR := $(SRC_ROOT)/lib/notifier
 PF9_VERSION ?= 1.3.0
 BUILD_NUMBER ?= 0
 RPM_DIR := $(BUILD_DIR)/rpmbuild
 MOCK = /usr/bin/mock -r epel-7-x86_64
-
 JANITOR_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-janitor-${PF9_VERSION}
 JANITOR_SRC_TARBALL = ${BUILD_DIR}/pf9-janitor-${PF9_VERSION}.tgz
 PF9_OPT_DIR = ${JANITOR_SRC_STAGE}/opt/pf9
@@ -39,6 +34,8 @@ ${BUILD_DIR}:
 ${VENV}: ${BUILD_DIR}
 	mkdir -p $@
 	$(SRC_ROOT)/build-venv.sh ${VENV}
+	${PROD_VENV}/bin/python ${PROD_VENV}/bin/pip install -r ${JANITOR_DIR}/requirements.txt \
+		-c https://releases.openstack.org/constraints/upper/stein
 
 ${JANITOR_SRC_STAGE}: pre-reqs
 	mkdir -p ${JANITOR_SRC_STAGE}/var/log/pf9
@@ -67,8 +64,6 @@ rpm: ${JANITOR_SRC_TARBALL}
 
 pre-reqs: ${VENV}
 	cd ${NOTIFIER_DIR} && ${VENV_CMD}
-	cd ${JANITOR_DIR} && ${VENV_CMD}
-
 
 clean:
 	rm -rf $(BUILD_DIR)

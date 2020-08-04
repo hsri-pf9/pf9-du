@@ -1,0 +1,9 @@
+docutils
+python-daemon
+stevedore
+requests
+pyyaml
+python-keystoneclient
+netaddr
+pyparsing
+oslo.config
