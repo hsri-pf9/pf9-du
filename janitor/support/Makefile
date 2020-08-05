@@ -64,6 +64,7 @@ rpm: ${JANITOR_SRC_TARBALL}
 
 pre-reqs: ${VENV}
 	cd ${NOTIFIER_DIR} && ${VENV_CMD}
+	cd ${JANITOR_DIR} && ${VENV_CMD}
 
 clean:
 	rm -rf $(BUILD_DIR)
