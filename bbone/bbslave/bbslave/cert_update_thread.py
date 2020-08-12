@@ -51,8 +51,10 @@ def cert_update_thread(config, log):
 
 # ---------------------------- Nested functions -------------------------------
     def cert_refresh_needed(cert_expiry_date):
-        curr_time = datetime.datetime.utcnow()
-        return (cert_expiry_date - curr_time) <= datetime.timedelta(
+        curr_time = datetime.datetime.now(tz=datetime.timezone.utc)
+        expiry_datetime = datetime.datetime.fromtimestamp(cert_expiry_date,
+                                    tz=datetime.timezone.utc)
+        return (expiry_datetime - curr_time) <= datetime.timedelta(
             days=automatic_cert_refresh_interval_days)
 
     def process_cert_update_request():
@@ -79,11 +81,15 @@ def cert_update_thread(config, log):
         if not allowed_cn.match(common_name):
             log.error('CN: {} does not appear to meet the CN requirements for '\
                 'the CSR. Rejecting the cert update request.'.format(common_name))
-            resp['status'] = 'failed'
-            resp['details'] = 'CN: {} does not appear to meet the CN '\
-                'requirements for the CSR. Rejecting the certificate update '\
-                'request on {}'.format(common_name,
-                    datetime.datetime.utcnow().strftime("%c"))
+            msg_info = {
+                'status' : util.CERT_REFRESH_STATUS_FAILED,
+                'message' : 'CN: {} does not appear to meet the CN '\
+                    'requirements for the CSR. Rejecting the certificate update '\
+                    'request on {}'.format(common_name,
+                        datetime.datetime.utcnow().strftime("%c")),
+                'timestamp' : datetime.datetime.utcnow().timestamp()
+            }
+            resp['details'] = msg_info
             return resp
 
         log.info('Requesting certificates from {} with CN = {}'.format(vouch_url,
@@ -103,9 +109,13 @@ def cert_update_thread(config, log):
         if certs.restart_comms() and certs.check_connection():
             log.info('Refreshed host certificates and verified controller '\
                 'connection.')
-            resp['status'] = 'successful'
-            resp['details'] = 'Host certs refreshed successfully on {}'.format(
-                datetime.datetime.utcnow().strftime("%c"))
+            msg_info = {
+                'status' : util.CERT_REFRESH_STATUS_SUCCESS,
+                'message' : 'Host certs refreshed successfully on {}'.format(
+                    datetime.datetime.utcnow().strftime("%c")),
+                'timestamp' : datetime.datetime.utcnow().timestamp()
+            }
+            resp['details'] = msg_info
             return resp
         else:
             log.error('Failed to bring up pf9_comms with new host certificates, '\
@@ -114,10 +124,15 @@ def cert_update_thread(config, log):
             if certs.restart_comms() and certs.check_connection():
                 log.info('Restored old certificates successfully and verified '\
                     'controller connection.')
-                resp['status'] = 'restored'
-                resp['details'] = 'Certificate refresh failed. '\
-                    'Restored old certificates and verified controller connection.'\
-                    'on {}'.format(datetime.datetime.utcnow().strftime("%c"))
+                msg_info = {
+                    'status' : util.CERT_REFRESH_STATUS_RESTORED,
+                    'message' : 'Certificate refresh failed. '\
+                        'Restored old certificates and verified controller '\
+                        'connection on {}'.format(
+                            datetime.datetime.utcnow().strftime("%c")),
+                    'timestamp' : datetime.datetime.utcnow().timestamp()
+                }
+                resp['details'] = msg_info
                 return resp
             else:
                 log.critical('Restoration of old certificates failed. We are in '\
@@ -140,13 +155,22 @@ def cert_update_thread(config, log):
 
             cert = x509.load_pem_x509_certificate(certstr, default_backend())
 
-            cert_details['version'] = cert.version
+            cert_details['status'] = util.CERT_DETAILS_STATUS_SUCCESS
+            cert_details['version'] = str(cert.version)
             cert_details['serial_number'] = cert.serial_number
-            cert_details['expiry_date'] = cert.not_valid_after
+            cert_details['expiry_date'] = cert.not_valid_after.timestamp()
+            cert_details['start_date'] = cert.not_valid_before.timestamp()
+            cert_details['timestamp'] = datetime.datetime.utcnow().timestamp()
             return cert_details
         except Exception :
             log.exception ('Exception occurred while getting certificate info')
-            return None
+            cert_details['status'] = util.CERT_DETAILS_STATUS_FAILED
+            cert_details['version'] = ''
+            cert_details['serial_number'] = ''
+            cert_details['expiry_date'] = ''
+            cert_details['start_date'] = ''
+            cert_details['timestamp'] = ''
+            return cert_details
 
 # -------------------------- End of nested functions --------------------------
     while True:
@@ -161,12 +185,18 @@ def cert_update_thread(config, log):
                     # Put a message on the queue that certs are being updated.
                     # This will be sent to bbmaster by the main thread.
                     resp = {}
+                    msg_info = {
+                        'status' : util.CERT_REFRESH_STATUS_INITIATED,
+                        'message' : 'Initiated automated host certificate '\
+                            ' update process on {}'.format(
+                                datetime.datetime.utcnow().strftime("%c")),
+                        'timestamp' : datetime.datetime.utcnow().timestamp()
+                    }
                     resp['msg'] = 'cert_update_initiated'
-                    resp['status'] = 'initiated'
-                    resp['details'] = 'Iniatiated automated host cert update '\
-                        'process on {}'.format(
-                            datetime.datetime.utcnow().strftime("%c"))
+                    resp['details'] = msg_info
+
                     util.cert_info_q.put(resp, timeout=10)
+
                     response = process_cert_update_request()
 
                     # Now put the cert update response in the queue
@@ -176,12 +206,9 @@ def cert_update_thread(config, log):
                 if needs_cert_refresh:
                     cert_data = _get_cert_info(cert_pem_file)
 
-                cert_info = ''
-                cert_info = ','.join("{!s}:{!s}".format(key, val) \
-                    for key, val in iteritems(cert_data))
                 cert_msg = {}
                 cert_msg['msg']  = 'cert_info'
-                cert_msg['details'] = cert_info
+                cert_msg['details'] = cert_data
                 util.cert_info_q.put(cert_msg, timeout=10)
 
             except Queue.Full:
@@ -202,11 +229,16 @@ def cert_update_thread(config, log):
                 log.debug('Received cert_update event.')
                 util.cert_update_event.clear()
                 cert_msg = {}
+                msg_info = {
+                    'status' : util.CERT_REFRESH_STATUS_INITIATED,
+                    'message' : 'Initiated forced host certificate update '\
+                        'process on {}'.format(
+                        datetime.datetime.utcnow().strftime("%c")),
+                    'timestamp' : datetime.datetime.utcnow().timestamp()
+                }
                 cert_msg['msg'] = 'cert_update_initiated'
-                cert_msg['status'] = 'initiated'
-                cert_msg['details'] = 'Initiated forced host certificate update '\
-                    'process on {}'.format(
-                        datetime.datetime.utcnow().strftime("%c"))
+                cert_msg['details'] = msg_info
+
                 util.cert_info_q.put(cert_msg, timeout=10)
 
                 response = process_cert_update_request()

@@ -7,16 +7,39 @@ PRIVATE_KEY_PEM_FILE = '/etc/pf9/certs/hostagent/key.pem'
 CERT_PEM_FILE = '/etc/pf9/certs/hostagent/cert.pem'
 CA_PEM_FILE = '/etc/pf9/certs/ca/cert.pem'
 
+CERT_DETAILS_STATUS_SUCCESS = 'successful'
+CERT_DETAILS_STATUS_FAILED = 'FAILED'
+CERT_DETAILS_STATUS_NOT_QUERIED = 'not-queried'
+
+CERT_REFRESH_STATUS_SUCCESS = 'successful'
+CERT_REFRESH_STATUS_INITIATED = 'initiated'
+CERT_REFRESH_STATUS_NOT_REFRESHED = 'not-refreshed'
+CERT_REFRESH_STATUS_RESTORED = 'failed-restored'
+CERT_REFRESH_STATUS_FAILED = 'failed'
+
 cert_info = {}
 vouch_present = False
 cert_info_q = Queue.Queue()
 cert_update_event = threading.Event()
 
-cert_info['cert_details'] = 'Host certificate data not yet queried.'
-cert_info['cert_refresh_status'] = 'Host certificate refresh status not yet '\
-    'queried.'
-cert_info['cert_refresh_details'] = 'Host certificate refresh details not yet '\
-    'available.'
+cert_info = {
+    'details' : {
+        # Possible values of status: not-queried, failed, successful
+        'status' : CERT_DETAILS_STATUS_NOT_QUERIED,
+        'version' : '',
+        'serial_number' : '',
+        'start_date' : '',
+        'end_date' : '',
+        'timestamp' : ''
+    },
+    'refresh_info' : {
+        # Possible values of status: not-refreshed, initiated, successful,
+        # failed-restored, failed
+        'status' : CERT_REFRESH_STATUS_NOT_REFRESHED,
+        'message' : '',
+        'timestamp' : ''
+    }
+}
 
 def check_for_cert_data(log):
     """
@@ -25,12 +48,8 @@ def check_for_cert_data(log):
 
     Returns
     Dict containing
-    cert_data: Details about the current certificate
-    cert_refresh_status: status of cert refresh operation
-            initiated: Cert refresh operation was initiated
-            sucessful: Cert refresh opeation was successful
-            restored: Cert refresh failed but restored old certs
-    cert_refresh_details: Details about the operation
+    details: Details about the current certificate
+    refresh_status: status of cert refresh operation
     """
     global cert_info_q
     global cert_info
@@ -38,12 +57,11 @@ def check_for_cert_data(log):
         data = cert_info_q.get_nowait()
 
         if data['msg'] == 'cert_info':
-            cert_info['cert_details'] = data['details']
+            cert_info['details'] = data['details']
             log.info('Received cert_info message on the queue.')
         elif data['msg'] == 'cert_update_initiated' or \
                     data['msg'] == 'cert_update_result':
-            cert_info['cert_refresh_status'] = data['status']
-            cert_info['cert_refresh_details'] = data['details']
+            cert_info['refresh_info'] = data['details']
             log.info('Received {} message on the queue.'.format(data['msg']))
         else:
             log.error('Unknown message type: {} on cert queue'.format(
@@ -55,9 +73,7 @@ def check_for_cert_data(log):
     except Exception as e:
         log.exception('Exception occurred while processing message on queue.')
     finally:
-        log.debug('Cert_data: {} status: {}, details: {}'.format(
-            cert_info['cert_details'], cert_info['cert_refresh_status'],
-            cert_info['cert_refresh_details']))
+        log.debug('Cert_info: {}'.format(cert_info))
         return cert_info
 
 def check_vouch_connection(vouch_url):

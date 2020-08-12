@@ -65,6 +65,12 @@ g_host_converged = Gauge("resmgr_host_role_converged", "Resmgr host role converg
                          ['host_id', 'host_name'])
 g_host_has_pmk_role = Gauge("resmgr_host_is_pmk_host", "Is PMK host?",
                             ['host_id', 'host_name'])
+g_host_cert_expiry_date_ts = Gauge('resmgr_host_cert_expiry_date',
+                                   'Host cert expiry date (timestamp)',
+                                   ['host_id', 'host_name'])
+g_host_cert_start_date_ts = Gauge('resmgr_host_cert_start_date',
+                                  'Host cert start date (timestamp)',
+                                  ['host_id', 'host_name'])
 
 def call_remote_service(url):
     """
@@ -83,6 +89,58 @@ def call_remote_service(url):
     except requests.exceptions.RequestException as e:
         log.error('GET call on %s failed', url)
         raise BBMasterNotFound(e)
+
+def _record_host_cert_expiry_date_metrics(end_date, host_id, host_name):
+    g_host_cert_expiry_date_ts.labels(host_id, host_name).set(end_date)
+
+def _remove_host_cert_expiry_date_metrics(host_id, host_name):
+    try:
+        g_host_cert_expiry_date_ts.remove(host_id, host_name)
+    except KeyError:
+        log.exception('KeyError exception encountered while removing'\
+                 ' host_cert_expiry_date_ts guage for hostid: %s hostname: %s',
+                 host_id, host_name)
+    except Exception as e:
+        log.exception('Generic exception encountered while removing'\
+                      ' host_cert_expiry_date_ts guage for hostid: {}'\
+                      ' hostname: {}, Exception details: {}'.format(host_id,
+                       host_name, e))
+
+def _record_host_cert_start_date_metrics(start_date, host_id, host_name):
+    g_host_cert_start_date_ts.labels(host_id, host_name).set(start_date)
+
+def _remove_host_cert_start_date_metrics(host_id, host_name):
+    try:
+        g_host_cert_start_date_ts.remove(host_id, host_name)
+    except KeyError:
+        log.exception('KeyError exception encountered while removing'\
+                 ' host_cert_start_date_ts guage for hostid: %s hostname: %s',
+                 host_id, host_name)
+    except Exception as e:
+        log.exception('Generic exception encountered while removing'\
+                      ' g_host_cert_start_date_ts guage for hostid: {}'\
+                      ' hostname: {}, Exception details: {}'.format(host_id,
+                       host_name, e))
+
+def _record_host_cert_metrics(host_cert_info, host_id, host_name):
+    status = host_cert_info['details']['status']
+    expiry_date = host_cert_info['details']['expiry_date']
+    start_date = host_cert_info['details']['start_date']
+
+    if status == 'successful':
+        _record_host_cert_expiry_date_metrics(expiry_date,host_id, host_name)
+        _record_host_cert_start_date_metrics(start_date, host_id, host_name)
+    elif status == 'failed':
+        log.error('Certificate query on hostid: {} hostname {} has '\
+            'failed.'.format(host_id, host_name))
+    else:
+        log.debug('Certificate query on hostid: {} hostname {} is {}'.format(
+            host_id, host_name, status))
+
+
+def _remove_all_host_cert_metrics(host_id, host_name):
+    _remove_host_cert_expiry_date_metrics(host_id, host_name)
+    _remove_host_cert_start_date_metrics(host_id, host_name)
 
 def _record_host_up_metric(responding_state, host_id, host_name):
     g_host_up.labels(host_id, host_name).set(responding_state)
@@ -133,6 +191,7 @@ def _remove_all_host_metrics(host_id, host_name):
     _remove_host_up_metric(host_id, host_name)
     _remove_host_converged_metric(host_id, host_name)
     _remove_host_has_pmk_role_metric(host_id, host_name)
+    _remove_all_host_cert_metrics(host_id, host_name)
 
 def _update_custom_role_settings(app_info, role_settings, roles):
     """
@@ -1185,9 +1244,19 @@ class BbonePoller(object):
                     ispmkhost = True
                     break
             _record_host_has_pmk_role_metric(ispmkhost, ak ,av['hostname'])
+            # Process the host cert related metrics
+            if ak in _hosts_cert_data:
+                cert_info = _hosts_cert_data.get(ak, '')
+                if cert_info:
+                    _record_host_cert_metrics(cert_info, ak, av['hostname'])
 
         for uk, uv in _unauthorized_hosts.items():
             _record_host_up_metric(1, uk, uv['info']['hostname'])
+            if uk in _hosts_cert_data:
+                cert_info = _hosts_cert_data.get(uk, '')
+                if cert_info:
+                    _record_host_cert_metrics(cert_info, uk,
+                                        uv['info']['hostname'])
 
     def process_hosts(self, post_db_read_hook_func=None):
         """
