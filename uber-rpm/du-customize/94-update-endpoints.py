@@ -57,7 +57,6 @@ if __name__ == "__main__":
     default_url_prefix = 'http://127.0.0.1'
     new_url_prefix = 'https://%s' % fqdn
     endpoint_updates = [('5000/', 'keystone'),
-                        ('35357/', 'keystone_admin'),
                         ('8774/', 'nova'),
                         ('9292', 'glance')]
 

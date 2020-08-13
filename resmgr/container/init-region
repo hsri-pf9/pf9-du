@@ -76,9 +76,8 @@ class ResmgrConfig(object):
                         self._region_uuid
         updates = {}
         with self._consul.prefix('customers/%s' % self._customer_uuid):
-            for key in ['keystone', 'keystone_admin']:
-                val = self._consul.kv_get('%s/%s' % (keystone_prefix, key))
-                updates[resmgr_prefix + key] = val
+            val = self._consul.kv_get('%s/keystone' % (keystone_prefix))
+            updates[resmgr_prefix + 'keystone'] = val
             self._consul.kv_put_txn(updates)
 
     def add_keystone_user(self):

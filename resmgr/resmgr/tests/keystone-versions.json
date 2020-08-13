@@ -5,7 +5,7 @@
                 "id": "v3.0",
                 "links": [
                     {
-                        "href": "http://localhost:35357/v3/",
+                        "href": "http://localhost:5000/v3/",
                         "rel": "self"
                     }
                 ],
@@ -21,39 +21,7 @@
                 ],
                 "status": "stable",
                 "updated": "2013-03-06T00:00:00Z"
-            },
-            {
-                "id": "v2.0",
-                "links": [
-                    {
-                        "href": "http://localhost:35357/v2.0/",
-                        "rel": "self"
-                    },
-                    {
-                        "href": "http://docs.openstack.org/api/openstack-identity-service/2.0/content/",
-                        "rel": "describedby",
-                        "type": "text/html"
-                    },
-                    {
-                        "href": "http://docs.openstack.org/api/openstack-identity-service/2.0/identity-dev-guide-2.0.pdf",
-                        "rel": "describedby",
-                        "type": "application/pdf"
-                    }
-                ],
-                "media-types": [
-                    {
-                        "base": "application/json",
-                        "type": "application/vnd.openstack.identity-v2.0+json"
-                    },
-                    {
-                        "base": "application/xml",
-                        "type": "application/vnd.openstack.identity-v2.0+xml"
-                    }
-                ],
-                "status": "stable",
-                "updated": "2013-03-06T00:00:00Z"
             }
         ]
     }
 }
-

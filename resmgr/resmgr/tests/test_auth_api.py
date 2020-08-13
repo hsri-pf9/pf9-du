@@ -64,13 +64,13 @@ class TestAuthApi(unittest.TestCase) :
         decorator
         """
         httpretty.register_uri(httpretty.GET,
-                               "http://127.0.0.1:35357/",
+                               "http://127.0.0.1:5000/",
                                status = 300,
                                body = self.keystone_versions,
                                content_type="application/json")
 
         httpretty.register_uri(httpretty.GET,
-                               "http://127.0.0.1:35357/v3/auth/tokens",
+                               "http://127.0.0.1:5000/v3/auth/tokens",
                                status = status,
                                body = json.dumps(response_dict),
                                content_type="application/json")
@@ -158,5 +158,3 @@ class TestAuthApi(unittest.TestCase) :
 
 if __name__ == '__main__':
     unittest.main()
-
-
