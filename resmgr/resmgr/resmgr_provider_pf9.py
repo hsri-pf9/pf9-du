@@ -123,19 +123,26 @@ def _remove_host_cert_start_date_metrics(host_id, host_name):
                        host_name, e))
 
 def _record_host_cert_metrics(host_cert_info, host_id, host_name):
-    status = host_cert_info['details']['status']
-    expiry_date = host_cert_info['details']['expiry_date']
-    start_date = host_cert_info['details']['start_date']
+    try:
+        status = host_cert_info['details']['status']
+        expiry_date = host_cert_info['details']['expiry_date']
+        start_date = host_cert_info['details']['start_date']
 
-    if status == 'successful':
-        _record_host_cert_expiry_date_metrics(expiry_date,host_id, host_name)
-        _record_host_cert_start_date_metrics(start_date, host_id, host_name)
-    elif status == 'failed':
-        log.error('Certificate query on hostid: {} hostname {} has '\
-            'failed.'.format(host_id, host_name))
-    else:
-        log.debug('Certificate query on hostid: {} hostname {} is {}'.format(
-            host_id, host_name, status))
+        if status == 'successful':
+            _record_host_cert_expiry_date_metrics(expiry_date,host_id, host_name)
+            _record_host_cert_start_date_metrics(start_date, host_id, host_name)
+        elif status == 'failed':
+            log.error('Certificate query on hostid: {} hostname {} has '\
+                'failed.'.format(host_id, host_name))
+        else:
+            log.debug('Certificate query on hostid: {} hostname {} is {}'.format(
+                host_id, host_name, status))
+    except KeyError:
+        log.exception('KeyError exception while getting cert details for host '\
+            'id: {} host name: {}'.format(host_id, host_name))
+    except Exception:
+        log.exception('Generic exception while getting cert details for host '\
+            'id: {} host name: {}'.format(host_id, host_name))
 
 
 def _remove_all_host_cert_metrics(host_id, host_name):
