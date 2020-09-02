@@ -29,7 +29,7 @@ cert_info = {
         'version' : '',
         'serial_number' : '',
         'start_date' : '',
-        'end_date' : '',
+        'expiry_date' : '',
         'timestamp' : ''
     },
     'refresh_info' : {
