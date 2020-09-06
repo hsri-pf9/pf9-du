@@ -8,7 +8,7 @@ import json
 import netifaces
 import re
 import sys
-
+import ipaddress
 
 def get_addresses():
     """
@@ -16,26 +16,29 @@ def get_addresses():
     """
     nw_ifs = netifaces.interfaces()
     nonlocal_ips = set()
-    ignore_ip_re = re.compile('^(0.0.0.0|127.0.0.1)$')
     ignore_if_re = re.compile('^(q.*-[0-9a-fA-F]{2}|tap.*|kube-ipvs.*)$')
 
     for iface in nw_ifs:
         if ignore_if_re.match(iface):
             continue
         addrs = netifaces.ifaddresses(iface)
-        try:
-            if netifaces.AF_INET in addrs:
-                ips = addrs[netifaces.AF_INET]
-                for ip in ips:
-                    # Not interested in loopback IPs
-                    if not ignore_ip_re.match(ip['addr']):
-                        nonlocal_ips.add(ip['addr'])
-            else:
-                # move to next interface if this interface doesn't
-                # have IPv4 addresses
+
+        ips = []
+        if netifaces.AF_INET in addrs:
+            ips.extend(addrs[netifaces.AF_INET])
+        if netifaces.AF_INET6 in addrs:
+            ips.extend(addrs[netifaces.AF_INET6])
+
+        for ip in ips:
+            try:
+                ip_addr = ipaddress.ip_address(ip['addr'])
+            except ValueError:
+                # the link local sometime appears to have an invalid prefix
+                # ignore those interfaces
                 continue
-        except KeyError:
-            pass
+            # Add non-link local/loopback or multicast ip addresses
+            if not (ip_addr.is_loopback or ip_addr.is_link_local or ip_addr.is_multicast):
+                nonlocal_ips.add(ip['addr'])
 
     return list(nonlocal_ips)
 

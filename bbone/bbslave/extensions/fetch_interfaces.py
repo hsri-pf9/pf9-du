@@ -10,7 +10,7 @@ import sys
 import re
 import subprocess
 import os
-
+import ipaddress
 
 def get_addresses_and_names():
     """
@@ -20,7 +20,6 @@ def get_addresses_and_names():
     interface_ips = {}
     interface_info = {}
 
-    ignore_ip_re = re.compile('^(0.0.0.0|127.0.0.1)$')
     ignore_if_re = re.compile('^(q.*-[0-9a-fA-F]{2}|tap.*|kube-ipvs.*)$')
 
     # Get list of ovs-bridges if present.
@@ -35,27 +34,32 @@ def get_addresses_and_names():
                 ovs_list = out.decode().split()
     except:
         pass
+
     for iface in nw_ifs:
         if ignore_if_re.match(iface):
             continue
         addrs = netifaces.ifaddresses(iface)
-        try:
-            if netifaces.AF_INET in addrs:
-                ipv4_details = addrs[netifaces.AF_INET]
-                # Only 1 MAC associated with the interface.
-                mac_addr = addrs[netifaces.AF_LINK][0]['addr']
-                ips = addrs[netifaces.AF_INET]
-                for ip in ips:
-                    # Not interested in loopback IPs
-                    if not ignore_ip_re.match(ip['addr']):
-                        interface_ips[iface] = ip['addr']
-                        interface_info[iface] = {'mac': mac_addr, 'ifaces': ipv4_details}
-            else:
-                # move to next interface if this interface doesn't
-                # have IPv4 addresses
-                pass
-        except KeyError:
-            pass
+
+        ips = []
+        if netifaces.AF_INET in addrs:
+            ips.extend(addrs[netifaces.AF_INET])
+        if netifaces.AF_INET6 in addrs:
+            ips.extend(addrs[netifaces.AF_INET6])
+        if netifaces.AF_LINK in addrs:
+            mac_addr = addrs[netifaces.AF_LINK][0]['addr']
+
+        for ip in ips:
+            try:
+                ip_addr = ipaddress.ip_address(ip['addr'])
+            except ValueError:
+                # the link local sometime appears to have an invalid prefix
+                # ignore those interfaces
+                continue
+
+            # Add non-link local/loopback or multicast ip addresses
+            if not (ip_addr.is_loopback or ip_addr.is_link_local or ip_addr.is_multicast):
+                interface_ips[iface] = ip['addr']
+                interface_info[iface] = {'mac': mac_addr, 'ifaces': ips}
 
     return {'iface_ip': interface_ips, 'ovs_bridges': ovs_list, 'iface_info': interface_info}
 
