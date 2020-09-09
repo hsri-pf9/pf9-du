@@ -336,6 +336,47 @@ class RolesMgr(object):
 
         return result
 
+    def create_role(self, role_info):
+        """
+        Creates a role with incoming role information and stores
+        this role in the database.
+        :param role_info : JSON with role information.
+        """
+        role_keys = {
+            'role_name': str,
+            'role_version': str,
+            'display_name': str,
+            'description': str,
+            'customizable_settings': dict,
+            'rabbit_permissions': dict,
+            'config': dict,
+            }
+        for key in role_keys:
+            if key not in role_info.keys() or not \
+               isinstance(role_info[key], role_keys[key]):
+                log.error('Malformed/Missing role key: %s, type %s',
+                          key, role_keys[key])
+                raise RoleKeyMalformed("Malformed/Missing role key %s" % key)
+        role_name = role_info['role_name']
+        role_version = role_info['role_version']
+
+        # Check if the role with role_version already exists.
+        role = self.db_handler.query_role_with_version(role_name, role_version)
+        if role:
+            log.error('Role %s with version %s already exists',
+                      role_name, role_version)
+            raise RoleVersionExists("Role %s with version %s already exists"\
+                                     % (role_name, role_version))
+
+        log.info('Creating role with rolename %s, role_version %s',
+                  role_name, role_version)
+        # Currently, save_role_in_db treats every incoming role that needs to
+        # be saved in DB as an active role. Rest of the roles present with the
+        # same role name, but different version are marked as not-active.
+        self.db_handler.save_role_in_db(role_name, role_version, role_info)
+        log.debug('Created role with rolename %s, role_version %s',
+                  role_name, role_version)
+
     def get_app_versions(self, role_name):
         role = self.db_handler.query_role(role_name)
         if role:
@@ -1479,6 +1520,14 @@ class ResMgrPf9Provider(ResMgrProvider):
         :rtype: dict
         """
         return self.roles_mgr.get_role(role_name)
+
+    def create_role(self, role_info):
+        """
+        Creates a role with incoming role information and stores
+        this role in the database.
+        :param role_info : JSON with role information.
+        """
+        return self.roles_mgr.create_role(role_info)
 
     def get_app_versions(self, role_name):
         return self.roles_mgr.get_app_versions(role_name)

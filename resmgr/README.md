@@ -68,6 +68,38 @@ Example:
 }
 ```
 
+### POST /v1/roles ###
+Creates a role using the role information provided as part of the
+request payload. If the role with existing version is already present,
+the API will report conflict and error out.
+
+Example:
+```
+{
+   "role_name": "pf9-role",
+   "role_version": "4.7.0-9987",
+   "customizable_settings": {
+      "ROLE_SERVICE_STATE": {
+         "path": "config",
+         "default": "ignore"
+      }
+   },
+   "config": {
+      "pf9-role": {
+         "url": "%(pf9-role.package_base_repo)s/pf9-role/4.7.0-9987/pf9-role-4.7.0-9987.x86_64.rpm"
+      }
+   },
+   "display_name": "Platform9 Role",
+   "description": "Platform9 Role",
+   "rabbit_permissions": {
+      "config": "",
+      "write": "",
+      "read": ""
+   }
+}
+```
+It is assumed that the url passed as a config is a valid one.
+
 ### GET /v1/hosts ##
 
 Returns a dictionary of hosts in the pf9 system with assigned roles.

@@ -88,3 +88,12 @@ class HostDown(ResMgrException):
 class ResmgrConfigError(ResMgrException):
     def __init__(self, reason):
         super(ResmgrConfigError, self).__init__('Failed to get resmgr config: %s' % reason)
+
+class RoleKeyMalformed(ResMgrException):
+    def __init__(self, reason):
+        super(RoleKeyMalformed, self).__init__('Incomplete role info: %s' % reason)
+
+class RoleVersionExists(ResMgrException):
+    def __init__(self, reason):
+        super(RoleVersionExists, self).__init__(
+            'Duplicate role: %s' % reason)

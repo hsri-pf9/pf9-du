@@ -30,6 +30,14 @@ class ResMgrProvider(object):
         """
         pass
 
+    @abstractmethod
+    def create_role(self, role_info):
+        """
+        Creates a role with incoming role information and stores
+        this role in the database.
+        :param role_info : JSON with role information.
+        """
+        pass
 
     @abstractmethod
     def get_host(self, host_id):

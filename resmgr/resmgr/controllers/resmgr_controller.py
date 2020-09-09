@@ -111,6 +111,32 @@ class RolesController(RestController):
 
         return out[name]
 
+    @enforce(required=['admin'])
+    @expose('json')
+    def post(self):
+        """
+        Handles request of type POST /v1/roles
+        """
+        msg_body = {}
+        try:
+            msg_body = _validate_incoming_request_body(pecan.request.body)
+        except MalformedRequest as e:
+            log.exception('Bad request body', e)
+            abort(e.errorCode, e.errorMsg)
+
+        log.debug('Creating a new role with message body %s.', msg_body)
+        try:
+            _provider.create_role(msg_body)
+        except RoleKeyMalformed as e:
+            log.error('Role not created due to invalid payload: %s', e)
+            return _json_error_response(pecan.response, 400, e)
+        except RoleVersionExists as e:
+            log.error('Role already exists: %s', e)
+            return _json_error_response(pecan.response, 409, e)
+        except Exception as e:
+            log.exception('Role not created: %s', e)
+            return _json_error_response(pecan.response, 400, e)
+
 class HostRolesVersionController(RestController):
 
     @enforce(required=['admin'])
