@@ -336,6 +336,39 @@ class RolesMgr(object):
 
         return result
 
+    def get_role_with_version(self, role_name, version):
+        """
+        Returns public portion of all information
+        about a role with given version
+        :param str role_name: Name of the role
+        :param str version: Version of the role
+        :return: dictionary of the role information
+        :rtype: dict
+        """
+        if version == "active":
+            role = self.db_handler.query_role(role_name)
+        else:
+            role = self.db_handler.query_role_with_version(role_name, version)
+
+        if role:
+            default_settings = dict((setting_name, setting['default'])
+                                    for (setting_name, setting)
+                                    in iteritems(role.customizable_settings))
+            result = {
+                role.rolename: {
+                    'name': role.rolename,
+                    'display_name': role.displayname,
+                    'description': role.description,
+                    'role_version': role.version,
+                    'default_settings': default_settings
+                }
+            }
+        else:
+            raise RoleVersionNotFound(role_name, version)
+
+        return result
+
+
     def create_role(self, role_info):
         """
         Creates a role with incoming role information and stores
@@ -1514,12 +1547,22 @@ class ResMgrPf9Provider(ResMgrProvider):
 
     def get_role(self, role_name):
         """
-        Returns all information about a role
+        Returns all information about an active role
         :param str role_name: Name of the role
         :return: dictionary of the role information
         :rtype: dict
         """
         return self.roles_mgr.get_role(role_name)
+
+    def get_role_with_version(self, role_name, version):
+        """
+        Returns all information about a role with given version
+        :param str role_name: Name of the role
+        :param str version: Version of the role
+        :return: dictionary of the role information
+        :rtype: dict
+        """
+        return self.roles_mgr.get_role_with_version(role_name, version)
 
     def create_role(self, role_info):
         """

@@ -12,7 +12,7 @@ All data is exchanged in JSON format
 
 ## API ##
 
-### GET /v1/roles ###
+### GET /<v1/v2>/roles ###
 
 Returns a dictionary of pf9 roles available in the system
 
@@ -39,7 +39,7 @@ Example:
     }
 ]
 ```
-### GET /v1/roles/__role_name__ ###
+### GET /<v1/v2>/roles/__role_name__ ###
 
 Returns a pf9 role corresponding to __role_name__
 
@@ -68,7 +68,7 @@ Example:
 }
 ```
 
-### POST /v1/roles ###
+### POST /<v1/v2>/roles ###
 Creates a role using the role information provided as part of the
 request payload. If the role with existing version is already present,
 the API will report conflict and error out.
@@ -99,6 +99,25 @@ Example:
 }
 ```
 It is assumed that the url passed as a config is a valid one.
+
+### GET /v2/roles/__role_name__/?version="__version_name__" ###
+
+Returns a pf9 role corresponding to __role_name__ and
+version equals to __version_name__.
+If __version_name__ is "active", then the role with active version is returned.
+
+Example:
+```
+{
+    "name": "roleA",
+    "display_name": "Role A",
+    "description": "Simple role A",
+    "role_version": "3.0.9-1"
+    "default_settings": {
+        "setting_name": "setting_value"
+    }
+}
+```
 
 ### GET /v1/hosts ##
 

@@ -22,10 +22,20 @@ class ResMgrProvider(object):
         pass
 
     @abstractmethod
-    def get_role(self, role_id):
+    def get_role(self, role_name):
         """
-        Returns information about a particular role
-        :param role_id: ID of the role
+        Returns information about a particular role in active state
+        :param role_name: Name of the role
+        :rtype: dict
+        """
+        pass
+
+    @abstractmethod
+    def get_role_with_version(self, role_name, version):
+        """
+        Returns information about a particular role with given version
+        :param role_name: Name of the role
+        :param version: version of the role
         :rtype: dict
         """
         pass

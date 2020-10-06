@@ -6,6 +6,7 @@ __author__ = 'Platform9'
 from resmgr.controllers.resmgr_controller import HostsController
 from resmgr.controllers.resmgr_controller import HostsControllerV2
 from resmgr.controllers.resmgr_controller import RolesController
+from resmgr.controllers.resmgr_controller import RolesControllerV2
 from resmgr.controllers.resmgr_controller import ServicesController
 from resmgr.controllers.versions_controller import VersionsController
 from resmgr.controllers.metrics_controller import MetricsController
@@ -16,6 +17,7 @@ class V1Controller(object):
     services = ServicesController()
 
 class V2Controller(V1Controller):
+    roles = RolesControllerV2()
     hosts = HostsControllerV2()
 
 class RootController(object):

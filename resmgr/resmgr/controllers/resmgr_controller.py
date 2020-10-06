@@ -33,7 +33,10 @@ def _json_error_response(response, code, exc):
     response.status = code
     response.content_type = 'application/json'
     response.charset = 'utf-8'
-    response.json = {'message': '%s: %s' % (exc.__class__.__name__, exc.msg)}
+    try:
+        response.json = {'message': '%s: %s' % (exc.__class__.__name__, exc.msg)}
+    except Exception:
+        response.json = {'message': 'Request Failed'}
     return response
 
 def _validate_incoming_request_body(req_body):
@@ -81,7 +84,7 @@ class RolesController(RestController):
     @expose('json')
     def get_all(self):
         """
-        Handles request of type GET /v1/roles
+        Handles request of type GET /<v1/v2>/roles
         :return: a list of available roles
         :rtype: list
         """
@@ -115,7 +118,7 @@ class RolesController(RestController):
     @expose('json')
     def post(self):
         """
-        Handles request of type POST /v1/roles
+        Handles request of type POST /<v1/v2>/roles
         """
         msg_body = {}
         try:
@@ -135,6 +138,31 @@ class RolesController(RestController):
             return _json_error_response(pecan.response, 409, e)
         except Exception as e:
             log.exception('Role not created: %s', e)
+            return _json_error_response(pecan.response, 400, e)
+
+class RolesControllerV2(RolesController):
+
+    @expose('json')
+    def get_one(self, name, version='active'):
+        """
+        Handles request of type GET /v2/roles/<role_name>/?version="version_name"
+        :param str name: Name of the role
+        :return: dictionary of properties for the role
+        :rtype: dict
+        """
+        try:
+            version = version.lower()
+            log.debug('Getting details for role %s with version %s',
+                      name, version)
+            out = _provider.get_role_with_version(name, version)
+            return out[name]
+        except RoleVersionNotFound as e:
+            log.error('No matching role found for %s with version %s',
+                       name, version)
+            return _json_error_response(pecan.response, 404, e)
+        except Exception as e:
+            log.error('Failed to get details for role %s with version %s',
+                      name, version)
             return _json_error_response(pecan.response, 400, e)
 
 class HostRolesVersionController(RestController):
