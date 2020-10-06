@@ -23,6 +23,41 @@ function proxy_setup()
     echo "host: $PROXY_HOST"
     echo "port: $PROXY_PORT"
 
+    if [[ -n "$PROXY_USER" ]] && [[ -n "$PROXY_PASS" ]]; then
+        hostagent_proxy="http_proxy=\"${PROXY_PROTOCOL}://${$PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}\""
+        HOSTAGENT_PROXY="HTTP_PROXY=\"${PROXY_PROTOCOL}://${$PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}\""
+        hostagent_proxy_s="https_proxy=\"${PROXY_PROTOCOL}://${$PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}\""
+        HOSTAGENT_PROXY_S="HTTPS_PROXY=\"${PROXY_PROTOCOL}://${$PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}\""
+    else
+        hostagent_proxy="http_proxy=\"${PROXY_PROTOCOL}://${PROXY_HOST}:${PROXY_PORT}\""
+        HOSTAGENT_PROXY="HTTP_PROXY=\"${PROXY_PROTOCOL}://${PROXY_HOST}:${PROXY_PORT}\""
+        hostagent_proxy_s="https_proxy=\"${PROXY_PROTOCOL}://${PROXY_HOST}:${PROXY_PORT}\""
+        HOSTAGENT_PROXY_S="HTTPS_PROXY=\"${PROXY_PROTOCOL}://${PROXY_HOST}:${PROXY_PORT}\""
+    fi
+
+    if [[ ! -z ${NO_PROXY} ]]; then
+        hostagent_noproxy="no_proxy=\"localhost,127.0.0.1,::1,localhost.localdomain,localhost4,localhost6,${NO_PROXY}\""
+        HOSTAGENT_NOPROXY="NO_PROXY=\"localhost,127.0.0.1,::1,localhost.localdomain,localhost4,localhost6,${NO_PROXY}\""
+    elif [[ ! -z ${no_proxy} ]]; then
+        hostagent_noproxy="no_proxy=\"localhost,127.0.0.1,::1,localhost.localdomain,localhost4,localhost6,${no_proxy}\""
+        HOSTAGENT_NOPROXY="NO_PROXY=\"localhost,127.0.0.1,::1,localhost.localdomain,localhost4,localhost6,${no_proxy}\""
+    else
+        hostagent_noproxy="no_proxy=\"localhost,127.0.0.1,::1,localhost.localdomain,localhost4,localhost6\""
+        HOSTAGENT_NOPROXY="NO_PROXY=\"localhost,127.0.0.1,::1,localhost.localdomain,localhost4,localhost6\""
+    fi
+
+    if [[ -f "${PF9_HOSTAGENT_ENV_FILE}" ]]; then
+        echo "${hostagent_proxy}" >> ${PF9_HOSTAGENT_ENV_FILE}
+        echo "${HOSTAGENT_PROXY}" >> ${PF9_HOSTAGENT_ENV_FILE}
+        echo "${hostagent_proxy_s}" >> ${PF9_HOSTAGENT_ENV_FILE}
+        echo "${HOSTAGENT_PROXY_S}" >> ${PF9_HOSTAGENT_ENV_FILE}
+        echo "${hostagent_noproxy}" >> ${PF9_HOSTAGENT_ENV_FILE}
+        echo "${HOSTAGENT_NOPROXY}" >> ${PF9_HOSTAGENT_ENV_FILE}
+    else
+        echo "Hostagent env file: ${PF9_HOSTAGENT_ENV_FILE} not present."
+        echo "Unable to write proxy settings in hostagent env file."
+    fi
+
     json="{\"http_proxy\":{\"protocol\":\"${PROXY_PROTOCOL}\", \"host\":\"${PROXY_HOST}\", \"port\":${PROXY_PORT}"
     if [[ -n "$PROXY_USER" ]] && [[ -n "$PROXY_PASS" ]]; then
         json+=", \"user\":\"${PROXY_USER}\", \"pass\":\"${PROXY_PASS}\"}}"
