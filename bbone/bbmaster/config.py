@@ -22,18 +22,26 @@ pf9 = {
 
 logging = {
     'loggers': {
-        'root': {'level': 'INFO', 'handlers': ['filelogger']},
-        'bbmaster': {'level': 'DEBUG', 'handlers': ['filelogger']},
-        'py.warnings': {'handlers': ['filelogger']},
+        'root': {'level': 'INFO', 'handlers': ['filelogger','filelogger2']},
+        'bbmaster': {'level': 'DEBUG', 'handlers': ['filelogger','filelogger2']},
+        'py.warnings': {'handlers': ['filelogger','filelogger2']},
         '__force_dict__': True
     },
     'handlers': {
         'filelogger': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
             'maxBytes': 2097152,
             'backupCount': 10,
             'filename': '/var/log/pf9/bbmaster.log',
+            'formatter': 'simple'
+        },
+        'filelogger2': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'maxBytes': 2097152,
+            'backupCount': 10,
+            'filename': '/var/log/pf9/simple_bbmaster.log',
             'formatter': 'simple'
         },
         'console': {

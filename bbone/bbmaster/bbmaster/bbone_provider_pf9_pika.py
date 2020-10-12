@@ -171,7 +171,8 @@ class bbone_provider_pf9(bbone_provider_memory):
                 if body['opcode'] != 'status':
                     self.log.error('Unknown opcode: %s', body['opcode'])
                     raise ValueError()
-                self.log.info('Received: %s', body)
+                self.log.debug('Received: %s', body)
+                self.log.info('Received: host_id: {0}, opcode: {1}, status: {2}'.format(body['data']['host_id'], body['opcode'], body['data']['status']))
                 host_state = body['data']
                 host_state['timestamp_on_du'] = datetime.datetime.utcnow().\
                                                 strftime("%Y-%m-%d %H:%M:%S.%f")
