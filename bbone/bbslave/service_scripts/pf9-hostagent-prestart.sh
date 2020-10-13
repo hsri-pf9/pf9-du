@@ -19,5 +19,9 @@ then
     then
         ln -sf /usr/lib/python3/dist-packages/apt_inst.cpython-36m-x86_64-linux-gnu.so /opt/pf9/python/lib/python3.6/apt_inst.so
         ln -sf /usr/lib/python3/dist-packages/apt_pkg.cpython-36m-x86_64-linux-gnu.so /opt/pf9/python/lib/python3.6/apt_pkg.so
+    elif [[ "${VERSION_ID%.*}" == "20" ]]
+    then
+        ln -sf /usr/lib/python3/dist-packages/apt_inst.cpython-38-x86_64-linux-gnu.so /opt/pf9/python/lib/python3.6/apt_inst.so
+        ln -sf /usr/lib/python3/dist-packages/apt_pkg.cpython-38-x86_64-linux-gnu.so /opt/pf9/python/lib/python3.6/apt_pkg.so
     fi
 fi
