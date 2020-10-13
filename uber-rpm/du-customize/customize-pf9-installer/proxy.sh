@@ -24,10 +24,10 @@ function proxy_setup()
     echo "port: $PROXY_PORT"
 
     if [[ -n "$PROXY_USER" ]] && [[ -n "$PROXY_PASS" ]]; then
-        hostagent_proxy="http_proxy=\"${PROXY_PROTOCOL}://${$PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}\""
-        HOSTAGENT_PROXY="HTTP_PROXY=\"${PROXY_PROTOCOL}://${$PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}\""
-        hostagent_proxy_s="https_proxy=\"${PROXY_PROTOCOL}://${$PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}\""
-        HOSTAGENT_PROXY_S="HTTPS_PROXY=\"${PROXY_PROTOCOL}://${$PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}\""
+        hostagent_proxy="http_proxy=\"${PROXY_PROTOCOL}://${PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}\""
+        HOSTAGENT_PROXY="HTTP_PROXY=\"${PROXY_PROTOCOL}://${PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}\""
+        hostagent_proxy_s="https_proxy=\"${PROXY_PROTOCOL}://${PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}\""
+        HOSTAGENT_PROXY_S="HTTPS_PROXY=\"${PROXY_PROTOCOL}://${PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}\""
     else
         hostagent_proxy="http_proxy=\"${PROXY_PROTOCOL}://${PROXY_HOST}:${PROXY_PORT}\""
         HOSTAGENT_PROXY="HTTP_PROXY=\"${PROXY_PROTOCOL}://${PROXY_HOST}:${PROXY_PORT}\""
