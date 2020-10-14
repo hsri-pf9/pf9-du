@@ -21,6 +21,7 @@ from rabbit import RabbitMgmtClient
 from resmgr import resmgr_provider_pf9
 from resmgr import role_states
 from resmgr.exceptions import DuConfigError, RoleUpdateConflict, HostDown
+from resmgr.exceptions import RoleVersionExists, RoleVersionNotFound
 from resmgr.resmgr_provider_pf9 import ResMgrPf9Provider, BbonePoller
 from resmgr.resmgr_provider_pf9 import log as provider_logger
 from resmgr.tests.dbtestcase import DbTestCase
@@ -1282,6 +1283,97 @@ class TestProvider(DbTestCase):
             time.sleep(delay)
         self._bbone.stop()
         pollthread.join()
+
+    def test_create_get_role(self):
+        """
+        Tests the create role and get role version functionality.
+        """
+
+        # Get role name from the existing role.
+        rolename = TEST_ROLE['test-role']['1.0']['role_name']
+
+        # Use a new version.
+        version = '4.6'
+
+        # Create in-memory new version of test-role.
+        role = {
+            'test-role': {
+                version: copy.deepcopy(TEST_ROLE['test-role']['1.0'])
+            }
+        }
+        role['test-role'][version]['role_version'] = version
+        role['test-role'][version]['config']['test-role']['version'] = version
+        role_info = role['test-role'][version]
+
+        # Add the new role in DB.
+        LOG.info('Creating new role %s with version %s', rolename, version)
+        self._provider.create_role(role_info)
+        LOG.info('Created new role %s', role_info)
+
+        # Get role based on the version.
+        LOG.info('Querying role %s with version %s', rolename, version)
+        queried_role = self._provider.get_role_with_version(rolename, version)
+        LOG.info('Queried role %s', queried_role)
+        # Make sure that inserted role details are same as the queried role.
+        self.assertEqual(queried_role['test-role']['name'], rolename)
+        self.assertEqual(queried_role['test-role']['role_version'], version)
+        LOG.info('Verified that queried_role is same as inserted active role')
+
+        # Re-create the same role. Should raise an exception.
+        with self.assertRaises(RoleVersionExists):
+            LOG.info('Re-creating the same role %s. This is expected to fail')
+            self._provider.create_role(role_info)
+        # Get role based on the active version, instead of passing the version.
+        LOG.info('Querying role %s with active version', rolename)
+        queried_role = self._provider.get_role_with_version(rolename, 'active')
+        LOG.info('Queried role %s with active version', queried_role)
+        # Make sure that inserted role details are same as the queried role.
+        self.assertEqual(queried_role['test-role']['name'], rolename)
+        self.assertEqual(queried_role['test-role']['role_version'], version)
+        LOG.info('Verified that queried_role is same as inserted active role')
+
+        # Query for a role that does not exist. Should raise an exception.
+        with self.assertRaises(RoleVersionNotFound):
+            LOG.info('Querying role %s with dummy version.'\
+                     'This is expected to fail', rolename)
+            queried_role = self._provider.get_role_with_version(rolename, 'dummy')
+
+        # Use a new version.
+        new_version = '4.7'
+
+        # Create another in-memory version of test-role.
+        new_role = {
+            'test-role': {
+                new_version: copy.deepcopy(TEST_ROLE['test-role']['1.0'])
+            }
+        }
+        new_role['test-role'][new_version]['role_version'] = new_version
+        new_role['test-role'][new_version]['config']['test-role']['version'] = new_version
+        new_role_info = new_role['test-role'][new_version]
+
+        # Add the new role in DB.
+        LOG.info('Creating new role %s with version %s', rolename, new_version)
+        self._provider.create_role(new_role_info)
+        LOG.info('Created new role %s', new_role_info)
+
+        # Query both the version specific roles and verify.
+        # Query role with `version`.
+        LOG.info('Querying role %s with version %s', rolename, version)
+        queried_role = self._provider.get_role_with_version(rolename, version)
+        LOG.info('Queried role %s', queried_role)
+        # Make sure that inserted role details are same as the queried role.
+        self.assertEqual(queried_role['test-role']['name'], rolename)
+        self.assertEqual(queried_role['test-role']['role_version'], version)
+        LOG.info('Verified that queried_role is same as inserted active role')
+
+        # Query role with `new_version`.
+        LOG.info('Querying role %s with version %s', rolename, new_version)
+        queried_role = self._provider.get_role_with_version(rolename, new_version)
+        LOG.info('Queried role %s', queried_role)
+        # Make sure that inserted role details are same as the queried role.
+        self.assertEqual(queried_role['test-role']['name'], rolename)
+        self.assertEqual(queried_role['test-role']['role_version'], new_version)
+        LOG.info('Verified that queried_role is same as inserted active role')
 
     @staticmethod
     def _plain_http_response(code):
