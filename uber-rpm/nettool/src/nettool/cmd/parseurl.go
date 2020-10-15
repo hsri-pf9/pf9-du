@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -15,7 +16,7 @@ const urlparseShortDescription string = "Parse a proxy url"
 const urlparseLongDescription string = `The proxy url should have the format:
 [<protocol>][<username>:<password>@]<proxy_host>:<proxy_port>`
 
-const defaultPort int = 3128
+const defaultPort string = "3128"
 const defaultProtocol string = "http://"
 
 var urlparseCmd = &cobra.Command{
@@ -56,7 +57,7 @@ func urlparseRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	host, port, err := parseHostAndPort(parsedUrl.Host)
+	host, port, err := parseHostAndPort(parsedUrl)
 	if err != nil {
 		return err
 	}
@@ -88,20 +89,29 @@ func parseUserInfo(userInfo *url.Userinfo) (string, string, error) {
 	return user, pass, nil
 }
 
-func parseHostAndPort(address string) (string, int, error) {
-	components := strings.Split(address, ":")
-	if len(components) == 2 {
-		host := components[0]
-		portStr := components[1]
-		port, err := strconv.Atoi(portStr)
-		if err != nil {
-			return host, port, errors.New("Could not parse port: " + err.Error())
+func parseHostAndPort(parsedUrl *url.URL) (string, int, error) {
+	address := parsedUrl.Host
+	// Parse the host URL
+	host, portStr, err := net.SplitHostPort(address)
+	if err != nil {
+		// Check if the port is missing from the URL
+		if strings.Contains(err.Error(), "missing port in address") {
+			host = parsedUrl.Hostname()
+			portStr = defaultPort
+		} else {
+			return "", 0, err
 		}
-		return host, port, nil
 	}
-	if len(components) == 1 {
-		host := components[0]
-		return host, defaultPort, nil
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return "", 0, errors.New("Could not parse port: " + err.Error())
 	}
-	return "", 0, errors.New("Unexpected address format (expected <host>:<port>): " + address)
+	// If the IPv6 address is provided, if yes, enclose it in []
+	hostIp := net.ParseIP(host)
+	if hostIp != nil && net.IP.To4(hostIp) == nil {
+		host = "[" + host + "]"
+	}
+	return host, port, nil
 }
+

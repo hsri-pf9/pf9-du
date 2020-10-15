@@ -143,9 +143,16 @@ function main()
     test_urlparse_success squid.platform9.net "http squid.platform9.net 3128"
     test_urlparse_success https://squid.platform9.net "https squid.platform9.net 3128"
     test_urlparse_success https://squid.platform9.net:443 "https squid.platform9.net 443"
+    test_urlparse_success http://[fc00:1:a:1:f816:3eff:fe84:1e0e]:3128 "http [fc00:1:a:1:f816:3eff:fe84:1e0e] 3128"
+    test_urlparse_success https://[fc00:1:a:1:f816:3eff:fe84:1e0e]:3128 "https [fc00:1:a:1:f816:3eff:fe84:1e0e] 3128"
+    test_urlparse_success http://[fc00:1:a:1:f816:3eff:fe84:1e0e] "http [fc00:1:a:1:f816:3eff:fe84:1e0e] 3128"
+    test_urlparse_success http://[fc00:1:a:2::48] "http [fc00:1:a:2::48] 3128"
+    test_urlparse_success http://[::1] "http [::1] 3128"
 
     test_urlparse_success http://pf9:dummyPass@squid.platform9.net:3128 \
         "http squid.platform9.net 3128 pf9 dummyPass"
+    test_urlparse_success https://pf9:dummyPass@[fc00:1:a:1:f816:3eff:fe84:1e0e]:3128 \
+        "https [fc00:1:a:1:f816:3eff:fe84:1e0e] 3128 pf9 dummyPass"
     test_urlparse_success df@platform9.net:dummyAgain@squid.platform9.net:3128 \
         "http squid.platform9.net 3128 df@platform9.net dummyAgain"
     test_urlparse_success usernames:cant:have:colons@squid.platform9.net \
@@ -157,11 +164,13 @@ function main()
     test_urlparse_success https://squid.platform9.net:443 \
         "https squid.platform9.net 443"
 
-    test_urlparse_fail http://squid.platform9.net:portstring "Could not parse port"
+    test_urlparse_fail http://squid.platform9.net:portstring "Could not parse port:"
     test_urlparse_fail nopassword@squid.platform9.net "Password not found in user info"
     test_urlparse_fail ftp://squid.platform9.net "Invalid protocol: ftp"
-    test_urlparse_fail squid.platform9.net:80:82 \
-        "Unexpected address format (expected <host>:<port>): squid.platform9.net:80:82"
+    test_urlparse_fail squid.platform9.net:80:82 "too many colons in address"
+    test_urlparse_fail http://1:2:3:4:5:6:80 "too many colons in address"
+    test_urlparse_fail http://[1:2:3:4:5:6:80 "missing ']' in host"
+    test_urlparse_fail https://1:2:3:4:5:6]:80 "too many colons in address"
 }
 
 main
