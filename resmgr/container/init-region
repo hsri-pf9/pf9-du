@@ -73,13 +73,12 @@ class ResmgrConfig(object):
         self._consul.kv_put_txn(updates)
 
     def copy_keystone_uris(self):
-        keystone_prefix = 'keystone/uris/'
         resmgr_prefix = 'regions/%s/services/resmgr/keystone_uris/' % \
                         self._region_uuid
         updates = {}
         with self._consul.prefix('customers/%s' % self._customer_uuid):
-            val = self._consul.kv_get('%s/keystone' % (keystone_prefix))
-            updates[resmgr_prefix + 'keystone'] = val
+            keystone_url = 'http://localhost:8080'
+            updates[resmgr_prefix + 'keystone'] = keystone_url
             self._consul.kv_put_txn(updates)
 
     def add_keystone_user(self):
