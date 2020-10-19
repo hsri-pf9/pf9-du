@@ -78,7 +78,7 @@ class ResmgrConfig(object):
         updates = {}
         with self._consul.prefix('customers/%s' % self._customer_uuid):
             keystone_url = 'http://localhost:8080'
-            updates[resmgr_prefix + 'keystone'] = keystone_url
+            updates[os.path.join(resmgr_prefix, 'keystone')] = keystone_url
             self._consul.kv_put_txn(updates)
 
     def add_keystone_user(self):
