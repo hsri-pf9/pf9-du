@@ -558,9 +558,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
                     stdout = (None,)
                 else:
                     stdout = ()
-                data['rc'], data_out, data_err = pf9_app_run_command(command, *stdout)
-                data['out'] = data_out.decode()
-                data['err'] = data_err.decode()
+                data['rc'], data['out'], data['err'] = pf9_app_run_command(
+                    command, *stdout)
                 log.info('Return code: %s' % data['rc'])
                 log.info('stdout: %s' % data['out'])
                 log.info('stderr: %s' % data['err'])

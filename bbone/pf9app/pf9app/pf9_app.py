@@ -56,7 +56,17 @@ def _run_command(command, stdout=subprocess.PIPE, run_env=os.environ):
     out, err = proc.communicate()
     code = proc.returncode
 
-    return code, out.decode(), err.decode()
+    try:
+        out = out.decode()
+    except AttributeError:
+        out = ''
+
+    try:
+        err = err.decode()
+    except AttributeError:
+        err = ''
+
+    return code, out, err
 
 
 def _run_command_with_custom_pythonpath(command):
