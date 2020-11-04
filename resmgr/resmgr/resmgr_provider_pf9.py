@@ -383,6 +383,7 @@ class RolesMgr(object):
             'customizable_settings': dict,
             'rabbit_permissions': dict,
             'config': dict,
+            'active': bool,
             }
         for key in role_keys:
             if key not in role_info.keys() or not \

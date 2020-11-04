@@ -78,6 +78,7 @@ Example:
 {
    "role_name": "pf9-role",
    "role_version": "4.7.0-9987",
+   "active": True,
    "customizable_settings": {
       "ROLE_SERVICE_STATE": {
          "path": "config",
@@ -99,6 +100,7 @@ Example:
 }
 ```
 It is assumed that the url passed as a config is a valid one.
+If the active flag is set, the role will be marked as an active.
 
 ### GET /v2/roles/__role_name__/?version="__version_name__" ###
 
