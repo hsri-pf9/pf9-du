@@ -40,6 +40,18 @@ class ResMgrProvider(object):
         """
         pass
 
+
+    @abstractmethod
+    def mark_role_version_active(self, role_name, version, active):
+        """
+        Marks a role with given version as active
+        :param role_name: Name of the role
+        :param version: version of the role
+        :param active: Flag indicating if the role is to marked as active.
+        """
+        pass
+
+
     @abstractmethod
     def create_role(self, role_info):
         """

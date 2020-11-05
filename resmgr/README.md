@@ -121,6 +121,16 @@ Example:
 }
 ```
 
+### PUT /v2/roles/__role_name__/?version="__version_name__"&active=True ###
+
+Marks a pf9 role corresponding to __role_name__ and
+version equals to __version_name__ as an active role.
+If there are other versions of the role that are marked as active,
+they are changed to inactive.
+
+Note: This API cannot be used to mark any role with version as inactive.
+Setting a role version as active sets the other role versions as inactive.
+
 ### GET /v1/hosts ##
 
 Returns a dictionary of hosts in the pf9 system with assigned roles.
