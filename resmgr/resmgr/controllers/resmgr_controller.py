@@ -13,6 +13,8 @@ configuration on approved hosts.
 
 import logging
 import pecan
+import collections
+import six
 from pecan import abort, expose
 from pecan.rest import RestController
 from resmgr.controllers.enforce_policy import enforce
@@ -53,6 +55,17 @@ def _validate_incoming_request_body(req_body):
         raise MalformedRequest(400, 'Invalid JSON body')
 
     return req_body
+
+def _convert_json_unicode_to_str(data):
+    """ Converts an incoming dict with unicode to string"""
+    if isinstance(data, basestring):
+        return str(data)
+    elif isinstance(data, collections.Mapping):
+        return dict(map(_convert_json_unicode_to_str, data.iteritems()))
+    elif isinstance(data, collections.Iterable):
+        return type(data)(map(_convert_json_unicode_to_str, data))
+    else:
+        return data
 
 class RoleAppVersionsController(RestController):
     """Controller for role app version related requests"""
@@ -123,6 +136,11 @@ class RolesController(RestController):
         msg_body = {}
         try:
             msg_body = _validate_incoming_request_body(pecan.request.body)
+            if six.PY2:
+                # Pecan reads incoming payload in unicode format.
+                # Convert the json contents from unicode to string.
+                # This issue is only seen in py2 environment.
+                msg_body = _convert_json_unicode_to_str(msg_body)
         except MalformedRequest as e:
             log.exception('Bad request body', e)
             abort(e.errorCode, e.errorMsg)
