@@ -44,9 +44,6 @@ Base = declarative_base()
 engineHandle = None
 _host_lock = threading.Lock()
 
-# Maps roles to apps according the role metadata
-role_app_map = {}
-
 class JsonBlob(types.TypeDecorator):
     """ SQLAlchemy custom data type for JSON objects. Saves JSON as a string and
     retrieves it as a JSON object
@@ -771,7 +768,6 @@ class ResMgrDB(object):
         into the database.
         Also, this role version is marked as active and all other versions of
         the same role are marked as inactive in the DB.
-        Also, updates the role_app_map.
         :param str name: Name of the role
         :param str version: Version of the role
         :param dict details: Details of role
@@ -808,7 +804,6 @@ class ResMgrDB(object):
             except:
                 log.exception('Role %s update in the database failed', role_id)
                 raise
-        role_app_map[name] = set(details['config'].keys())
 
     def query_role(self, role_name, active_only=True):
         """

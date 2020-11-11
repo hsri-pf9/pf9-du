@@ -34,7 +34,7 @@ from six import iterkeys
 from bbcommon.utils import is_satisfied_by
 from six.moves.queue import Queue, Empty
 from resmgr import role_states, dict_subst
-from resmgr.dbutils import ResMgrDB, role_app_map
+from resmgr.dbutils import ResMgrDB
 from resmgr.exceptions import *
 from resmgr.resmgr_provider import ResMgrProvider
 from resmgr.consul_roles import ConsulRoles, ConsulUnavailable
@@ -658,7 +658,23 @@ class RolesMgr(object):
         # Dive into the app_config dictionary to find the auth_events
         # spec. Do nothing if it (or any of the intermediate keys)
         # is missing.
-        role_apps = role_app_map[role_name]
+
+        # Fetch the version from the default app for a given role.
+        # This is required as role_name is not always same as the app name.
+        # Example: role_name might be pf9-ostackhost-neutron, whereas
+        #          the app_name is pf9-ostackhost
+        default_role = self.db_handler.query_role(role_name)
+        default_app_name_list = set(default_role.desiredconfig.keys())
+        default_app_name = next(iter(default_app_name_list))
+        log.debug("Found default_app_name %s", default_app_name)
+        version = app_config[default_app_name]['version']
+
+        # Once the version is available, fetch the role and populate
+        # the role map from the role information.
+        role = self.db_handler.query_role_with_version(role_name, version)
+        role_apps = set(role.desiredconfig.keys())
+        log.debug("Found role_apps %s for version %s", role_apps, version)
+
         for app_name, app_details in iteritems(app_config):
             if app_name not in role_apps or \
                'du_config' not in app_details or \
