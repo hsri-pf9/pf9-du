@@ -17,6 +17,7 @@ import errno
 from bbcommon.utils import get_ssl_options
 import threading
 from bbslave.cert_update_thread import cert_update_thread
+from bbslave.package_cleaner import clean_packages
 
 def reconnect_loop(config):
     """
@@ -65,7 +66,9 @@ def reconnect_loop(config):
         from pf9app.pf9_app import Pf9AgentApp
         from pf9app.pf9_app_db import Pf9AppDb as AppDb, Pf9AgentDb
         from pf9app.pf9_app_cache import Pf9AppCache as AppCache
-
+    # Clean up old packages
+    if config.has_option('hostagent', 'skip_pf9app_cache_cleanup') == False or config.get('hostagent', 'skip_pf9app_cache_cleanup') == False:
+        clean_packages(log)
     # Start the cert update thread.
     cert_thread = threading.Thread(
             name='Cert-Update-Thread',
