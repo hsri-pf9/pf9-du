@@ -397,7 +397,6 @@ class RolesMgr(object):
             'customizable_settings': dict,
             'rabbit_permissions': dict,
             'config': dict,
-            'active': bool,
             }
         for key in role_keys:
             if key not in role_info.keys() or not \
@@ -405,6 +404,13 @@ class RolesMgr(object):
                 log.error('Malformed/Missing role key: %s, type %s',
                           key, role_keys[key])
                 raise RoleKeyMalformed("Malformed/Missing role key %s" % key)
+
+        if 'active' in role_info and not \
+           isinstance(role_info['active'], bool):
+            log.error('Malformed role key: %s, type %s, actual type %s',
+                      'active', bool, type(role_info['active']))
+            raise RoleKeyMalformed("Malformed role active key")
+
         role_name = role_info['role_name']
         role_version = role_info['role_version']
 
