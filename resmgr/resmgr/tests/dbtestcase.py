@@ -76,7 +76,6 @@ test_role_metadata["0.5"] = {
             "role_name": "test-role",
             "display_name": "Test Role v0.5",
             "description": "This is a test role.",
-            "active": True,
             "customizable_settings": {
                 "customizable_key": {
                     "path": "config/test_conf/customizable_section",
@@ -129,7 +128,6 @@ test_role_metadata["1.0"] = {
             "role_name": "test-role",
             "display_name": "Test Role",
             "description": "This is a test role.",
-            "active": True,
             "customizable_settings": {
                 "customizable_key": {
                     "path": "config/test_conf/customizable_section",
