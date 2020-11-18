@@ -816,13 +816,19 @@ class ResMgrDB(object):
             with self.dbsession() as session:
                 try:
                     result = session.query(Role).filter_by(rolename=name).all()
-                    if result:
+                    if result and active_flag:
                         # There are potentially other versions of the role in the DB
+                        # Also, since the incoming role has active flag set to True,
+                        # mark all other versions as inactive.
                         for role in result:
                             if role.version != version:
                                 # Role in DB which is not in the metadata file now,
                                 # tag such as inactive.
                                 role.active = False
+                    if not result:
+                       # Existing roles are not present. The incoming version
+                       # will be marked as active by default.
+                       new_role.active = True
                     # It is a new role which doesn't exist in the DB or
                     # It is a role in the DB but is same as that of the version
                     # to be considered active
