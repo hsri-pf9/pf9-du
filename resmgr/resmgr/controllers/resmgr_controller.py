@@ -183,34 +183,6 @@ class RolesControllerV2(RolesController):
                       name, version)
             return _json_error_response(pecan.response, 400, e)
 
-    @enforce(required=['admin'])
-    @expose('json')
-    def put(self, name, version, active):
-        """
-        Handles request of type
-        PUT /v2/roles/<role_name>/?version="version_name"&active=True
-        :param str name: Name of the role
-        :param str version: Role version
-        :param boolean active: Flag to indicate if role is to be
-                                    marked as an active role
-        """
-        try:
-            log.debug('Marking role %s with version %s as active',
-                      name, version)
-            out = _provider.mark_role_version_active(name, version, active)
-        except RoleVersionNotFound as e:
-            log.error('No matching role found for %s with version %s',
-                       name, version)
-            return _json_error_response(pecan.response, 404, e)
-        except RoleInactiveNotAllowed as e:
-            log.error('Role %s with version %s cannot be marked as inactive via API.',
-                      name, version)
-            return _json_error_response(pecan.response, 400, e)
-        except Exception as e:
-            log.error('Failed to mark role %s with version %s as active',
-                      name, version)
-            return _json_error_response(pecan.response, 400, e)
-
 class HostRolesVersionController(RestController):
 
     @enforce(required=['admin'])

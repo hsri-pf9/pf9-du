@@ -368,20 +368,6 @@ class RolesMgr(object):
 
         return result
 
-    def mark_role_version_active(self, role_name, version, active):
-        """
-        Marks a role with given version as active
-        :param role_name: Name of the role
-        :param version: version of the role
-        :param active: Flag indicating if the role is to marked as active.
-        """
-        if not active.lower() == 'true':
-            raise RoleInactiveNotAllowed("Role %s version %s"\
-                                         % (role_name, version))
-
-        log.debug('Marking role %s with version %s as active',
-                  role_name, version)
-        self.db_handler.mark_role_active(role_name, version)
 
     def create_role(self, role_info):
         """
@@ -1594,16 +1580,6 @@ class ResMgrPf9Provider(ResMgrProvider):
         :rtype: dict
         """
         return self.roles_mgr.get_role_with_version(role_name, version)
-
-    def mark_role_version_active(self, role_name, version, active):
-        """
-        Marks a role with given version as active
-        :param role_name: Name of the role
-        :param version: version of the role
-        :param active: Flag indicating if the role is to marked as active.
-        """
-        return self.roles_mgr.mark_role_version_active(role_name, version,
-                                                       active)
 
     def create_role(self, role_info):
         """

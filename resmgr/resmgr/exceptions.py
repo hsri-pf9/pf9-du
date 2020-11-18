@@ -97,8 +97,3 @@ class RoleVersionExists(ResMgrException):
     def __init__(self, reason):
         super(RoleVersionExists, self).__init__(
             'Duplicate role: %s' % reason)
-
-class RoleInactiveNotAllowed(ResMgrException):
-    def __init__(self, reason):
-        super(RoleInactiveNotAllowed, self).__init__(
-            'Marking role inactive not allowed: %s' % reason)
