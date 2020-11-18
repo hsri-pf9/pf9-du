@@ -777,26 +777,34 @@ class ResMgrDB(object):
         customizable_settings = self._validate_role_config(
                                     details['customizable_settings'])
 
+        active_flag = details.get('active', False)
+
         new_role = Role(id=role_id,
                         rolename=name,
                         version=version,
                         displayname=details['display_name'],
                         description=details['description'],
                         desiredconfig=desiredconfig,
-                        active=True,
+                        active=active_flag,
                         customizable_settings=customizable_settings,
                         rabbit_permissions=details['rabbit_permissions'])
 
         with self.dbsession() as session:
             try:
                 result = session.query(Role).filter_by(rolename=name).all()
-                if result:
-                    # There are potentially other versions of the role in the DB
+                if result and active_flag:
+                    # There are potentially other versions of the role in the DB.
+                    # Also, since the incoming role has active flag set to True,
+                    # mark all other versions as inactive.
                     for role in result:
                         if role.version != version:
                             # Role in DB which is not in the metadata file now,
                             # tag such as inactive.
                             role.active = False
+                if not result:
+                    # Existing roles are not present. The incoming version
+                    # will be marked as active by default.
+                    new_role.active = True
                 # It is a new role which doesn't exist in the DB or
                 # It is a role in the DB but is same as that of the version
                 # to be considered active
