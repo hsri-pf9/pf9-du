@@ -800,7 +800,13 @@ class ResMgrDB(object):
         customizable_settings = self._validate_role_config(
                                     details['customizable_settings'])
 
-        active_flag = details.get('active', False)
+        # TODO : Enable this logic when the code to push the largest
+        # role is implemented.
+        #active_flag = details.get('active', False)
+
+        # TODO: Remove this when the code to push the largest
+        # role is implemented.
+        active_flag = True
 
         new_role = Role(id=role_id,
                         rolename=name,
