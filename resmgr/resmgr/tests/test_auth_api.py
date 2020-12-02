@@ -58,7 +58,7 @@ class TestAuthApi(unittest.TestCase) :
     def tearDown(self):
         set_config({}, overwrite = True)
 
-    def mock_keystone(self, token_id, status, response_dict) :
+    def mock_keystone(self, token_id, status, response_dict, response_headers=None) :
         """
         Setup the keystone mock. Must be called under an httpretty.activate
         decorator
@@ -75,10 +75,18 @@ class TestAuthApi(unittest.TestCase) :
                                body = json.dumps(response_dict),
                                content_type="application/json")
 
+        httpretty.register_uri(httpretty.POST,
+                               "http://127.0.0.1:5000/v3/auth/tokens",
+                               status = status,
+                               body = json.dumps(response_dict),
+                               adding_headers = response_headers, 
+                               content_type="application/json")
+
+
     @httpretty.activate
     def test_roles_get(self) :
         # non-admin auth
-        self.mock_keystone(self.user_token, 200, self.user_response)
+        self.mock_keystone(self.user_token, 200, self.user_response, {'X-Subject-Token': self.user_token})
         response = self.app.get('/v1/roles', {}, {'X-Auth-Token': self.user_token})
         self.assertEqual(200, response.status_code)
         body = json.loads(response.text)
@@ -93,7 +101,7 @@ class TestAuthApi(unittest.TestCase) :
     @httpretty.activate
     def test_host_get(self) :
         # non-admin auth
-        self.mock_keystone(self.user_token, 200, self.user_response)
+        self.mock_keystone(self.user_token, 200, self.user_response, {'X-Subject-Token': self.user_token})
         response = self.app.get('/v1/hosts', {}, {'X-Auth-Token': self.user_token})
         self.assertEqual(200, response.status_code)
         body = json.loads(response.text)
@@ -110,7 +118,7 @@ class TestAuthApi(unittest.TestCase) :
     def test_roles_put_then_delete(self) :
         # PUT
         # non-admin auth
-        self.mock_keystone(self.user_token, 200, self.user_response)
+        self.mock_keystone(self.user_token, 200, self.user_response, {'X-Subject-Token': self.user_token})
         response = self.app.put('/v1/hosts/rsc_1/roles/pf9-ostackhost', {},
                 {'X-Auth-Token': self.user_token}, expect_errors = True)
         self.assertEqual(403, response.status_code)
@@ -122,7 +130,7 @@ class TestAuthApi(unittest.TestCase) :
         self.assertEqual(401, response.status_code)
 
         # admin auth
-        self.mock_keystone(self.admin_token, 200, self.admin_response)
+        self.mock_keystone(self.admin_token, 200, self.admin_response, {'X-Subject-Token': self.admin_token})
         response = self.app.put('/v1/hosts/rsc_1/roles/pf9-ostackhost', {},
                 {'X-Auth-Token': self.admin_token})
         self.assertEqual(200, response.status_code)

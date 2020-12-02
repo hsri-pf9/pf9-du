@@ -3,7 +3,36 @@
         "audit_ids": [
             "ky-NPtbCS6Kas5QzKP8lqg"
         ],
-        "catalog": [],
+        "catalog": [
+            {
+                "endpoints": [
+                    {
+                        "id": "068d1b359ee84b438266cb736d81de97",
+                        "interface": "public",
+                        "region": "RegionOne",
+                        "region_id": "RegionOne",
+                        "url": "http://127.0.0.1:5000/v3"
+                    },
+                    {
+                        "id": "8bfc846841ab441ca38471be6d164ced",
+                        "interface": "admin",
+                        "region": "RegionOne",
+                        "region_id": "RegionOne",
+                        "url": "http://127.0.0.1:5000/v3"
+                    },
+                    {
+                        "id": "beb6d358c3654b4bada04d4663b640b9",
+                        "interface": "internal",
+                        "region": "RegionOne",
+                        "region_id": "RegionOne",
+                        "url": "http://127.0.0.1:5000/v3"
+                    }
+                ],
+                "type": "identity",
+                "id": "050726f278654128aba89757ae25950c",
+                "name": "keystone"
+            }
+        ],
         "expires_at": "2016-12-20T22:51:23.000000Z",
         "issued_at": "2016-12-19T22:51:23.000000Z",
         "methods": [
