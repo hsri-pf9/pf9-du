@@ -75,7 +75,7 @@ function _print_not_supported()
     echo "You can add the '--skip-os-check' option to the installer"
     echo "if you really want to proceed with the installation."
     echo
-    echo "Please let us know at support@platform9.com"
+    echo "Please let us know at ideas.platform9.com"
     echo
 
     if [[ "${TTY_AVAILABLE}" == "false" ]]; then

@@ -12,7 +12,7 @@ function support_generate_bundle()
 
     mv ${SUPPORT_BUNDLE} /tmp
     echo
-    echo "Please email us at support@platform9.com with a copy of the installation's output and /tmp/${SUPPORT_BUNDLE} as an attachment"
+    echo "Please reach us at https://community.platform9.com/ with the error you encountered. Logs related to the install are archived at /tmp/${SUPPORT_BUNDLE}."
     echo
 }
 
