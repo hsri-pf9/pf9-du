@@ -13,17 +13,27 @@ def clean_packages(log):
     try:
         config.read(HOSTID_CONF)
         host_id = config.get('hostagent','host_id')
-        desired_apps = os.path.join('/var/opt/pf9/hostagent', host_id, 'desired_apps.json')
     except Exception:
         log.exception("Error parsing host id from {0}. Skipping cleanup and continuing to start hostagent.".format(HOSTID_CONF))
+        return
+    desired_apps = os.path.join('/var/opt/pf9/hostagent', host_id, 'desired_apps.json')
     if not (os.path.isfile(desired_apps) and os.path.isdir('/var/cache/pf9apps')):
         return
+    json_file = None
     try:
         json_file = open(desired_apps)
-        data = json.load(json_file)
     except Exception:
         log.exception("Error reading contents from {0}. Skipping cleanup and continuing to start hostagent.".format(desired_apps))
-    json_file.close()
+        return
+    try:
+        data = json.load(json_file)
+    except Exception:
+        log.exception("Error loading file {0}. Skipping cleanup and continuing to start hostagent.".format(desired_apps))
+        return
+    finally:
+        json_file.close()
+    if not os.listdir('/var/cache/pf9apps'):
+        return
     for package in data:
         if package not in os.listdir('/var/cache/pf9apps'):
             continue
@@ -37,4 +47,4 @@ def clean_packages(log):
                 log.info('Deleting package {0} version {1}'.format(package, dir))
                 shutil.rmtree(dir_to_delete)
             except Exception:
-                log.exception("Error removing the cached package file. Skipping cleanup and continuing to start hostagent.")
+               log.exception("Error removing the cached package file. Skipping cleanup of %s" % dir_to_delete) 
