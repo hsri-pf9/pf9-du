@@ -38,7 +38,8 @@ def clean_packages(log):
             continue
         version = data[package]['version']
         pkg_cache_dir = os.path.join('/var/cache/pf9apps', package)
-        for dir in packages:
+        package_versions = os.listdir(pkg_cache_dir)
+        for dir in package_versions:
             if version == dir:
                 continue
             dir_to_delete = os.path.join(pkg_cache_dir, dir)
