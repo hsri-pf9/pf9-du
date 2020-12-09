@@ -32,13 +32,14 @@ def clean_packages(log):
         return
     finally:
         json_file.close()
-    packages = os.listdir('/var/cache/pf9apps')
+    if not os.listdir('/var/cache/pf9apps'):
+        return
     for package in data:
-        if package not in packages:
+        if package not in os.listdir('/var/cache/pf9apps'):
             continue
         version = data[package]['version']
         pkg_cache_dir = os.path.join('/var/cache/pf9apps', package)
-        for dir in packages:
+        for dir in os.listdir(pkg_cache_dir):
             if version == dir:
                 continue
             dir_to_delete = os.path.join(pkg_cache_dir, dir)
