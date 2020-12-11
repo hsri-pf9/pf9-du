@@ -21,7 +21,7 @@ def get_disk_usage():
 def get_cpu_usage():
     cpu_info = cpuinfo.get_cpu_info()
     cpu_percent = psutil.cpu_percent(0.5)
-    clock_rate = cpu_info['hz_actual_raw'][0]
+    clock_rate = cpu_info['hz_actual'][0]
     return {
         'percent': cpu_percent,
         'total': clock_rate,
