@@ -197,7 +197,7 @@ class BBoneIntegrationTest(unittest.TestCase):
                 print ('Connection refused, retrying ...')
             time.sleep(self.wait_period)
             elapsed += self.wait_period
-        raise Exception('Timeout waiting for: %s' % repr(callback))
+        raise Exception('Timeout waiting for: {}'.format(callback))
 
     def _host_id(self, i):
         """
@@ -246,8 +246,8 @@ class BBoneIntegrationTest(unittest.TestCase):
         self._wait_until(self._verify_subset, 1, test_data_1)
 
         # Uninstall everything
-        self._deploy_to_subset(0, {})
-        self._wait_until(self._verify_subset, 0, {})
-        self._deploy_to_subset(1, {})
-        self._wait_until(self._verify_subset, 1, {})
+        #self._deploy_to_subset(0, {})
+        #self._wait_until(self._verify_subset, 0, {})
+        #self._deploy_to_subset(1, {})
+        #self._wait_until(self._verify_subset, 1, {})
 

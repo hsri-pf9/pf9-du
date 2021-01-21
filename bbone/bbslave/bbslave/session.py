@@ -358,7 +358,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
             'data': {
                 'host_id': _host_id,
                 'status': status,
-                'info': get_sysinfo(),
+                'info': get_sysinfo(log),
                 'hypervisor_info': hypervisor_info(),
                 'apps': config,
                 'host_agent': _hostagent_info,
@@ -480,7 +480,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
             'opcode': 'support',
             'data': {
                 'host_id': _host_id,
-                'info': get_sysinfo(),
+                'info': get_sysinfo(log),
                 'upload': upload,
                 'label': label,
             }
@@ -537,7 +537,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
             'opcode': 'support_command_response',
             'data': {
                 'host_id': _host_id,
-                'info': get_sysinfo(),
+                'info': get_sysinfo(log),
                 'command': command,
             }
         }

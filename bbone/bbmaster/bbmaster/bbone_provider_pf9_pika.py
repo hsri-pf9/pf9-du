@@ -187,8 +187,10 @@ class bbone_provider_pf9(bbone_provider_memory):
             with self.lock:
                 self.hosts[id] = host_state
                 super(bbone_provider_pf9, self).set_host_agent_config(id, host_agent_state)
-                desired_apps = self.desired_apps.get(id)
-            self._converge_host_if_necessary(host_state, desired_apps)
+                #desired_apps = self.desired_apps.get(id)
+            # Don't try to converge host at this point, resmgr would try to
+            # converge hosts as necessary
+            #self._converge_host_if_necessary(host_state, desired_apps)
 
         def handle_support_bundle(msg):
             """
