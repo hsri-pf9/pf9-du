@@ -8,12 +8,6 @@ import uuid
 import os
 import re
 import socket
-import subprocess
-import cpuinfo
-import psutil
-import sys
-import logging
-import time
 
 _dist_res = (re.compile("(?:DISTRIB_ID\s*=)\s*(.*)", re.I),
              re.compile("(?:DISTRIB_RELEASE\s*=)\s*(.*)", re.I),
@@ -45,8 +39,7 @@ def get_sysinfo():
         'hostname': socket.getfqdn(),
         'os_info': _get_os_info(),
         'arch': platform.machine(),
-        'os_family': platform.system(),
-        'cpu_info': get_cpu_info()
+        'os_family': platform.system()
     }
 
 
@@ -78,71 +71,3 @@ def get_host_id(base_dir='/etc/pf9'):
         with open(host_id_file, 'w') as fp:
             cfg.write(fp)
     return host_id
-
-def get_cpu_info():
-    """
-    Returns a dictionary describing cpu info.
-    :rtype: dict
-    """
-    log = logging.getLogger(__name__)
-    log_format = logging.Formatter('%(asctime)s - %(filename)s'
-                                       ' %(levelname)s - %(message)s')
-    log_format.converter = time.gmtime
-    log_handler = logging.StreamHandler()
-    log_handler.setFormatter(log_format)
-    log.addHandler(log_handler)
-
-    cpu_sockets = 0
-    try:
-        cpu_sockets = int(subprocess.check_output('grep "physical id" /proc/cpuinfo | sort -u | wc -l', shell=True))
-    except Exception:
-        log.exception('Could not parse out socket information from /proc/cpuinfo, defaulting to 0')
-
-    cpu_cores = psutil.cpu_count(logical=False)
-    cpu_threads_per_core = psutil.cpu_count() / cpu_cores
-    cpu_total_threads = psutil.cpu_count()
-    cpu_threads = {'total': cpu_total_threads, 'per_core': cpu_threads_per_core}
-    cpu_info = cpuinfo.get_cpu_info()
-    cpu_raw_capacity = float(cpu_info['hz_actual_friendly'][:-4])
-    if cpu_sockets:
-        capacity_per_socket = str(cpu_raw_capacity/cpu_sockets) + ' Ghz'
-    else:
-        capacity_per_socket = 'N/A'
-    cpu_capacity = {
-            'total': cpu_info['hz_actual_friendly'],
-            'per_socket': capacity_per_socket,
-            'per_core': str(cpu_raw_capacity/cpu_cores) + ' Ghz',
-            'per_thread': str(cpu_raw_capacity/cpu_total_threads) + ' Ghz'
-            }
-    cpu_arch = cpu_info['arch']
-    cpu_vendor = cpu_info['vendor_id_raw']
-    cpu_model = {'model_id': cpu_info['model'], 'model_name': cpu_info['brand_raw']}
-    cpu_features = cpu_info['flags']
-    
-    virtual_or_physical = 'unknown'
-    try:
-        virtual_check = subprocess.run('grep hypervisor /proc/cpuinfo', shell=True, stdout=subprocess.DEVNULL)
-        virtual_or_physical = 'physical'
-        if not virtual_check.returncode:
-            virtual_or_physical = 'virtual'
-    except Exception:
-        log.exception('Could not parse out virtual/physical info from /proc/cpuinfo, defaulting to "unknown"')
-
-    try:
-        vmware_tools_check = subprocess.run('command -v vmware-toolbox-cmd', shell=True, stdout=subprocess.DEVNULL)
-        if not vmware_tools_check.returncode:
-            virtual_or_physical += ' (VMware)'
-    except Exception:
-        log.exception('Could not determine VMware Tools precense, defaulting to absent')
-
-    return {
-            'cpu_sockets': cpu_sockets,
-            'cpu_cores': cpu_cores,
-            'cpu_threads': cpu_threads,
-            'cpu_capacity': cpu_capacity,
-            'cpu_arch': cpu_arch,
-            'cpu_vendor': cpu_vendor,
-            'cpu_model': cpu_model,
-            'cpu_features': cpu_features,
-            'virtual/physical': virtual_or_physical
-    }

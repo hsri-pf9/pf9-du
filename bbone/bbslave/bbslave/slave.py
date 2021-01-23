@@ -18,7 +18,6 @@ from bbcommon.utils import get_ssl_options
 import threading
 from bbslave.cert_update_thread import cert_update_thread
 from bbslave.package_cleaner import clean_packages
-from bbslave.sysinfo import get_cpu_info
 
 def reconnect_loop(config):
     """
@@ -70,8 +69,6 @@ def reconnect_loop(config):
     # Clean up old packages
     if config.has_option('hostagent', 'skip_pf9app_cache_cleanup') == False or config.get('hostagent', 'skip_pf9app_cache_cleanup') == False:
         clean_packages(log)
-    # Log cpu info
-    log.info('Cpu info: %s' % get_cpu_info())
     # Start the cert update thread.
     cert_thread = threading.Thread(
             name='Cert-Update-Thread',
