@@ -22,7 +22,6 @@ AutoReqProv:    no
 
 Provides:       pf9-hostagent
 Provides:       pf9-bbslave
-Requires:       python-setuptools
 Requires:       sudo
 Requires:       procps-ng
 
@@ -53,6 +52,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0440, root, root) /etc/sudoers.d/pf9-hostagent
 %attr(0550, root, root) /opt/pf9/hostagent/bin/pf9-yum
 %attr(0550, root, root) /opt/pf9/hostagent/bin/openport.py
+%attr(0550, root, root) /opt/pf9/hostagent/bin/jq
 %attr(0550, root, root) /opt/pf9/hostagent/pf9-hostagent-prestart.sh
 %dir /var/opt/pf9
 %config /etc/pf9/hostagent.conf

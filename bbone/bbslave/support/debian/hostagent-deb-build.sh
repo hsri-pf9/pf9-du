@@ -39,11 +39,10 @@ sed -i -e "s/CHANGE_TO_YOUR_DU_IS_CONTAINER_FLAG/$DU_IS_CONTAINER/" $TARBALL_EXP
 sed -i -e "s/CHANGE_TO_YOUR_CERT_VERSION/$CERT_VERSION/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 
 fpm -t deb -s dir --provides "pf9-hostagent" --provides "pf9-bbslave" -d "sudo" -d "procps" \
-        -d "python-setuptools" -d "iptables-persistent" -d "python-apt" --after-install $SPEC_FILE_DIR/after-install.sh \
+        -d "iptables-persistent" -d "python-apt" --after-install $SPEC_FILE_DIR/after-install.sh \
         --after-remove $SPEC_FILE_DIR/after-remove.sh --before-remove $SPEC_FILE_DIR/before-remove.sh \
         --before-install $SPEC_FILE_DIR/before-install.sh \
         --license "Commercial" --architecture all --url "http://www.platform9.net" --vendor Platform9 \
         --config-files /etc/pf9/hostagent.conf \
         -v $VERSION-$RELEASE -p $DEB_FILE -n pf9-hostagent --description "Platform9 host agent" \
         --force -C $TARBALL_EXPANDED_LOCATION .
-

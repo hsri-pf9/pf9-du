@@ -16,6 +16,7 @@ change_file_permissions() {
     chmod 0440 /etc/sudoers.d/pf9-hostagent
     chmod 0550 /opt/pf9/hostagent/bin/pf9-apt
     chmod 0550 /opt/pf9/hostagent/bin/openport.py
+    chmod 0550 /opt/pf9/hostagent/bin/jq
     chmod 0550 /opt/pf9/hostagent/pf9-hostagent-prestart.sh
 }
 

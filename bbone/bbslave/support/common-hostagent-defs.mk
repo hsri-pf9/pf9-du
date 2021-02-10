@@ -67,6 +67,7 @@ $(VENV_DIR): $(PYTHON_DIR)
 	cp $(SRC_DIR)/bin/host-certs* $(VENV_DIR)/bin/
 	cp $(SRC_DIR)/scripts/run_support_scripts.sh $(VENV_DIR)/bin
 	cp $(SRC_DIR)/scripts/openport.py $(VENV_DIR)/bin
+	curl -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -o $(VENV_DIR)/bin/jq
 	cp $(SRC_DIR)/service_scripts/pf9-service-functions.sh $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/
 	# Create a symlink so that the program names of the hostagent and the
 	# init script are different. This will allow the start-stop-daemon to
@@ -77,4 +78,3 @@ $(VENV_DIR): $(PYTHON_DIR)
 	cp $(SRC_DIR)/support_scripts/common/* $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/support
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/extensions
 	cp $(SRC_DIR)/extensions/* $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/hostagent/extensions
-

@@ -3,7 +3,7 @@
 
 function ntpd_ask()
 {
-    echo "Platform9 recommends using NTPD to keep the time in sync."
+    echo "Platform9 recommends using NTP to keep the time in sync."
     read -p "Do you want to install and configure this now (yes/no)? " yn
     case $yn in
         [Yy]* ) install_ntpd; return 0;;
@@ -14,6 +14,6 @@ function ntpd_ask()
 
 function print_ntpd_warning()
 {
-    echo "Warning: Skipping installation of NTPD"
+    echo "Warning: Skipping installation of NTP"
     echo "Please ensure the time on this host is correct"
 }

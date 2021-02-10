@@ -9,7 +9,7 @@ EXT="deb"
 function distro_install()
 {
     echo "Installing Debian packages"
-    DEBIAN_FRONTEND=noninteractive apt-get install -y python-setuptools python-apt iptables-persistent procps
+    DEBIAN_FRONTEND=noninteractive apt-get install -y python-apt iptables-persistent procps
     if [[ $? != "0" ]]; then
         echo "pf9-hostagent dependencies installation failed"
         return 1

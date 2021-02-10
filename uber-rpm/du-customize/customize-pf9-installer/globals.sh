@@ -26,6 +26,7 @@ PF9_COMMS_PROXY_CONF="/etc/pf9/comms_proxy_cfg.json"
 PF9_HOSTAGENT_ENV_FILE="/opt/pf9/hostagent/pf9-hostagent.env"
 HOSTAGENT_DIR="/var/opt/pf9/hostagent"
 DESIRED_APPS="desired_apps.json"
+JQ="/opt/pf9/hostagent/bin/jq"
 
 # if installation fails, we write some
 # system information here

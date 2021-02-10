@@ -33,8 +33,10 @@ function usage()
     echo "                                                           | <protocol> defaults to http. <username> and <password> are optional."
     echo "--no-project                                               | Do not ask project name"
     echo "--no-proxy                                                 | Do not ask proxy configuration."
-    echo "--ntpd                                                     | Install ntpd."
-    echo "--no-ntpd                                                  | Do not install ntpd."
+    echo "--ntp                                                      | Install NTP service."
+    echo "--ntpd                                                     | Install NTP service. Same as --ntp option."
+    echo "--no-ntp                                                   | Do not install NTP service."
+    echo "--no-ntpd                                                  | Do not install NTP service. Same as --no-ntp option"
     echo "--extract                                                  | Extract installation files to /tmp/pf9-install-XXXXX and exit."
     echo "--preserve                                                 | Don't delete temporary installation files after installer finishes."
     echo "--skip-os-check                                            | Do not ask operating system compatibility questions."
@@ -93,11 +95,11 @@ while getopts ":h-:" optchar; do
                     trap - EXIT
                     echo "Files extracted at: ${TMPDIR}"
                     ;;
-                ntpd)
+                ntpd|ntp)
                     ASK_NTPD="false"
                     INSTALL_NTPD="true"
                     ;;
-                no-ntpd)
+                no-ntpd|no-ntp)
                     ASK_NTPD="false"
                     INSTALL_NTPD="false"
                     ;;
@@ -225,9 +227,8 @@ function check_services_running()
         wait_file_exists 90 $desired_apps
         check_exit_code_and_generate_support_bundle $?
 
-        local comms_state=`python ${JSON_TOOL} --query pf9-comms.running ${desired_apps}`
-        # python returns boolean values capitalized
-        if [[ "${comms_state}" != "True" ]]; then
+        local comms_state=`${JQ} '."pf9-comms".running' ${desired_apps}`
+        if [[ "${comms_state}" != "true" ]]; then
             echo
             echo "pf9-comms is not in the running state"
             support_generate_bundle
