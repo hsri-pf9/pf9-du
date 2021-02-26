@@ -9,7 +9,7 @@ presubmits:
     - ^atherton$
     - ^private(\/)atherton(\/).+
     decorate: false
-    always_run: false
+    always_run: true
     skip_report: false
     max_concurrency: 5
     spec:
