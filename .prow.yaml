@@ -1,0 +1,43 @@
+presubmits:
+  platform9/pf9-du:
+  - name: automerge
+    labels:                      # check presets section. Use it to inject common settings to job pods
+      teamcity-build: "true"     # adds teamcity related presets
+      pf9-du-build: "true"    # adds DU build related presets
+      automerge-build: "true"    # adds automerge build specific presets
+    branches:
+    - ^atherton$
+    - ^private(\/)atherton(\/).+
+    decorate: false
+    always_run: false
+    skip_report: false
+    max_concurrency: 5
+    spec:
+      containers:
+      - image: "514845858982.dkr.ecr.us-west-1.amazonaws.com/prow-infra/prowctl:1.0.11"
+        command: ["/run_tests.sh"]
+        env:
+        - name: TESTNAME
+          value: automerge
+      imagePullSecrets:
+      - name: ecr-token
+  - name: integration
+    labels:                      # check presets section. Use it to inject common settings to job pods
+      teamcity-build: "true"     # adds teamcity related presets
+      pf9-du-build: "true"    # adds DU build related presets
+    branches:
+    - ^atherton$
+    - ^private(\/)atherton(\/).+
+    decorate: false
+    always_run: false
+    skip_report: true # skip reporting, just run tests
+    max_concurrency: 5
+    spec:
+      containers:
+      - image: "514845858982.dkr.ecr.us-west-1.amazonaws.com/prow-infra/prowctl:1.0.11"
+        command: ["/run_tests.sh"]
+        env:
+        - name: TESTNAME
+          value: automerge
+      imagePullSecrets:
+      - name: ecr-token
