@@ -38,7 +38,7 @@ sed -i -e "s/CHANGE_TO_YOUR_AMQP_PASS/$AMQP_PASS/" $TARBALL_EXPANDED_LOCATION/et
 sed -i -e "s/CHANGE_TO_YOUR_DU_IS_CONTAINER_FLAG/$DU_IS_CONTAINER/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 sed -i -e "s/CHANGE_TO_YOUR_CERT_VERSION/$CERT_VERSION/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 
-fpm -t deb -s dir --provides "pf9-hostagent" --provides "pf9-bbslave" -d "sudo" -d "procps" \
+fpm -t deb -s dir --provides "pf9-hostagent" --provides "pf9-bbslave" -d "sudo | sudo-ldap" -d "procps" \
         -d "iptables-persistent" -d "python-apt" --after-install $SPEC_FILE_DIR/after-install.sh \
         --after-remove $SPEC_FILE_DIR/after-remove.sh --before-remove $SPEC_FILE_DIR/before-remove.sh \
         --before-install $SPEC_FILE_DIR/before-install.sh \
