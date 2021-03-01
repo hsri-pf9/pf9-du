@@ -1,5 +1,4 @@
 presubmits:
-  platform9/pf9-du:
   - name: automerge
     labels:                      # check presets section. Use it to inject common settings to job pods
       teamcity-build: "true"     # adds teamcity related presets
