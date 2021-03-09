@@ -6,7 +6,7 @@ LABEL com.platform9.image-type=du
 RUN yum install -y mysql-devel python-devel libffi-devel gcc
 
 # install python code and supervisord
-RUN curl https://bootstrap.pypa.io/2.7/get-pip.py |python -
+RUN curl https://bootstrap.pypa.io/pip/2.7/get-pip.py |python -
 COPY bblib-sdist.tgz \
      bbmaster-sdist.tgz \
      configutils-sdist.tgz \
