@@ -23,7 +23,7 @@ ${BUILD_DIR}:
 
 ${TEST_VENV}: ${BUILD_DIR}
 	virtualenv -p python3 ${TEST_VENV}
-	${TEST_VENV}/bin/pip install setuptools==33.1.1
+	${TEST_VENV}/bin/pip install --upgrade pip setuptools
 	${TEST_VENV}/bin/pip install cryptography==2.8
 
 pre-reqs : ${TEST_VENV}

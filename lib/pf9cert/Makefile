@@ -22,6 +22,8 @@ ${TEST_VENV}: ${BUILD_DIR}
 
 pre-reqs : ${TEST_VENV}
 	cd ${SRC_DIR} && \
+	source ${TEST_VENV}/bin/activate && \
+	pip install --upgrade pip setuptools && \
 	${TEST_VENV_DEVELOP_CMD}
 
 unit-test-setup: pre-reqs

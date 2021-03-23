@@ -57,7 +57,7 @@ ${BUILD_DIR}:
 ${VENV}: ${BUILD_DIR}
 	mkdir -p $@
 	$(SRC_ROOT)/build-venv.sh ${VENV} ${PY_VERSION}
-	${VENV}/bin/pip install setuptools==33.1.1
+	${VENV}/bin/pip install --upgrade pip setuptools
 	${VENV}/bin/pip install six==1.12.0
 
 ${BBMASTER_SRC_STAGE}: pre-reqs

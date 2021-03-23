@@ -97,6 +97,8 @@ ${TEST_VENV}: ${BUILD_DIR}
 	$(SRC_ROOT)/build-venv.sh ${TEST_VENV} ${PY_VERSION}
 
 pre-reqs : ${TEST_VENV}
+	source ${TEST_VENV}/bin/activate && \
+	pip install --upgrade pip setuptools && \
 	for pkg in ${TEST_SETUP_DEPS}; do \
 		cd $${pkg} && \
 		${TEST_VENV_DEVELOP_CMD};\

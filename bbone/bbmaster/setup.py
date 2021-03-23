@@ -19,8 +19,7 @@ setup(
         "cryptography==1.5",
         "webob==1.7.4",
         "MarkupSafe==1.1.1",
-        "boto3==1.13.19",
-        "python-dateutil==2.7.3"
+        "boto3==1.17.34"
     ],
     test_suite='bbmaster',
     zip_safe=False,

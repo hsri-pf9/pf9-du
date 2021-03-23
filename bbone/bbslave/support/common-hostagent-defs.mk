@@ -26,8 +26,7 @@ VENV_INSTALL_CMD = $(VENV_DIR)/bin/python setup.py install
 PF9APP_DIR := $(SRC_ROOT)/bbone/pf9app
 BBLIBCOMMON_DIR := $(SRC_ROOT)/bbone/lib
 CONFIGUTILS_DIR := $(SRC_ROOT)/lib/configutils
-HOSTAGENT_DEPS = setuptools==33.1.1 \
-                 six==1.12.0 \
+HOSTAGENT_DEPS = six==1.12.0 \
                  $(CONFIGUTILS_DIR) \
                  $(PF9APP_DIR) \
                  $(BBLIBCOMMON_DIR) \
@@ -55,7 +54,7 @@ $(VENV_DIR): $(PYTHON_DIR)
 	cd $@ && \
 	virtualenv -p ../python/bin/python $@ && \
 	curl https://bootstrap.pypa.io/get-pip.py |$(VENV_DIR)/bin/python - && \
-	$(VENV_DIR)/bin/pip install setuptools==33.1.1 && \
+	$(VENV_DIR)/bin/pip install --upgrade pip setuptools && \
 	$(VENV_DIR)/bin/pip list && \
 	$(VENV_DIR)/bin/pip install cryptography==2.8 && \
 	$(VENV_DIR)/bin/pip install --global-option=build_ext \
