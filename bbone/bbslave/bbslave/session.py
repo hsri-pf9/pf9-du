@@ -154,12 +154,13 @@ def _run_command(command, log, run_env=environ):
     :rtype: tuple
     """
     try:
-        out = subprocess.check_output(shlex.split(command), env=run_env)
+        out = subprocess.check_output(shlex.split(command),
+                stderr=subprocess.STDOUT, env=run_env)
         # Command was successful, return code must be 0 with relevant output
         return 0, out
     except subprocess.CalledProcessError as e:
         log.error('%s command failed: %s', command, e)
-        return e.returncode, e.output
+        return e.returncode, b'{"err_msg" : "' + e.output + b'"}'
 
 def start(config, log, app_db, agent_app_db, app_cache,
           remote_app_class, agent_app_class,
@@ -319,7 +320,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
                         if output == b'':
                             data = ""
                         else:
-                            data = json.loads(output.decode())
+                            data = json.loads(output.decode(), strict=False)
+
                         ext_result = {
                             'status': 'error',
                             'data': data
