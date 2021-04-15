@@ -3,12 +3,36 @@
 
 source $(dirname $0)/globals.sh
 
+# Exponential delay retry method. Useful for network related
+function retry {
+  local retries=$1
+  shift
+
+  local count=0
+  until "$@"; do
+    exit=$?
+    wait=$((2 ** $count))
+    count=$(($count + 1))
+    if [ $count -lt $retries ]; then
+      echo "Retry $count/$retries exited $exit, retrying in $wait seconds..."
+      sleep $wait
+    else
+      echo "Retry $count/$retries exited $exit, no more retries left."
+      return $exit
+    fi
+  done
+  return 0
+}
+
 function check_network()
 {
+    echo "Checking network connectivity ..."
     if [[ "${PROXY_HOST}" == "" ]]; then
-        ./nettool connect --host=${DU_FQDN} --port=443
+        # Retry for roughly 4 mins
+        retry 8 ./nettool connect --host=${DU_FQDN} --port=443
     else
-        ./nettool connect --proxy-host=${PROXY_HOST} --proxy-port=${PROXY_PORT} \
+        # Retry for roughly 4 mins
+        retry 8 ./nettool connect --proxy-host=${PROXY_HOST} --proxy-port=${PROXY_PORT} \
                           --host=${DU_FQDN} --port=443 --proxy-protocol=${PROXY_PROTOCOL} \
                           --proxy-user=${PROXY_USER} --proxy-pass=${PROXY_PASS}
     fi
