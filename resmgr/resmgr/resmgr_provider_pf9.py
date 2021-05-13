@@ -886,6 +886,7 @@ class HostInventoryMgr(object):
                     result = _unauthorized_hosts[host_id]
                     result['hypervisor_info'] = _hosts_hypervisor_info.get(host_id, '')
                     result['extensions'] = _hosts_extension_data.get(host_id, '')
+                    result['message'] = _hosts_message_data.get(host_id, '')
                     result['cert_info'] = _hosts_cert_data.get(host_id, '')
 
         return result
@@ -905,6 +906,7 @@ class HostInventoryMgr(object):
                 host['role_status'] = _authorized_host_role_status[host_id]
             host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
             host['extensions'] = _hosts_extension_data.get(host['id'], '')
+            host['message'] = _hosts_message_data.get(host['id'], '')
             host['cert_info'] = _hosts_cert_data.get(host['id'], '')
             return host
 
@@ -983,6 +985,10 @@ class BbonePoller(object):
             return
         if msg in message[level]:
             message[level].remove(msg)
+            if len(message[level]) == 0:
+                message.pop(level, None)
+                if len(_hosts_message_data[host_id]) == 0:
+                    _hosts_message_data.pop(host_id, None)
 
     def _get_backbone_host(self, host):
         return call_remote_service('%s/v1/hosts/%s' %
