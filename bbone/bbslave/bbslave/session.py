@@ -154,13 +154,15 @@ def _run_command(command, log, run_env=environ):
     :rtype: tuple
     """
     try:
-        out = subprocess.check_output(shlex.split(command),
-                stderr=subprocess.STDOUT, env=run_env)
+        completed_proc = subprocess.run(shlex.split(command),
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE,
+                                        check=True)
         # Command was successful, return code must be 0 with relevant output
-        return 0, out
+        return completed_proc.returncode, completed_proc.stdout, completed_proc.stderr
     except subprocess.CalledProcessError as e:
         log.error('%s command failed: %s', command, e)
-        return e.returncode, b'{"err_msg" : "' + e.output + b'"}'
+        return e.returncode, b'{"err_msg" : "' + e.output + b'"}', b''
 
 def start(config, log, app_db, agent_app_db, app_cache,
           remote_app_class, agent_app_class,
@@ -298,7 +300,9 @@ def start(config, log, app_db, agent_app_db, app_cache,
                 try:
                     #Timeout after 20s if the extension has failed to finish
                     command = 'timeout 120 ' + fpath
-                    rcode, output = _run_command(command, log)
+                    rcode, output, err = _run_command(command, log)
+                    if err:
+                        log.warn('Extension returned data in stderr : {}'.format(err))
                 except Exception as e:
                     msg = 'Error running extension script: %s' % e
                     log.error(msg)
