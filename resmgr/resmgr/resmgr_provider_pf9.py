@@ -42,6 +42,7 @@ from prometheus_client import Gauge
 
 log = logging.getLogger(__name__)
 
+TIMEDRIFT_CODE = "HOST_TIMEDRIFT_DETECTED"
 TIMEDRIFT_MSG_LEVEL = 'warn'
 TIMEDRIFT_MSG = 'Host clock may be out of sync'
 
@@ -816,8 +817,8 @@ class HostInventoryMgr(object):
                     self.db_handler.get_all_custom_settings(host_id)
             host['hypervisor_info'] = _hosts_hypervisor_info.get(host_id, '')
             host['extensions'] = _hosts_extension_data.get(host_id, '')
-            host['cert_info'] = _hosts_cert_data.get(host_id, '')
             host['message'] = _hosts_message_data.get(host_id, '')
+            host['cert_info'] = _hosts_cert_data.get(host_id, '')
             result[host_id] = host
 
         # Add unauthorized hosts into the result
@@ -964,30 +965,26 @@ class BbonePoller(object):
         time_delta = current_time - status_time
         return time_delta < threshold and -time_delta < threshold
 
-    def _add_host_message(self, host_id, level, msg):
+    def _add_host_message(self, host_id, level, msg, code):
         if host_id not in _hosts_message_data:
             _hosts_message_data[host_id] = {}
         message = _hosts_message_data[host_id]
-
         if level not in message:
             message[level] = []
-        message_list = message[level]
+        else:
+            message[level] = list(filter(lambda item : item['code'] != code, message[level]))
+        message[level].append({'code' : code, 'message' : msg})
 
-        if msg not in message_list:
-            message_list.append(msg)
-
-    def _remove_host_message(self, host_id, level, msg):
+    def _remove_host_message(self, host_id, level, code):
         if host_id not in _hosts_message_data:
             return
         message = _hosts_message_data[host_id]
-
         if level not in message:
             return
-        if msg in message[level]:
-            message[level].remove(msg)
-            if len(message[level]) == 0:
-                message.pop(level, None)
-                if len(_hosts_message_data[host_id]) == 0:
+        message[level] = list(filter(lambda item : item['code'] != code, message[level]))
+        if len(message[level]) == 0:
+            message.pop(level, None)
+            if len(_hosts_message_data[host_id]) == 0:
                     _hosts_message_data.pop(host_id, None)
 
     def _get_backbone_host(self, host):
@@ -1032,7 +1029,7 @@ class BbonePoller(object):
             host_on_du_responding = self._responding_within_threshold(status_time_on_du)
 
             if not host_responding and host_on_du_responding:
-                self._add_host_message(host, TIMEDRIFT_MSG_LEVEL, TIMEDRIFT_MSG)
+                self._add_host_message(host, TIMEDRIFT_MSG_LEVEL, TIMEDRIFT_MSG, TIMEDRIFT_CODE)
             elif not host_responding:
                 continue
 
@@ -1146,13 +1143,13 @@ class BbonePoller(object):
             responding = self._responding_within_threshold(status_time,
                                                            responding_threshold)
             if responding:
-                self._remove_host_message(host, TIMEDRIFT_MSG_LEVEL, TIMEDRIFT_MSG)
+                self._remove_host_message(host, TIMEDRIFT_MSG_LEVEL, TIMEDRIFT_CODE)
                 responding_on_du = True
             else:
                 responding_on_du = self._responding_within_threshold(status_time_on_du,
                                                                      responding_threshold)
                 if responding_on_du:
-                    self._add_host_message(host, TIMEDRIFT_MSG_LEVEL, TIMEDRIFT_MSG)
+                    self._add_host_message(host, TIMEDRIFT_MSG_LEVEL, TIMEDRIFT_MSG, TIMEDRIFT_CODE)
             if host in authorized_hosts:
                 if authorized_hosts[host]['responding'] != (responding or responding_on_du):
                     # If host status is responding and is marked as not
