@@ -7,6 +7,7 @@ Main entry point for backbone slave agent (a.k.a pf9-hostagent)
 
 __author__ = 'leb'
 
+import sys
 from pika.exceptions import AMQPConnectionError
 from bbslave.session import start
 import logging, logging.handlers
@@ -15,10 +16,57 @@ import time
 import datetime
 import errno
 from bbcommon.utils import get_ssl_options
+from bbcommon.customlogger import CustomLogger
 import threading
 from bbslave.cert_update_thread import cert_update_thread
 from bbslave.package_cleaner import clean_packages
 from bbslave.sysinfo import get_cpu_info
+
+"""
+This function sets up the logging for given parameters.
+If is_daemon parameter is True then it redirects the stdout and
+stderr to the logger.
+"""
+def setup_log(is_daemon, log_name, log_file_size, 
+                     log_rotate_count, log_level_name, console_logging):
+    if is_daemon == True:
+        clog = logging.getLogger('STDOUT')
+    else:
+        clog = logging.getLogger('hostagent')
+
+    if not clog.handlers:       
+        custom_logger = CustomLogger(clog, log_rotate_count, log_file_size,
+                                     log_name, console_logging,  log_level_name)
+        if is_daemon == True:
+            sys.stdout = custom_logger
+            sys.stderr = custom_logger
+
+"""
+This function reads the configuration and generates python logger
+by calling setup_log function for hostagent-daemon and hostagent
+"""
+def setup_service_logging(config):
+
+    # Setup logger
+    log = logging.getLogger('hostagent')
+
+    if not log.handlers:
+        log_level_name = config.get('hostagent', 'log_level_name')
+        log_name = ''
+        log_rotate_count = 0
+        log_file_size = 0
+        console_logging = False
+        if config.has_option('hostagent', 'console_logging'):
+            console_logging = True
+        else:
+            log_rotate_count = config.getint('hostagent', 'log_rotate_max_count')
+            log_file_size = config.getint('hostagent', 'log_rotate_max_size')
+            log_name = config.get('hostagent', 'log_file_name')
+            daemon_file_name = "/var/log/pf9/hostagent-daemon.log"
+            setup_log(True, daemon_file_name, log_file_size, log_rotate_count,
+                             log_level_name, False)
+        setup_log(False, log_name, log_file_size, log_rotate_count,
+                             log_level_name, console_logging)
 
 def reconnect_loop(config):
     """
@@ -27,26 +75,8 @@ def reconnect_loop(config):
     """
     retry_period = int(config.get('hostagent', 'connection_retry_period'))
     # Setup logger
+    setup_service_logging(config)
     log = logging.getLogger('hostagent')
-
-    if not log.handlers:
-        log_level_name = config.get('hostagent', 'log_level_name')
-        log_format = logging.Formatter('%(asctime)s - %(filename)s'
-                                       ' %(levelname)s - %(message)s')
-        if config.has_option('hostagent', 'console_logging'):
-            log_handler = logging.StreamHandler()
-        else:
-            log_rotate_count = config.getint('hostagent', 'log_rotate_max_count')
-            log_file_size = config.getint('hostagent', 'log_rotate_max_size')
-            log_name = config.get('hostagent', 'log_file_name')
-            log_handler = logging.handlers.RotatingFileHandler(log_name,
-                                                               maxBytes=log_file_size,
-                                                               backupCount=log_rotate_count)
-        log_format.converter = time.gmtime
-        log_handler.setFormatter(log_format)
-        log.addHandler(log_handler)
-        log.setLevel(getattr(logging, log_level_name))
-
     use_mock = config.has_option('hostagent', 'USE_MOCK')
     if use_mock:
         # dynamically import class from the config file
