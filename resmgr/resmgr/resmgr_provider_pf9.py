@@ -55,6 +55,7 @@ _unauthorized_host_status_time_on_du = {}
 _authorized_host_role_status = {}
 _hosts_hypervisor_info = {}
 _hosts_extension_data = {}
+_hosts_cpuinfo_data = {}
 _hosts_message_data = {}
 _hosts_cert_data = {}
 _host_lock = threading.Lock()
@@ -817,6 +818,8 @@ class HostInventoryMgr(object):
                     self.db_handler.get_all_custom_settings(host_id)
             host['hypervisor_info'] = _hosts_hypervisor_info.get(host_id, '')
             host['extensions'] = _hosts_extension_data.get(host_id, '')
+            host['info']['cpu_info'] = _hosts_cpuinfo_data.get(host_id, '')
+            host['cert_info'] = _hosts_cert_data.get(host_id, '')
             host['message'] = _hosts_message_data.get(host_id, '')
             host['cert_info'] = _hosts_cert_data.get(host_id, '')
             result[host_id] = host
@@ -832,6 +835,7 @@ class HostInventoryMgr(object):
                 host = _unauthorized_hosts[id]
                 host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
                 host['extensions'] = _hosts_extension_data.get(host['id'], '')
+                host['info']['cpu_info'] = _hosts_cpuinfo_data.get(host_id, '')
                 host['cert_info'] = _hosts_cert_data.get(host['id'], '')
                 host['message'] = _hosts_message_data.get(host['id'], '')
                 result[host['id']] = host
@@ -888,6 +892,7 @@ class HostInventoryMgr(object):
                     result['hypervisor_info'] = _hosts_hypervisor_info.get(host_id, '')
                     result['extensions'] = _hosts_extension_data.get(host_id, '')
                     result['message'] = _hosts_message_data.get(host_id, '')
+                    result['info']['cpu_info'] = _hosts_cpuinfo_data.get(host_id, '')
                     result['cert_info'] = _hosts_cert_data.get(host_id, '')
 
         return result
@@ -908,6 +913,7 @@ class HostInventoryMgr(object):
             host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
             host['extensions'] = _hosts_extension_data.get(host['id'], '')
             host['message'] = _hosts_message_data.get(host['id'], '')
+            host['info']['cpu_info'] = _hosts_cpuinfo_data.get(host['id'], '')
             host['cert_info'] = _hosts_cert_data.get(host['id'], '')
             return host
 
@@ -1045,6 +1051,10 @@ class BbonePoller(object):
             _unauthorized_host_status_time_on_du[host] = status_time_on_du
             _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
             _hosts_extension_data[host] = host_info.get('extensions', '')
+            try:
+                _hosts_cpuinfo_data[host] = host_info['info'].get('cpu_info', '')
+            except KeyError:
+                _hosts_cpuinfo_data[host] = ''
             _hosts_cert_data[host] = host_info.get('cert_info', '')
 
 
@@ -1068,6 +1078,7 @@ class BbonePoller(object):
                     _unauthorized_host_status_time_on_du.pop(host, None)
                     _hosts_hypervisor_info.pop(host, None)
                     _hosts_extension_data.pop(host, None)
+                    _hosts_cpuinfo_data.pop(host, None)
                     _hosts_cert_data.pop(host, None)
                     self.notifier.publish_notification('delete', 'host', host)
                     continue
@@ -1133,6 +1144,10 @@ class BbonePoller(object):
                 hostname = None
             _hosts_hypervisor_info[host] = host_info.get('hypervisor_info', '')
             _hosts_extension_data[host] = host_info.get('extensions', '')
+            try:
+                _hosts_cpuinfo_data[host] = host_info['info'].get('cpu_info', '')
+            except KeyError:
+                _hosts_cpuinfo_data[host] = ''
             _hosts_cert_data[host] = host_info.get('cert_info')
 
             host_status = host_info['status']

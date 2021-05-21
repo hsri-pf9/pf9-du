@@ -61,11 +61,93 @@ BBONE_HOST = {
         'arch': 'x86_64',
         'hostname': 'ubuntu12.platform9.sys',
         'os_family': 'Linux',
-        'os_info': 'Ubuntu 12.04 precise'
+        'os_info': 'Ubuntu 12.04 precise',
+        'cpu_info': {
+            'cpu_sockets': 2,
+            'cpu_cores': 2,
+            'cpu_threads': {
+                'total': 2,
+                'per_core': 1
+            },
+            'cpu_capacity': {
+                'total': '2.6000 GHz',
+                'per_socket': '1.3 Ghz',
+                'per_core': '1.3 Ghz',
+                'per_thread': '1.3 Ghz'
+            },
+            'cpu_arch': 'X86_64',
+            'cpu_vendor': 'GenuineIntel',
+            'cpu_model': {
+            'model_id': 42,
+            'model_name': 'Intel Xeon E312xx (Sandy Bridge, IBRS update)'
+            },
+            'cpu_features': [
+            'aes',
+            'apic',
+            'arat',
+            'avx',
+            'clflush',
+            'cmov',
+            'constant_tsc',
+            'cx16',
+            'cx8',
+            'de',
+            'eagerfpu',
+            'ept',
+            'flexpriority',
+            'fpu',
+            'fxsr',
+            'hypervisor',
+            'ibpb',
+            'ibrs',
+            'lahf_lm',
+            'lm',
+            'mca',
+            'mce',
+            'mmx',
+            'msr',
+            'mtrr',
+            'nopl',
+            'nx',
+            'osxsave',
+            'pae',
+            'pat',
+            'pcid',
+            'pclmulqdq',
+            'pge',
+            'pni',
+            'popcnt',
+            'pse',
+            'pse36',
+            'rdtscp',
+            'rep_good',
+            'sep',
+            'spec_ctrl',
+            'sse',
+            'sse2',
+            'sse4_1',
+            'sse4_2',
+            'ssse3',
+            'syscall',
+            'tpr_shadow',
+            'tsc',
+            'tsc_deadline_timer',
+            'tscdeadline',
+            'vme',
+            'vmx',
+            'vnmi',
+            'vpid',
+            'x2apic',
+            'xsave',
+            'xsaveopt',
+            'xtopology'
+            ],
+            'virtual/physical': 'virtual'
+        }
     },
     'status': 'ok',
     'timestamp': '2016-09-08 23:16:40.398866',
-    'timestamp_on_du': '2016-09-08 23:16:40.786359'
+    'timestamp_on_du': '2016-09-08 23:16:40.786359',
 }
 
 MISSING_BBONE_HOST = {
@@ -208,6 +290,7 @@ class TestProvider(DbTestCase):
         resmgr_provider_pf9._authorized_host_role_status = {}
         resmgr_provider_pf9._hosts_hypervisor_info = {}
         resmgr_provider_pf9._hosts_extension_data = {}
+        resmgr_provider_pf9._hosts_cpuinfo_data = {}
         resmgr_provider_pf9._hosts_message_data = {}
         resmgr_provider_pf9._host_lock = threading.Lock()
         resmgr_provider_pf9._role_delete_lock = threading.RLock()
