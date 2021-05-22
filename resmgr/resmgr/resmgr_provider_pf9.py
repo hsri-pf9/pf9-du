@@ -835,7 +835,7 @@ class HostInventoryMgr(object):
                 host = _unauthorized_hosts[id]
                 host['hypervisor_info'] = _hosts_hypervisor_info.get(host['id'], '')
                 host['extensions'] = _hosts_extension_data.get(host['id'], '')
-                host['info']['cpu_info'] = _hosts_cpuinfo_data.get(host_id, '')
+                host['info']['cpu_info'] = _hosts_cpuinfo_data.get(host['id'], '')
                 host['cert_info'] = _hosts_cert_data.get(host['id'], '')
                 host['message'] = _hosts_message_data.get(host['id'], '')
                 result[host['id']] = host
