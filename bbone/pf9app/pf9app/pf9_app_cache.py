@@ -113,7 +113,7 @@ class Pf9AppCache(AppCache):
                     # Flush the buffers to the disk. This is required in a case where the
                     # the system is slow. We ensure that the file is written to the disk before referred.
                     wf.flush()
-                    os.fsync(wf.fileno)
+                    os.fsync(wf.fileno())
         except requests.exceptions.RequestException as e:
             self.log.error("Downloading %s failed: %s", srcurl, e)
             raise DownloadFailed(str(e))
