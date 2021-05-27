@@ -104,11 +104,16 @@ class Pf9AppCache(AppCache):
                     msg = 'Could not determine the size of the file being downloaded.'
                     self.log.error(msg)
                     raise DownloadFailed(msg)
+                self.log.debug("Size (bytes) of content to be written: %s", content_length)
                 with open(tmpdst, "wb") as wf:
                     # Python3: Cannot write bytes without opening the file in wb mode.
                     # Source files (rpms) could be huge,download them in chunks
                     for chunk in response.iter_content(DOWNLOAD_CHUNK_SIZE):
                         wf.write(chunk)
+                    # Flush the buffers to the disk. This is required in a case where the
+                    # the system is slow. We ensure that the file is written to the disk before referred.
+                    wf.flush()
+                    os.fsync(wf.fileno)
         except requests.exceptions.RequestException as e:
             self.log.error("Downloading %s failed: %s", srcurl, e)
             raise DownloadFailed(str(e))
