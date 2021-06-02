@@ -12,7 +12,7 @@ __author__ = 'Platform9'
 """
 This module provides real implementation of Resource Manager provider interface
 """
-
+import copy
 import datetime
 import imp
 import logging
@@ -463,9 +463,12 @@ class RolesMgr(object):
         Filter out the app configuration that is not needed
         by the host.
         """
-        for _, app_spec in iteritems(app_info):
+        out_app_info = copy.deepcopy(app_info)
+        for _, app_spec in iteritems(out_app_info):
             if 'du_config' in app_spec:
                 del app_spec['du_config']
+
+        return out_app_info
 
     def push_configuration(self, host_id, app_info):
         """
@@ -475,11 +478,11 @@ class RolesMgr(object):
         :raises HostConfigFailed: if setting the configuration fails or times out
         :raises BBMasterNotFound: if communication to the backbone fails
         """
-        self._filter_host_configuration(app_info)
-        log.info('Applying configuration %s to %s', app_info, host_id)
+        filtered_app_info = self._filter_host_configuration(app_info)
+        log.info('Applying configuration %s to %s', filtered_app_info, host_id)
         url = "%s/v1/hosts/%s/apps" % (self.bb_url, host_id)
         try:
-            r = requests.put(url, json.dumps(app_info))
+            r = requests.put(url, json.dumps(filtered_app_info))
 
             if r.status_code != requests.codes.ok:
                 log.error('PUT request failed, response status code %d', r.status_code)
