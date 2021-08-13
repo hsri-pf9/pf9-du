@@ -600,7 +600,7 @@ class ResMgrDB(object):
                     raise HostNotFound(host_id)
             except Exception as ex:
                 log.exception('DB exception [%s] while getting customized config for %s'
-                              ' host and role %s', ex, host_id, role_name)
+                              ' host', ex, host_id)
                 raise
 
     def _get_default_settings(self, role_name, version=None):
