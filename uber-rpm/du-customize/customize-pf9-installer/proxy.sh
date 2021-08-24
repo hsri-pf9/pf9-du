@@ -66,6 +66,7 @@ function proxy_setup()
     fi
 
     echo "${json}" > ${PF9_COMMS_PROXY_CONF}
+    chown pf9:pf9group ${PF9_COMMS_PROXY_CONF}
 }
 
 function _ask_proxy_settings()
