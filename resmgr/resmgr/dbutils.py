@@ -1165,18 +1165,20 @@ class ResMgrDB(object):
                     ).filter_by(current_state=str(current_state)
                     ).update({'current_state': str(new_state)},
                              synchronize_session='fetch')
-        session.commit()
-        session.close()
         if updated == 0:
+            session.close()
             return False
         elif updated > 1:
             log.error('Something is very wrong, %d  %s role associations '
                       'with host %s in state %s',
                       updated, role_name, host_id, current_state)
+            session.close()
             return False
         else:
             log.info('Advanced %s role state for host %s from %s to %s',
                      role_name, host_id, current_state, new_state)
+            session.commit()
+            session.close()
             return True
 
     def get_all_role_associations(self, host_id):
