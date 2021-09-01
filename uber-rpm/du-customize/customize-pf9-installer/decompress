@@ -10,7 +10,8 @@ echo ""
 echo "Extracting Platform9 installer"
 echo ""
 
-export TMPDIR=`mktemp -d /tmp/pf9-install-XXXXX`
+CURRENTDIR=$(dirname $0)
+export TMPDIR=`mktemp -d $CURRENTDIR/pf9-install-XXXXX`
 
 ARCHIVE=`awk '/^__PF9_ARCHIVE__/ {print NR + 1; exit 0; }' "$0"`
 
