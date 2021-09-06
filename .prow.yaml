@@ -40,3 +40,63 @@ presubmits:
           value: integration
       imagePullSecrets:
       - name: ecr-token
+  - name: run_smoketests
+    labels:                      # check presets section. Use it to inject common settings to job pods
+      teamcity-build: "true"     # adds teamcity related presets
+      pf9-du-build: "true"    # adds DU build related presets
+    branches:
+    - ^atherton$
+    - ^private(\/)atherton(\/).+
+    decorate: false
+    always_run: false
+    skip_report: false
+    max_concurrency: 5
+    spec:
+      containers:
+      - image: "514845858982.dkr.ecr.us-west-1.amazonaws.com/prow-infra/prowctl:1.0.11"
+        command: ["/run_tests.sh"]
+        env:
+        - name: TESTNAME
+          value: run_smoketests
+      imagePullSecrets:
+      - name: ecr-token
+  - name: build_du_image
+    labels:                      # check presets section. Use it to inject common settings to job pods
+      teamcity-build: "true"     # adds teamcity related presets
+      pf9-du-build: "true"    # adds DU build related presets
+    branches:
+    - ^atherton$
+    - ^private(\/)atherton(\/).+
+    decorate: false
+    always_run: false
+    skip_report: false
+    max_concurrency: 5
+    spec:
+      containers:
+      - image: "514845858982.dkr.ecr.us-west-1.amazonaws.com/prow-infra/prowctl:1.0.11"
+        command: ["/run_tests.sh"]
+        env:
+        - name: TESTNAME
+          value: build_du_image
+      imagePullSecrets:
+      - name: ecr-token
+  - name: build_du_image_5.0
+    labels:                      # check presets section. Use it to inject common settings to job pods
+      teamcity-build: "true"     # adds teamcity related presets
+      pf9-du-build: "true"    # adds DU build related presets
+    branches:
+    - ^platform9-v5.0$
+    - ^private(\/)platform9-v5.0(\/).+
+    decorate: false
+    always_run: false
+    skip_report: false
+    max_concurrency: 5
+    spec:
+      containers:
+      - image: "514845858982.dkr.ecr.us-west-1.amazonaws.com/prow-infra/prowctl:1.0.11"
+        command: ["/run_tests.sh"]
+        env:
+        - name: TESTNAME
+          value: build_du_image_5.0
+      imagePullSecrets:
+      - name: ecr-token
