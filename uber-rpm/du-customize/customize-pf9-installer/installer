@@ -375,10 +375,10 @@ function get_or_create_host_id()
         local host_id=$(sed -n 's/^ *host_id *= *\([A-Fa-f0-9-]*\) *$/\1/ p' ${host_id_conf})
     else
         local host_id=`uuidgen`
-        echo -n "[hostagent]\nhost_id = ${host_id}" > ${host_id_conf}
+        printf "[hostagent]\nhost_id = %s" "${host_id}" > ${host_id_conf}
         chown pf9:pf9group ${host_id_conf}
     fi
-    echo -n ${host_id}
+    printf "%s" "${host_id}"
 }
 
 function add_proxy_to_env()
