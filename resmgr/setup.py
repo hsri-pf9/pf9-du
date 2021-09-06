@@ -24,6 +24,10 @@ setup(
         'PasteDeploy',
         'prometheus-client==0.7.1',
         'pycryptodome',
+        'jaeger_client==3.10.0',
+        'opentracing_instrumentation==2.4.3'
+        #'opentracing==1.3.0' 
+        # opentracing_instrumentation==2.4.3 will fetch opentracing==1.3.0 as a dependency
     ],
     test_suite='resmgr',
     zip_safe=False,

@@ -14,6 +14,7 @@ This module provides real implementation of Resource Manager provider interface
 """
 import copy
 import datetime
+import time
 import imp
 import logging
 import notifier
@@ -26,6 +27,7 @@ import requests
 import string
 import subprocess
 import tempfile
+import opentracing
 
 from six.moves.urllib.parse import urlparse
 from six.moves.configparser import ConfigParser
@@ -38,7 +40,8 @@ from resmgr.dbutils import ResMgrDB
 from resmgr.exceptions import *
 from resmgr.resmgr_provider import ResMgrProvider
 from resmgr.consul_roles import ConsulRoles, ConsulUnavailable
-from prometheus_client import Gauge
+from prometheus_client import Gauge, Histogram
+from opentracing_instrumentation import traced_function
 
 log = logging.getLogger(__name__)
 
@@ -61,6 +64,8 @@ _hosts_cert_data = {}
 _host_lock = threading.Lock()
 _role_update_lock = threading.RLock()
 
+bucket = (2.5, 5.0, 10.0, 20.0, 30.0, 50.0, 100.0, 200.0, float('inf'))
+
 # Prometheus metrics for host information.
 g_host_up = Gauge('resmgr_host_up', "Is host responding?", ['host_id', 'host_name'])
 g_host_converged = Gauge("resmgr_host_role_converged", "Resmgr host role converged",
@@ -73,6 +78,42 @@ g_host_cert_expiry_date_ts = Gauge('resmgr_host_cert_expiry_date',
 g_host_cert_start_date_ts = Gauge('resmgr_host_cert_start_date',
                                   'Host cert start date (timestamp)',
                                   ['host_id', 'host_name'])
+g_hosts_processing_time = Histogram(
+                            'resmgr_hosts_processing_time',
+                            'Time required for processing of hosts',
+                            buckets=bucket,
+                            labelnames=['host_type']
+)
+g_hosts_processing_time_last = Gauge(
+                                'resmgr_hosts_processing_last',
+                                'Time taken to process hosts in the recent loop',
+                                labelnames=['host_type']
+)
+
+g_number_of_hosts = Gauge(
+                        'resmgr_total_number_of_hosts',
+                        'Total number of hosts reported by resmgr',
+                        labelnames = ['host_type']
+)
+
+g_misc_functions_processing_time = Histogram(
+                        'resmgr_misc_func_processing_time',
+                        'Time taken by resmgr func for processing of data',
+                        buckets=bucket,
+                        labelnames=['function_name']
+)
+
+g_misc_functions_processing_time_last = Gauge(
+                        'resmgr_misc_func_processing_time_last',
+                        'Time taken by resmgr func during latest call',
+                        labelnames=['function_name']
+)
+
+g_host_role_state_change_ts = Gauge(
+                        'resmgr_host_role_state_change_ts',
+                        'Timestamp when host role state has changed',
+                        ['host_id', 'host_name', 'role_name','role_state']
+)
 
 def call_remote_service(url):
     """
@@ -110,6 +151,10 @@ def _remove_host_cert_expiry_date_metrics(host_id, host_name):
 
 def _record_host_cert_start_date_metrics(start_date, host_id, host_name):
     g_host_cert_start_date_ts.labels(host_id, host_name).set(start_date)
+
+def _record_host_role_state_change(host_id, hostname, rolename, role_state):
+    current_ts = time.time()
+    g_host_role_state_change_ts.labels(host_id, hostname, rolename, role_state).set(current_ts)
 
 def _remove_host_cert_start_date_metrics(host_id, host_name):
     try:
@@ -202,6 +247,7 @@ def _remove_all_host_metrics(host_id, host_name):
     _remove_host_has_pmk_role_metric(host_id, host_name)
     _remove_all_host_cert_metrics(host_id, host_name)
 
+@traced_function
 def _update_custom_role_settings(app_info, role_settings, roles):
     """
     :param app_info: The app configuration returned from
@@ -290,6 +336,7 @@ class RolesMgr(object):
         # converged or it just hasn't started working on the new config yet.
         self._last_config_push_time = {}
 
+    @traced_function
     def get_all_roles(self):
         """
         Returns information of all active roles
@@ -312,6 +359,7 @@ class RolesMgr(object):
 
         return result
 
+    @traced_function
     def get_role(self, role_name):
         """
         Get public portion of roles information for an active role
@@ -554,6 +602,7 @@ class RolesMgr(object):
         _update_custom_role_settings(app_info, role_settings, roles)
         return app_info
 
+    @traced_function
     def move_to_preauth_state(self, host_id, host_details,
                               rolename, current_state):
         """
@@ -567,27 +616,41 @@ class RolesMgr(object):
                                                 role_states.START_APPLY,
                                                 role_states.PRE_AUTH,
                                                 role_states.NOT_APPLIED):
+                _record_host_role_state_change(host_id,
+                            host_details['hostname'],
+                            rolename,
+                            role_states.PRE_AUTH.name)
                 self.on_auth(rolename, app_info)
         elif current_state == role_states.START_EDIT:
             with self.db_handler.move_new_state(host_id, rolename,
                                                 role_states.START_EDIT,
                                                 role_states.PRE_AUTH,
                                                 role_states.APPLIED):
+                _record_host_role_state_change(host_id,
+                            host_details['hostname'],
+                            rolename,
+                            role_states.PRE_AUTH.name)
                 self.on_auth(rolename, app_info)
         else:
             raise DuConfigError('Unexpected state %s when trying to move to '
                                 'preauth' % current_state)
 
+    @traced_function
     def move_to_auth_converging_state(self, host_id, host_details, rolename):
         with self.db_handler.move_new_state(host_id, rolename,
                                             role_states.PRE_AUTH,
                                             role_states.AUTH_CONVERGING,
                                             role_states.PRE_AUTH):
             app_info = self.get_current_app_config(host_details)
+            _record_host_role_state_change(host_id,
+                            host_details['hostname'],
+                            rolename,
+                            role_states.AUTH_CONVERGING.name)
             log.info('Sending request to backbone to add role %s to %s with '
                      'config %s', rolename, host_id, app_info)
             self.push_configuration(host_id, app_info)
 
+    @traced_function
     def move_to_pre_deauth_state(self, host_id, host_details,
                                  rolename, current_state):
         with self.db_handler.move_new_state(host_id, rolename,
@@ -596,8 +659,13 @@ class RolesMgr(object):
                                             role_states.APPLIED):
             app_info = self.get_current_app_config(host_details,
                                                    include_deauthed_roles=True)
+            _record_host_role_state_change(host_id,
+                            host_details['hostname'],
+                            rolename,
+                            role_states.PRE_DEAUTH.name)
             self.on_deauth(rolename, app_info)
 
+    @traced_function
     def move_to_deauth_converging_state(self, host_id, host_details, rolename):
         with self.db_handler.move_new_state(host_id, rolename,
                                             role_states.PRE_DEAUTH,
@@ -605,6 +673,10 @@ class RolesMgr(object):
                                             role_states.PRE_DEAUTH):
             log.debug('Sending request to backbone to remove role %s from %s',
                       rolename, host_id)
+            _record_host_role_state_change(host_id,
+                            host_details['hostname'],
+                            rolename,
+                            role_states.DEAUTH_CONVERGING.name)
             credentials = self.db_handler.query_rabbit_credentials(
                                     host_id=host_id,
                                     rolename=rolename)
@@ -614,16 +686,22 @@ class RolesMgr(object):
             app_info = self.get_current_app_config(host_details)
             self.push_configuration(host_id, app_info)
 
+    @traced_function
     def move_to_applied_state(self, host_id, host_details, rolename):
         with self.db_handler.move_new_state(host_id, rolename,
                                             role_states.AUTH_CONVERGED,
                                             role_states.APPLIED,
                                             role_states.AUTH_ERROR):
             log.info('Running on_auth_converged_event')
+            _record_host_role_state_change(host_id,
+                            host_details['hostname'],
+                            rolename,
+                            role_states.APPLIED.name)
             app_info = self.get_current_app_config(host_details,
                                 include_deauthed_roles=True)
             self.on_auth_converged(rolename, app_info)
 
+    @traced_function
     def move_to_not_applied_state(self, host_id, host_details, rolename):
         """
         Note there's no role transition to 'NOT_APPLIED' because the
@@ -634,10 +712,15 @@ class RolesMgr(object):
                      host_id, rolename)
             app_info = self.get_current_app_config(host_details,
                                 include_deauthed_roles=True)
+
             self.on_deauth_converged(rolename, app_info)
 
             # now we can drop the association and remove from the host
             self.db_handler.remove_role_from_host(host_id, rolename)
+            _record_host_role_state_change(host_id,
+                            host_details['hostname'],
+                            rolename,
+                            role_states.NOT_APPLIED.name)
             if not self.db_handler.get_all_role_associations(host_id):
                 # There is a chance that we are trying to delete a host when
                 # the host is offline. Remove the metrics entries too since
@@ -800,6 +883,7 @@ class HostInventoryMgr(object):
         self.sleep_time = config.get("backbone", "requestWaitPeriod")
         self.timeout = config.get("backbone", "requestTimeout")
 
+    @traced_function
     def get_all_hosts(self, role_settings=False):
         """
         Returns information about all known hosts.
@@ -876,6 +960,7 @@ class HostInventoryMgr(object):
             log.error('Host %s is not a recognized host', host_id)
             raise HostNotFound(host_id)
 
+    @traced_function
     def get_host(self, host_id):
         """
         Get information for a host
@@ -996,14 +1081,21 @@ class BbonePoller(object):
             if len(_hosts_message_data[host_id]) == 0:
                     _hosts_message_data.pop(host_id, None)
 
+    @traced_function
     def _get_backbone_host(self, host):
         return call_remote_service('%s/v1/hosts/%s' %
                                    (self.bbone_endpoint, host))
 
+    @traced_function
     def _get_backbone_host_ids(self):
         return set(call_remote_service('%s/v1/hosts/ids' %
                                        self.bbone_endpoint))
 
+    G = g_hosts_processing_time_last.labels('new_hosts')
+    H = g_hosts_processing_time.labels('new_hosts')
+    @G.time()
+    @H.time()
+    @traced_function
     def _process_new_hosts(self, host_ids):
         """
         Process hosts that are reported by backbone but are not present in resource
@@ -1064,6 +1156,11 @@ class BbonePoller(object):
             # Trigger the notifier so that clients know about it.
             self.notifier.publish_notification('add', 'host', host)
 
+    G = g_hosts_processing_time_last.labels('absent_hosts')
+    H = g_hosts_processing_time.labels('absent_hosts')
+    @G.time()
+    @H.time()
+    @traced_function
     def _process_absent_hosts(self, host_ids, authorized_hosts):
         """
         Process hosts that are present in our state but are not being processed
@@ -1101,6 +1198,12 @@ class BbonePoller(object):
                                        authorized_hosts[host]['hostname'])
                 self.notifier.publish_notification('change', 'host', host)
 
+
+    G = g_misc_functions_processing_time_last.labels('_update_role_status')
+    H = g_misc_functions_processing_time.labels('_update_role_status')
+    @G.time()
+    @H.time()
+    @traced_function
     def _update_role_status(self, host_id, host):
         """
         Calculate role status based on both the response from bbmaster and
@@ -1119,6 +1222,11 @@ class BbonePoller(object):
             _authorized_host_role_status[host_id] = host_status
             self.notifier.publish_notification('change', 'host', host_id)
 
+    G = g_hosts_processing_time_last.labels('existing_hosts')
+    H = g_hosts_processing_time.labels('existing_hosts')
+    @G.time()
+    @H.time()
+    @traced_function
     def _process_existing_hosts(self, host_ids, authorized_hosts):
         """
         Process hosts that are reported by backbone and is also tracked in our state
@@ -1252,6 +1360,11 @@ class BbonePoller(object):
                     _unauthorized_hosts[host]['info']['hostname'] = hostname
                     self.notifier.publish_notification('change', 'host', host)
 
+    H = g_misc_functions_processing_time.labels('_finish_role_converge')
+    G = g_misc_functions_processing_time_last.labels('_finish_role_converge')
+    @H.time()
+    @G.time()
+    @traced_function
     def _finish_role_converge(self, host_id, host_details):
         db = self.db_handle
         roles = db.query_roles_for_host(host_id)
@@ -1273,6 +1386,11 @@ class BbonePoller(object):
                 log.error('Failed to run post converge event for role %s on '
                           'host %s: %s', role.rolename, host_id, e)
 
+    H = g_misc_functions_processing_time.labels('_fail_role_converge')
+    G = g_misc_functions_processing_time_last.labels('_fail_role_converge')
+    @H.time()
+    @G.time()
+    @traced_function
     def _fail_role_converge(self, host_id):
         """
         After a host convergence failure (host itself gave up on convergence),
@@ -1292,6 +1410,11 @@ class BbonePoller(object):
                 log.info('Moved role %s on host %s to the %s state',
                          role.rolename, host_id, role_states.DEAUTH_ERROR)
 
+    H = g_misc_functions_processing_time.labels('_advance_from_transient_state')
+    G = g_misc_functions_processing_time_last.labels('_advance_from_transient_state')
+    @H.time()
+    @G.time()
+    @traced_function
     def _advance_from_transient_state(self, host_id, host_details):
         """
         Move the state machine forward to a point where it's either waiting
@@ -1397,6 +1520,11 @@ class BbonePoller(object):
                     _record_host_cert_metrics(cert_info, uk,
                                         uv['info']['hostname'])
 
+    G = g_hosts_processing_time_last.labels('all_hosts')
+    H = g_hosts_processing_time.labels('all_hosts')
+    @G.time()
+    @H.time()
+    @traced_function
     def process_hosts(self, post_db_read_hook_func=None):
         """
         Routine to query bbone for host info and process it
@@ -1413,6 +1541,11 @@ class BbonePoller(object):
             new_ids = bbone_ids - all_ids
             del_ids = all_ids - bbone_ids
             exist_ids = all_ids & bbone_ids
+
+            g_number_of_hosts.labels('all_hosts').set(len(all_ids))
+            g_number_of_hosts.labels('absent_hosts').set(len(del_ids))
+            g_number_of_hosts.labels('existing_hosts').set(len(exist_ids))
+            g_number_of_hosts.labels('new_hosts').set(len(new_ids))
 
             # This hook is for simulating a race condition that modifies the
             # app config database after it's read at the top of this method.
@@ -1779,6 +1912,11 @@ class ResMgrPf9Provider(ResMgrProvider):
                                      'current state.' % (role_name, host_id))
         return curr_state
 
+    H = g_misc_functions_processing_time.labels('add_role')
+    G = g_misc_functions_processing_time_last.labels('add_role')
+    @H.time()
+    @G.time()
+    @traced_function
     def add_role(self, host_id, role_name, version, host_settings):
         """
         Add a role to a particular host
@@ -1853,6 +1991,7 @@ class ResMgrPf9Provider(ResMgrProvider):
                         self.create_rabbit_credentials(host_id, role_name, version)
                 self.res_mgr_db.associate_rabbit_credentials_to_host(host_id,
                         role_name, rabbit_user, rabbit_password)
+
             except Exception as e:
                 log.error('Host %s role \'%s\' add failed: %s', host_id,
                           role_name, e)
@@ -1878,6 +2017,10 @@ class ResMgrPf9Provider(ResMgrProvider):
 
             notifier.publish_notification('change', 'host', host_id)
 
+    H = g_misc_functions_processing_time.labels('delete_role')
+    G = g_misc_functions_processing_time_last.labels('delete_role')
+    @H.time()
+    @G.time()
     def delete_role(self, host_id, role_name, wake_poller=True):
         """
         Disassociates a role from a host.

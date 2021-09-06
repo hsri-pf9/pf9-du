@@ -16,6 +16,7 @@ import threading
 import random
 import string
 import base64
+import opentracing
 
 from six.moves.configparser import ConfigParser
 from six import iteritems
@@ -28,6 +29,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
 from Crypto.Cipher import AES
+from opentracing_instrumentation import traced_function
 
 from resmgr import role_states
 from resmgr.exceptions import *
@@ -625,6 +627,7 @@ class ResMgrDB(object):
             if key not in settings[role_name]:
                 settings[role_name][key] = val
 
+    @traced_function
     def insert_update_host(self, host_id, host_details, role_name,
                            version, settings_to_add):
         """
@@ -710,6 +713,7 @@ class ResMgrDB(object):
                 log.exception('Deleting host %s in the database failed', host_id)
                 raise
 
+    @traced_function
     def mark_host_state(self, host_id, responding=False):
         """
         Tag a host as responding or not in the database. If being marked as
@@ -735,6 +739,7 @@ class ResMgrDB(object):
                               host_id, '' if responding else 'not')
                 raise
 
+    @traced_function
     def update_host_info(self, host_id, host_info):
         """
         Update the host entry in the database with the specified info.
@@ -909,6 +914,7 @@ class ResMgrDB(object):
         }
         return host_attrs
 
+    @traced_function
     def query_roles(self, active_only=True):
         """
         Queries all the roles present in the database. If active_only is specified,
@@ -926,6 +932,7 @@ class ResMgrDB(object):
 
         return results
 
+    @traced_function
     def query_roles_for_host(self, host_id):
         """
         Query the role details assigned to the particular host
@@ -945,6 +952,7 @@ class ResMgrDB(object):
 
         return out
 
+    @traced_function
     def query_host(self, host_id, fetch_role_ids=False):
         """
         Query the attributes for a particular host
@@ -966,6 +974,7 @@ class ResMgrDB(object):
 
         return out
 
+    @traced_function
     def query_hosts(self):
         """
         Query all the hosts in the database
@@ -985,6 +994,7 @@ class ResMgrDB(object):
         with self.dbsession() as session:
             return session.query(RabbitCredential).filter_by(**filter_kwargs).all()
 
+    @traced_function
     def query_host_and_app_details(self, host_id=None):
         """
         Query host details and returns a JSON serializable dictionary and not
@@ -1039,6 +1049,7 @@ class ResMgrDB(object):
 
         return out
 
+    @traced_function
     def associate_role_to_host(self, host_id, role_name, version=None):
         """
         Associate a role to the host.
@@ -1115,6 +1126,7 @@ class ResMgrDB(object):
                               host_id)
                 raise
 
+    @traced_function
     def remove_role_from_host(self, host_id, role_name):
         """
         Remove a role from a given host
@@ -1142,6 +1154,7 @@ class ResMgrDB(object):
             log.info('Removed %s role state from host %s', role_name, host_id)
             return True
 
+    @traced_function
     def advance_role_state(self, host_id, role_name, current_state, new_state):
         """
         Update the state of a host role association. The update fails if
@@ -1181,6 +1194,7 @@ class ResMgrDB(object):
             session.close()
             return True
 
+    @traced_function
     def get_all_role_associations(self, host_id):
         """
         Get all the role association objects along with roles for a host.
@@ -1198,6 +1212,7 @@ class ResMgrDB(object):
         session.close()
         return entities
 
+    @traced_function
     def get_current_role_association(self, host_id, role_name):
         """
         Get the role association objects along with role given a host_id and
@@ -1265,6 +1280,7 @@ class ResMgrDB(object):
 
         return out
 
+    @traced_function
     def move_new_state(self, host_id, role_name, start_state,
                        success_state, failure_state):
         """
