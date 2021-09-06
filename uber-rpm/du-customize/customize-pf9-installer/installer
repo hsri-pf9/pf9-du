@@ -44,6 +44,7 @@ function usage()
         echo "--controller=<Platform9 controller address>                | Address of the Platform9 region controller, e.g. you.platform9.net or 10.11.12.13 (env:DU_FQDN)."
         echo "--username=<Platform9 username>                            | Keystone authentication username (env:OS_USERNAME)."
         echo "--password=<Platform9 password>                            | Keystone authentication password (env:OS_PASSWORD)."
+        echo "--user-token=<Platform9 user token>                        | Keystone authentication token."
         echo "--project-name=<Platform9 project name>                    | Keystone project/tenant on which user has admin privileges (env:OS_TENANT_NAME)."
         echo "--insecure                                                 | Ignore invalid controller certificate."
         echo "--depl-env-webhook=<webhook url>                           | Post message to this URL if deployment environment type file cannot be downloaded."
@@ -164,6 +165,12 @@ while getopts ":h-:" optchar; do
                 password)
                     OS_PASSWORD="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
                     ;;
+                user-token=*)
+                    OS_KEYSTONE_TOKEN="${OPTARG#*=}"
+                    ;;
+                user-token)
+                    OS_KEYSTONE_TOKEN="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                    ;;
                 insecure)
                     CURL_INSECURE='-k'
                     ;;
@@ -193,8 +200,17 @@ done
 missing_params=""
 if ! packages_present ${EXT}; then
     if [ -z "${DU_FQDN}" ]; then missing_params="--controller "; fi
-    if [ -z "${OS_USERNAME}" ]; then missing_params="${missing_params} --username"; fi
-    if [ -z "${OS_PASSWORD}" ]; then missing_params="${missing_params} --password"; fi
+    #If Keystone token isn't provided, username & password are required
+    if [ -z "${OS_KEYSTONE_TOKEN}" ]; then
+        if [ -z "${OS_USERNAME}" ]; then missing_params="${missing_params} --username"; fi
+        if [ -z "${OS_PASSWORD}" ]; then missing_params="${missing_params} --password"; fi
+    else #If Keystone token present, username & password shouldn't be provided
+        if [[ ! -z "${OS_USERNAME}" ]] || [[ ! -z "${OS_PASSWORD}" ]]; then
+            echo "Arg(s) username or password not required when user-token is provided"
+            usage
+            exit 1
+        fi
+    fi
     if [ -z "${DONT_ASK_PROJECT}" ]; then
         if [ -z "${OS_TENANT_NAME}" ]; then
             missing_params="${missing_params} --project-name"
@@ -386,8 +402,12 @@ function main()
     add_proxy_to_env
 
     if ! packages_present ${EXT}; then
-        require_keystone_credentials || exit 1
-        local token=`keystone_token`
+        if [ ! -z "${OS_KEYSTONE_TOKEN}" ]; then
+            local token="${OS_KEYSTONE_TOKEN}"
+        else
+            require_keystone_credentials || exit 1
+            local token=`keystone_token`
+        fi
         if [ -z "${token}" ]; then
             exit 1
         fi
