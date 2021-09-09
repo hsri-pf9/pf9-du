@@ -49,14 +49,17 @@ class bbone_provider_pf9(bbone_provider_memory):
         self.support_dir_location = self.config.get('bbmaster',
                                                     'support_file_store')
         self.pending_msgs = []
-        self.firmware_apps_config = get_fw_apps_cfg(config=self.config)
 
         self.global_config = ConfigParser()
         global_conf = os.environ.get('GLOBAL_CONFIG_FILE',
                                        constants.GLOBAL_CONFIG_FILE)
         self.global_config.read(global_conf)
         self.du_fqdn = self.global_config.get('DEFAULT', 'DU_FQDN')
-
+        if self.global_config.get('DEFAULT', "is_ddu", fallback='false') == 'true':
+            self.is_ddu = True
+        else:
+            self.is_ddu = False
+        self.firmware_apps_config = get_fw_apps_cfg(config=self.config, is_ddu=self.is_ddu)
         t = threading.Thread(target=self._io_thread)
         t.daemon = True
         t.start()
@@ -86,7 +89,7 @@ class bbone_provider_pf9(bbone_provider_memory):
             hosts = super(bbone_provider_pf9, self).get_hosts(id_list)
             ret_val = copy.deepcopy(hosts)
             if not show_firmware_apps:
-                ret_val = remove_fw_apps_config(ret_val)
+                ret_val = remove_fw_apps_config(ret_val, is_ddu=self.is_ddu)
             return ret_val
 
     def set_host_apps(self, id, desired_apps):
@@ -105,7 +108,7 @@ class bbone_provider_pf9(bbone_provider_memory):
 
             # Send host state so as to determine if its an appliance or not
             insert_fw_apps_config(desired_apps, self.firmware_apps_config,
-                                  host_state=host_state)
+                                  host_state=host_state, is_ddu=self.is_ddu)
             super(bbone_provider_pf9, self).set_host_apps(id, desired_apps)
             host_state = self.hosts[id]
         try:

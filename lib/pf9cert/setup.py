@@ -13,8 +13,8 @@ setup(
     author='',
     author_email='',
     install_requires=[
-        'pyOpenSSL==16.1.0',
-        "cryptography==1.5"
+        "pyOpenSSL==20.0.1",
+        "cryptography==3.3.2"
     ],
     test_suite='pf9cert',
     zip_safe=False,

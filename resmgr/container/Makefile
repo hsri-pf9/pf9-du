@@ -31,11 +31,8 @@ $(NOTIFIER_DIST): SETUP_ROOT = $(SRCROOT)/lib/notifier
 RABBIT_DIST = $(STAGE)/rabbitmgmt-sdist.tgz
 $(RABBIT_DIST): SETUP_ROOT = $(SRCROOT)/lib/rabbit
 
-FIRKINIZE_DIST = $(STAGE)/firkinize-sdist.tgz
-$(FIRKINIZE_DIST): SETUP_ROOT = $(abspath $(SRCROOT)/../firkinize)
-
 DISTS = $(RESMGR_DIST) $(BBLIB_DIST) $(BBMASTER_DIST) $(CONFIGUTILS_DIST) \
-        $(NOTIFIER_DIST) $(RABBIT_DIST) $(FIRKINIZE_DIST)
+        $(NOTIFIER_DIST) $(RABBIT_DIST)
 
 dist: $(DISTS)
 
@@ -67,19 +64,9 @@ ifeq ($(wildcard $(COMMS_DEB)),)
     $(error There must be a pf9-comms deb in $(ARTIFACTS))
 endif
 
-VMW_MGMT_RPM ?= $(shell find $(ARTIFACTS) -name pf9-vmw-mgmt*.rpm)
-ifeq ($(wildcard $(VMW_MGMT_RPM)),)
-    $(error There must be a pf9-vmw-mgmt rpm in $(ARTIFACTS))
-endif
-
-MUSTER_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-muster-wrapper*.rpm)
-ifeq ($(wildcard $(MUSTER_WRAPPER)),)
-    $(error There must be a pf9-muster-wrapper rpm in $(ARTIFACTS))
-endif
-
-SUPPORT_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-support-wrapper*.rpm)
+SUPPORT_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-support-*)
 ifeq ($(wildcard $(SUPPORT_WRAPPER)),)
-    $(error There must be a pf9-support-wrapper rpm in $(ARTIFACTS))
+    $(error There must be a pf9-support files in $(ARTIFACTS))
 endif
 
 OSTACKHOST_WRAPPER ?= $(shell find $(ARTIFACTS) -name pf9-ostackhost-wrapper*.rpm)
@@ -95,7 +82,6 @@ PACKAGELIST_LINES_COMMON = etc/pf9/certs/hostagent/cert.pem \
                            etc/pf9/hostagent.conf
 PACKAGELIST_LINES_RPM = $(notdir $(HOSTAGENT_RPM)) \
                         $(notdir $(COMMS_RPM)) \
-			$(notdir $(VMW_MGMT_RPM))
 
 PACKAGELIST_LINES_DEB = $(notdir $(HOSTAGENT_DEB)) \
                         $(notdir $(COMMS_DEB))
@@ -152,12 +138,11 @@ stage: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIA
 	cp -rv $(SRCROOT)/resmgr/container/* $(STAGE)/
 	python $(Y2J) $(APP_METADATA_YAML) > $(APP_METADATA_JSON)
 	cp -v $(SRCROOT)/resmgr/upper-constraints.txt $(STAGE)/
-	cp -v $(MUSTER_WRAPPER) $(STAGE)/
 	cp -v $(SUPPORT_WRAPPER) $(STAGE)/
 	private=$(STAGE)/opt/pf9/www/private && \
 	mkdir -p $${private} && \
 	cp -v $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT) $(COMMS_RPM) $(COMMS_DEB) \
-		  $(VMW_MGMT_RPM) $${private} && \
+		  $${private} && \
 	rm -fv $(PACKAGELIST_RPM) && \
 	for line in $(PACKAGELIST_LINES_COMMON); do \
 		echo $${line} >> $(PACKAGELIST_RPM); \

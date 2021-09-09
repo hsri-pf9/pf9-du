@@ -135,7 +135,7 @@ class ResmgrConfig(object):
                 updates[user + 'username'] = username
                 updates[user + 'password'] = password
                 updates.update({user + k: v
-                    for (k, v) in RABBIT_PERMISSIONS[username].iteritems()})
+                    for (k, v) in RABBIT_PERMISSIONS[username].items()})
             self._consul.kv_put_txn(updates)
 
     def get_aws_credentials(self):
@@ -239,7 +239,7 @@ class ResmgrConfig(object):
         try:
             dbspec = self._consul.kv_get_prefix(dbkey)
             LOG.info('Found exising database spec in %s: %s', dbkey,
-                {k: v for (k, v) in dbspec.iteritems() if k != 'password'})
+                {k: v for (k, v) in dbspec.items() if k != 'password'})
         except requests.HTTPError as e:
             if e.response.status_code == 404:
                 LOG.info('No resmgr db spec found in %s, generating new...',
@@ -269,7 +269,7 @@ class ResmgrConfig(object):
         if db_created or grants_updated:
             LOG.info('Database was updated, updating config store with '
                      'values: %s',
-                     {k: v for (k, v) in final_dbinfo.iteritems()
+                     {k: v for (k, v) in final_dbinfo.items()
                       if k != 'password'})
             with self._consul.prefix(dbkey):
                 self._consul.kv_put_txn(final_dbinfo)
@@ -296,8 +296,8 @@ def random_string():
     16 random numbers and letters, always starts with a letter.
     """
     secret_len = 16
-    secret_chars = string.letters + string.digits
-    return ''.join([random.SystemRandom().choice(string.letters)] +
+    secret_chars = string.ascii_letters + string.digits
+    return ''.join([random.SystemRandom().choice(string.ascii_letters)] +
                    [random.SystemRandom().choice(secret_chars)
                     for _ in range(secret_len - 1)])
 

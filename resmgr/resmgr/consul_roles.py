@@ -127,7 +127,7 @@ class ConsulRoles(object):
             LOG.info('Created config section %s', rolename)
         except DuplicateSectionError:
             LOG.info('Config section %s already exists', rolename)
-
+        value = value.decode()
         self._config.set(rolename, param_name, value)
 
         # The new param may make it possible to save a role that failed to

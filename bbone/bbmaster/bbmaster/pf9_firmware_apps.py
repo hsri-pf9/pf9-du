@@ -15,32 +15,88 @@ import subprocess
 LOG = logging.getLogger(__name__)
 
 # TODO: Load these modules dynamically
-firmware_apps = { 'pf9-comms': pf9_comms, 'pf9-vmw-mgmt': pf9_vmw_mgmt, 'pf9-muster': pf9_muster }
+firmware_apps_cdu = { 'pf9-comms': pf9_comms, 'pf9-vmw-mgmt': pf9_vmw_mgmt, 'pf9-muster': pf9_muster }
+firmware_apps_ddu = { 'pf9-comms': pf9_comms }
 
+def get_firmware_apps(is_ddu=False):
+    if is_ddu == True:
+        return firmware_apps_ddu
+    return firmware_apps_cdu
 
-def _app_package_and_version(app_name, base_dir):
-    name = app_name.upper().replace('-', '_')
-    version_key = '%s_VERSION' % name
-    package_key = '%s_FILENAME' % name
-    if version_key in environ and package_key in environ:
-        return environ[package_key], environ[version_key]
-
-    expr = '{app_dir}/{app}*.rpm'.format(app_dir=base_dir, app=app_name)
-    pkgs = glob(expr)
-    if len(pkgs) != 1:
-        LOG.error('Number of {app} RPMs found: {num}'.format(app=app_name,
-                                                             num=len(pkgs)))
-        raise Pf9FirmwareAppsError
-    args = ['/bin/rpm', '-qp', '--qf', '%{VERSION}-%{RELEASE}', pkgs[0]]
+def get_package_version_cdu(package_name, app_name):
+    """
+    This function extracts information from rpm package file and returns version information.
+    Input params:
+        1. package_name - Path to the package file
+        2. app_name - application name
+    Output params:
+        1. version of the package
+    Exception: On failure of command.
+    """
+    args = ['/bin/rpm', '-qp', '--qf', '%{VERSION}-%{RELEASE}', package_name]
     cmd = subprocess.Popen(args, stdout=subprocess.PIPE,
-                           stderr=subprocess.PIPE)
+                        stderr=subprocess.PIPE)
     version, stderr = cmd.communicate()
     if cmd.returncode != 0:
         LOG.error('query of {app} RPM failed: {err}'.format(err=stderr,
                                                             app=app_name))
         raise Pf9FirmwareAppsError
+    return version
+
+def get_package_version_ddu(package_name, app_name):
+    """
+    This function extracts information from debian package file and returns version information.
+    Input params:
+        1. package_name - Path to the package file
+        2. app_name - application name
+    Output params:
+        1. version of the package
+    Exception: On failure of command.
+    """
+    command='version_out=`dpkg --info ' + package_name + \
+        '`; if [ "$?" != "0" ]; then exit 1; else echo "$version_out" | grep Version | cut -d \':\' -f2; fi'
+    proc = subprocess.run(['/bin/bash', '-c', command], stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    version, stderr = proc.stdout.strip(), proc.stderr
+    LOG.info('query of {app} DEB returned version {ver} and returncode {retcode}'.format(
+            app=app_name,
+            ver=version,
+            retcode=proc.returncode))
+    if proc.returncode != 0:
+            LOG.error('query of {app} DEB failed: {err}'.format(err=stderr,
+                                                                app=app_name))
+            raise Pf9FirmwareAppsError
+    if len(version) == 0:
+            LOG.error('query of {app} DEB failed: version found to be empty'.format(
+                                                                app=app_name))
+            raise Pf9FirmwareAppsError
+    return version.strip()
+
+def _app_package_and_version(app_name, base_dir, is_ddu=False):
+    name = app_name.upper().replace('-', '_')
+    version_key = '%s_VERSION' % name
+    package_key = '%s_FILENAME' % name
+    if version_key in environ and package_key in environ:
+        return environ[package_key], environ[version_key]
+    pattern = '{app_dir}/{app}*.rpm'
+    if is_ddu == True:
+        pattern = '{app_dir}/{app}*.deb' 
+    expr = pattern.format(app_dir=base_dir, app=app_name)
+    pkgs = glob(expr)
+    if len(pkgs) != 1:
+        LOG.error('Number of {app} packages found: {num}'.format(app=app_name,
+                                                             num=len(pkgs)))
+        raise Pf9FirmwareAppsError
+    version = ""
+    # get rpm version for classic DU and get debian version from DDU as 
+    # DDU container is debian based.
+    if is_ddu == False:
+        version = get_package_version_cdu(pkgs[0], app_name)
+    else:
+        version = get_package_version_ddu(pkgs[0], app_name)
+    version = version.decode()
+    LOG.info('Version of {app} found to be {ver}'.format(app=app_name, ver=version))
     pkg_filename = path.basename(pkgs[0])
-    return pkg_filename, version.decode()
+    return pkg_filename, version
 
 
 def _get_base_dir_url(app_name, config=None):
@@ -58,24 +114,26 @@ def _get_base_dir_url(app_name, config=None):
     return basedir, baseurl
 
 
-def get_fw_apps_cfg(config=None):
+def get_fw_apps_cfg(config=None, is_ddu=False):
     apps_config = {}
+    firmware_apps = get_firmware_apps(is_ddu)
     for app_name, module in firmware_apps.items():
         # Get the config that is specific to each service / app.
         service_config = module.get_service_config()
         base_dir, base_url = _get_base_dir_url(app_name, config)
-        pkg_file, version = _app_package_and_version(app_name, base_dir)
+        pkg_file, version = _app_package_and_version(app_name, base_dir, is_ddu=is_ddu)
         service_config['version'] = version
         service_config['url'] = '%s/%s' % (base_url, pkg_file)
         apps_config[app_name] = service_config
     return apps_config
 
 
-def insert_fw_apps_config(desired_apps, fw_apps_config, host_state=None):
+def insert_fw_apps_config(desired_apps, fw_apps_config, host_state=None, is_ddu=False):
     # Let each firmware module decide whether to insert its app into
     # the configuration
     # TODO: Add firmware app config to desired_apps in this functions instead
     #       of doing it in modules.
+    firmware_apps = get_firmware_apps(is_ddu)
     for app_name, module in firmware_apps.items():
         module.insert_app_config(desired_apps,
                                  fw_apps_config[app_name],
@@ -83,7 +141,8 @@ def insert_fw_apps_config(desired_apps, fw_apps_config, host_state=None):
     return desired_apps
 
 
-def remove_fw_apps_config(hosts):
+def remove_fw_apps_config(hosts, is_ddu=False):
+    firmware_apps = get_firmware_apps(is_ddu)
     for host in hosts:
         for key in ('apps', 'desired_apps'):
             if key in host:

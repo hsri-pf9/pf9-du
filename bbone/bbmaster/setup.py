@@ -13,13 +13,13 @@ setup(
     author='',
     author_email='',
     install_requires=[
-        "pecan==1.1.2",
-        "requests==2.11.1",
+        "pecan==1.4.0",
+        "requests==2.26.0",
         "pika==0.10.0",
-        "cryptography==1.5",
-        "webob==1.7.4",
-        "MarkupSafe==1.1.1",
-        "boto3==1.17.34"
+        "cryptography==3.3.2",
+        "webob==1.8.7",
+        "MarkupSafe==2.0.1",
+        "boto3==1.18.28"
     ],
     test_suite='bbmaster',
     zip_safe=False,

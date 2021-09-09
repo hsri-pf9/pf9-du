@@ -1,61 +1,60 @@
-FROM centos:7
+FROM artifactory.platform9.horse/docker-local/pf9-py36-baseimg:5.4.0-stable
 MAINTAINER rdeuel@platform9.com
 LABEL com.platform9.image-type=du
 
-# python dependencies, apache and shibboleth
-RUN yum install -y mysql-devel python-devel libffi-devel gcc
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+     libssl-dev \
+     gcc \
+     default-libmysqlclient-dev \
+     python3-dev \
+     libffi-dev
 
-# install python code and supervisord
-RUN curl https://bootstrap.pypa.io/pip/2.7/get-pip.py |python -
 COPY bblib-sdist.tgz \
      bbmaster-sdist.tgz \
      configutils-sdist.tgz \
      notifier-sdist.tgz \
      rabbitmgmt-sdist.tgz \
      resmgr-sdist.tgz \
-     firkinize-sdist.tgz \
      upper-constraints.txt \
      /root/
 
 WORKDIR /root
-RUN pip install bblib-sdist.tgz \
-                bbmaster-sdist.tgz \
-                configutils-sdist.tgz \
+RUN pip install cryptography==2.1.4 \
+                bblib-sdist.tgz
+               
+RUN pip install bbmaster-sdist.tgz
+RUN pip install configutils-sdist.tgz \
                 notifier-sdist.tgz \
                 rabbitmgmt-sdist.tgz \
-                resmgr-sdist.tgz \
-                firkinize-sdist.tgz \
-                supervisor \
                 -c upper-constraints.txt \
                 setuptools==33.1.1
 
-# install confd
-RUN curl -L https://github.com/kelseyhightower/confd/releases/download/v0.15.0/confd-0.15.0-linux-amd64 >/root/confd \
- && chmod 755 /root/confd \
- && mkdir -p /var/log/confd
+RUN pip install resmgr-sdist.tgz \
+                -c upper-constraints.txt
 
 COPY opt/ /opt/
 COPY etc/ /etc/
 COPY usr/ /usr/
 
-# all required rpms
-# we don't care about non firmware rpm packages, but the role json needs
-# to be installed with resmgr.
-COPY pf9-*-wrapper-*.rpm /root/
-
-# install wrapper packages
-RUN yum install -y pf9-*-wrapper-*.rpm
+# copy pf9-support files
+COPY pf9-support-*.deb /opt/pf9/www/private/
+COPY pf9-support-[^wrapper]*.rpm /opt/pf9/www/private/
+COPY pf9-support-role.json ./
+RUN export pf9_version=$(cat ./pf9-support-role.json | python -c 'import json,sys; print (json.load(sys.stdin)["role_version"])') \
+&& mkdir -p /etc/pf9/resmgr_roles/pf9-support/$pf9_version-1 \
+&& mv pf9-support-role.json /etc/pf9/resmgr_roles/pf9-support/$pf9_version-1
 
 COPY init-region .
 RUN chmod 755 /usr/bin/run-resmgr init-region
 
-RUN mkdir -p /opt/pf9/www/private/etc/pf9/certs/{ca,hostagent} /var/log/pf9  /var/metrics-db/pf9-resmgr
+RUN bash -c 'mkdir -p /opt/pf9/www/private/etc/pf9/certs/{ca,hostagent} /var/log/pf9  /var/metrics-db/pf9-resmgr'
 RUN mkdir -p /etc/pf9/resmgr_roles/conf.d
 
 # bbmaster=8082, resmgr=8083
 EXPOSE 8082 8083
 
-CMD /usr/bin/supervisord
+CMD supervisord
 
 ARG VERSION
 LABEL com.platform9.pf9_version=${VERSION}
