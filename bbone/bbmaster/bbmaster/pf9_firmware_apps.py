@@ -77,11 +77,9 @@ def _app_package_and_version(app_name, base_dir, is_ddu=False):
     package_key = '%s_FILENAME' % name
     if version_key in environ and package_key in environ:
         return environ[package_key], environ[version_key]
-    # NOTE: Even though the packages can be rpm or deb files, we
-    # still pass rpm file paths because hostagent does the logic
-    # of whether to download the rpm or deb file.
-    # https://github.com/platform9/pf9-du/blob/atherton/bbone/pf9app/pf9app/pf9_app_cache.py#L152
     pattern = '{app_dir}/{app}*.rpm'
+    if is_ddu == True:
+        pattern = '{app_dir}/{app}*.deb'
     expr = pattern.format(app_dir=base_dir, app=app_name)
     pkgs = glob(expr)
     if len(pkgs) != 1:
@@ -98,6 +96,13 @@ def _app_package_and_version(app_name, base_dir, is_ddu=False):
     version = version.decode()
     LOG.info('Version of {app} found to be {ver}'.format(app=app_name, ver=version))
     pkg_filename = path.basename(pkgs[0])
+    # NOTE: Even though the packages can be rpm or deb files, we
+    # still pass rpm file paths because hostagent does the logic
+    # of whether to download the rpm or deb file.
+    # https://github.com/platform9/pf9-du/blob/atherton/bbone/pf9app/pf9app/pf9_app_cache.py#L152
+    if pkg_filename.endswith('.deb'):
+        pkg_filename_prefix = pkg_filename.rsplit('.deb', 1)
+        pkg_filename = '.rpm'.join(pkg_filename_prefix)
     return pkg_filename, version
 
 
