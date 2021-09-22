@@ -1020,17 +1020,23 @@ class ResMgrDB(object):
                 assigned_apps_including_deauthed_roles = {}
                 current_role_states = {}
                 for role_assoc in host.roles:
-                    desiredconfig = self._substitute_host_role_params(
-                        host.id,
-                        role_assoc.role.rolename,
-                        role_assoc.role.desiredconfig)
-                    assigned_apps_including_deauthed_roles.update(desiredconfig)
+                    try:
+                        desiredconfig = self._substitute_host_role_params(
+                            host.id,
+                            role_assoc.role.rolename,
+                            role_assoc.role.desiredconfig)
+                    except Exception as e:
+                        #In place to solve CORE1189
+                        #role_states, apps_config and apps_config_including_deauthed_roles may get malformed
+                        log.exception('An exception occured while substituting host parameters in role config')
+                    else:
+                        assigned_apps_including_deauthed_roles.update(desiredconfig)
 
-                    if role_states.role_is_authed(role_assoc.current_state):
-                        assigned_apps.update(desiredconfig)
+                        if role_states.role_is_authed(role_assoc.current_state):
+                            assigned_apps.update(desiredconfig)
 
-                    current_role_states[role_assoc.role_id] = \
-                                        role_assoc.current_state
+                        current_role_states[role_assoc.role_id] = \
+                                            role_assoc.current_state
 
                 out[host.id] = {
                     'hostname': host.hostname,
