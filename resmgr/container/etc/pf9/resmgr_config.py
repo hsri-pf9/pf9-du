@@ -7,6 +7,7 @@ server = {
 # Pecan Application Configurations
 app = {
     'root': 'resmgr.controllers.root.RootController',
+    'guess_content_type_from_ext': False,
     'modules': ['resmgr']
 }
 
