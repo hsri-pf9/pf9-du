@@ -27,6 +27,8 @@
     localPort: 15672
   - endpoint: keystone-internal
     localPort: 8080
+  - endpoint: sidekick-cmd
+    localPort: 3011
   memoryRequest: "190Mi"
   memoryLimit: "190Mi"
   logfiles:

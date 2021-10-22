@@ -274,6 +274,11 @@ class TestProvider(DbTestCase):
         # bbmaster. Intercept that and respond with 200
         self._requests_put = self._patchfun('requests.put')
         self._requests_put.return_value = self._plain_http_response(200)
+        
+        # In BbonePoller, when a role failes to converge, we upload a support bundle 
+        # via sidekick. INtercept that and respond with 200
+        self._requests_post = self._patchfun('requests.post')
+        self._requests_post.return_value = self._plain_http_response(200)
 
         # used to control failures in the test_auth_events late-loaded module
         os.environ.pop('PF9_RESMGR_FAIL_EVENT', None)

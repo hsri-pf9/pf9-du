@@ -133,6 +133,20 @@ def call_remote_service(url):
         log.error('GET call on %s failed', url)
         raise BBMasterNotFound(e)
 
+
+def request_support_bundle_from_sidekick(endpoint, host_id, body):
+    url = "%s/v1/command" % endpoint
+    body["opcode"] = "bundle"
+    body["hostid"] = host_id
+
+    try:
+        r = requests.post(url, data=body)
+        r.raise_for_status()
+    except Exception as exc:
+        log.exception('Getting support for host %s failed: %s', host_id, exc)
+        raise SupportRequestFailed('Error in POST request response: %d, host %s' %
+                                       (r.status_code, host_id))
+
 def _record_host_cert_expiry_date_metrics(end_date, host_id, host_name):
     g_host_cert_expiry_date_ts.labels(host_id, host_name).set(end_date)
 
@@ -1026,6 +1040,7 @@ class BbonePoller(object):
         # Backbone polling interval, in seconds
         self.poll_interval = config.getint('backbone', 'pollInterval')
         self.bbone_endpoint = config.get('backbone', 'endpointURI')
+        self.sidekick_url = config.get('sidekick', 'endpointURI')
         self.notifier = notifier
         # The default threshold time after which not responding hosts should
         # be removed, in seconds
@@ -1386,6 +1401,10 @@ class BbonePoller(object):
                 log.error('Failed to run post converge event for role %s on '
                           'host %s: %s', role.rolename, host_id, e)
 
+
+    def request_support_bundle(self, host_id, body):
+        request_support_bundle_from_sidekick(self.sidekick_url , host_id, body)
+
     H = g_misc_functions_processing_time.labels('_fail_role_converge')
     G = g_misc_functions_processing_time_last.labels('_fail_role_converge')
     @H.time()
@@ -1398,17 +1417,23 @@ class BbonePoller(object):
         will allow the user to do a new PUT or DELETE on the role.
         """
         db = self.db_handle
+        need_support_bundle = False
         for role in db.query_roles_for_host(host_id):
             if db.advance_role_state(host_id, role.rolename,
                                      role_states.AUTH_CONVERGING,
                                      role_states.AUTH_ERROR):
+                need_support_bundle = True
                 log.info('Moved role %s on host %s to the %s state',
                          role.rolename, host_id, role_states.AUTH_ERROR)
             elif db.advance_role_state(host_id, role.rolename,
                                        role_states.DEAUTH_CONVERGING,
                                        role_states.DEAUTH_ERROR):
+                need_support_bundle = True
                 log.info('Moved role %s on host %s to the %s state',
                          role.rolename, host_id, role_states.DEAUTH_ERROR)
+        if need_support_bundle:
+            body = {"label": "AutoUploadedSB"}
+            self.request_support_bundle(host_id,body)
 
     H = g_misc_functions_processing_time.labels('_advance_from_transient_state')
     G = g_misc_functions_processing_time_last.labels('_advance_from_transient_state')
@@ -1614,7 +1639,8 @@ class ResMgrPf9Provider(ResMgrProvider):
         self._rabbit_mgmt_cl = self.roles_mgr.rabbit_mgmt_cl
         self.setup_rabbit_credentials()
         self.bb_url = config.get('backbone', 'endpointURI')
-
+        self.sidekick_url = config.get('sidekick', 'endpointURI')
+        
         self.run_service_config()
 
         # Setup a thread to poll backbone state regularly to detect changes to
@@ -1642,6 +1668,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         """
         config = ConfigParser()
         config.read(config_file)
+        
         global_cfg_file = config.get('resmgr', 'global_config_file')
         config.read(global_cfg_file)
         role_metadata_dir = config.get('resmgr', 'role_metadata_location')
@@ -1680,16 +1707,7 @@ class ResMgrPf9Provider(ResMgrProvider):
                                                  rabbit_permissions['read'])
 
     def request_support_bundle(self, host_id, body):
-        url = "%s/v1/hosts/%s/support/bundle" % (self.bb_url, host_id)
-        try:
-            r = requests.post(url, data=json.dumps(body))
-            if r.status_code != requests.codes.ok:
-                raise SupportRequestFailed('Error in POST request response: %d, host %s' %
-                                           (r.status_code, host_id))
-
-        except requests.exceptions.RequestException as exc:
-            log.error('Getting support for host %s failed: %s', host_id, exc)
-            raise BBMasterNotFound(exc)
+        request_support_bundle_from_sidekick(self.sidekick_url , host_id, body)
 
     def run_support_command(self, host_id, body):
         url = "%s/v1/hosts/%s/support/command" % (self.bb_url, host_id)

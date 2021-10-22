@@ -248,6 +248,7 @@ Sends a request to the host agent on the specified host to generate and return a
 support bundle to the deployment unit. The request is asynchronous and not
 guaranteed to succeed.
 Returns a 404 error code if the specified host does not exist.
+(Happens via Sidekick)
 
 ### POST /v1/hosts/__id__/support/command ###
 

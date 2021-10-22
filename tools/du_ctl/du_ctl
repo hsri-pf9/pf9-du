@@ -509,8 +509,12 @@ def _get_bundles(bundle_dir):
 
 def do_support_bundle(args):
     headers = {'X-Auth-Token': _get_login_token(args)}
-    support_dir = os.path.join('/opt', 'pf9', 'support', args.host_id)
+    support_dir = os.path.join('/opt', 'pf9', 'support')
 
+    if args.label:
+        support_dir = os.path.join(support_dir, args.label)
+    support_dir = os.path.join(support_dir, args.host_id)
+    
     bundles_before = _get_bundles(support_dir)
 
     upload_str = bool2str(args.upload)

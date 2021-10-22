@@ -356,7 +356,7 @@ class HostSupportBundleController(RestController):
 
         try:
             _provider.request_support_bundle(host_id, msg_body)
-        except (SupportRequestFailed, BBMasterNotFound):
+        except (SupportRequestFailed, SideKickNotFound):
             log.exception("Request to generate support bundle failed.")
             abort(503)
 

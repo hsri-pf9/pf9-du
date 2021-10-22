@@ -65,6 +65,8 @@ password = rabbitpass
 defaultNonResponsiveHostThreshold = 30
 convergingNonResponsiveHostThreshold = 30
 
+[sidekick]
+endpointURI = http://fake
 """
 
 # FIXME - Evidently, the app name must be 'in' the role name in order for
