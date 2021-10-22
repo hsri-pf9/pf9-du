@@ -127,13 +127,6 @@ def get_cpu_info(log):
     except Exception:
         log.exception('Could not parse out virtual/physical info from /proc/cpuinfo, defaulting to "unknown"')
 
-    try:
-        vmware_tools_check = subprocess.run('command -v vmware-toolbox-cmd', shell=True, stdout=subprocess.DEVNULL)
-        if not vmware_tools_check.returncode:
-            virtual_or_physical += ' (VMware)'
-    except Exception:
-        log.exception('Could not determine VMware Tools precense, defaulting to absent')
-
     CPU_INFO = {
         'cpu_sockets': cpu_sockets,
         'cpu_cores': cpu_cores,

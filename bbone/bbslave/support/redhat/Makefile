@@ -64,8 +64,6 @@ redhat-container: $(BUILD_DIR)/dockstage/run-build-in-container.sh
 hostagent-tarball-rpm-redhat:
 	$(SED_CMD) ${SRC_DIR}/support/redhat/45-customize-hostagent-rpm > ${BUILD_DIR}/45-customize-hostagent-rpm
 	chmod +x ${BUILD_DIR}/45-customize-hostagent-rpm
-	$(SED_CMD) ${SRC_DIR}/support/redhat/47-customize-hostagent-ova > ${BUILD_DIR}/47-customize-hostagent-ova
-	chmod +x ${BUILD_DIR}/47-customize-hostagent-ova
 	$(SED_CMD) hostagent-tarball-rpm.spec > ${BUILD_DIR}/hostagent-tarball-rpm.spec
 	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/hostagent-tarball-rpm.spec --resultdir ${RPM_DIR}
 	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}

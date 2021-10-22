@@ -30,9 +30,7 @@ def random_string_generator(len=16):
 def populate_rabbit_credentials_table(conn):
     host_roles = conn.execute('select * from host_role_map').fetchall()
     for host_id, role_id in host_roles:
-        if role_id.startswith('pf9-ostackhost-vmw'):
-            role_name = 'pf9-ostackhost-vmw'
-        elif role_id.startswith('pf9-ostackhost'):
+        if role_id.startswith('pf9-ostackhost'):
             role_name = 'pf9-ostackhost'
         elif role_id.startswith('pf9-imagelibrary'):
             role_name = 'pf9-imagelibrary'

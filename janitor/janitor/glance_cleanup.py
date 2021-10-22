@@ -68,8 +68,7 @@ class GlanceCleanup(object):
         """
         True if host has a glance role.
         """
-        return bool(set(['pf9-glance-role', 'pf9-glance-role-vmw']) &
-                    set(host.get('roles', [])))
+        return bool(set(['pf9-glance-role']) & set(host.get('roles', [])))
 
     @staticmethod
     def _get_host_status_update(prop_name, curr_value, host):

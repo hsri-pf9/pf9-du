@@ -8,14 +8,13 @@ from glob import glob
 from os import path, environ
 import logging
 from bbmaster import pf9_comms
-from bbmaster import pf9_vmw_mgmt
 from bbmaster import pf9_muster
 import subprocess
 
 LOG = logging.getLogger(__name__)
 
 # TODO: Load these modules dynamically
-firmware_apps_cdu = { 'pf9-comms': pf9_comms, 'pf9-vmw-mgmt': pf9_vmw_mgmt, 'pf9-muster': pf9_muster }
+firmware_apps_cdu = { 'pf9-comms': pf9_comms, 'pf9-muster': pf9_muster }
 firmware_apps_ddu = { 'pf9-comms': pf9_comms }
 
 def get_firmware_apps(is_ddu=False):

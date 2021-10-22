@@ -42,7 +42,6 @@ integration-test: integration-test-setup
 	cd ${SRC_DIR} && \
 	source ${TEST_VENV}/bin/activate && \
 	PF9_COMMS_VERSION=1.0.0-1.2 PF9_COMMS_FILENAME=pf9-comms-1.0.0-1.2.rpm \
-	PF9_VMW_MGMT_VERSION=1.0.0-1.2 PF9_VMW_MGMT_FILENAME=pf9-vmw-mgmt-1.0.0-1.2.rpm \
 	PF9_MUSTER_VERSION=1.0.0-1.2 PF9_MUSTER_FILENAME=pf9-muster-1.0.0-1.2.rpm \
 	${TEST_VENV}/bin/nosetests --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/bbone_integration_test.py && \
 	deactivate

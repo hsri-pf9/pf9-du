@@ -108,12 +108,6 @@ while getopts ":h-:" optchar; do
                     echo "Skipping operating system compatibility questions"
                     SKIP_OS_CHECK="true"
                     ;;
-                vmware)
-                    # This option is not exposed in the help message and is for
-                    # internal use during installations on Platform9 VMWare
-                    # appliance.
-                    VMWARE="true"
-                    ;;
                 controller=*)
                     # overrides the value in globals.sh
                     DU="${OPTARG#*=}"
@@ -445,10 +439,6 @@ function main()
     local host_id=$(get_or_create_host_id)
     get_certs_from_vouch ${token} ${host_id}
     check_exit_code_and_generate_support_bundle $?
-
-    if [[ "${VMWARE}" == "true" ]]; then
-        vmware_install
-    fi
 
     # this directory shouldn't exist, but just in case
     rm -rf /var/opt/pf9/hostagent

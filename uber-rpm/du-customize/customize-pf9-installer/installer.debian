@@ -15,9 +15,3 @@ function distro_install()
         return 1
     fi
 }
-
-function vmware_install()
-{
-    echo "Platform9 VMWare Management packages not supported on debian. Skipping"
-    return 0
-}

@@ -10,18 +10,3 @@ function distro_install()
 {
     echo "Installing Redhat packages"
 }
-
-function vmware_install()
-{
-    echo "Installing Platform9 VMWare Management packages"
-    ${INSTALL} pf9-vmw-mgmt*.${EXT}
-    if [[ $? != "0" ]]; then
-        echo "pf9-vmw-mgmt installation failed"
-        return 1
-    fi
-
-    # Write the hypervisor_details and vcenter_last_query_time and set the
-    # permissions to 666 so that it remains accessible to PF9 user later
-    echo '{"credentials": "inprogress", "permissions": "inprogress", "clusters": "[]", "pair_status": "pairing", "vcenter_ip": "unknown"}' > /var/opt/pf9/hypervisor_details
-    chmod 666 /var/opt/pf9/hypervisor_details
-}

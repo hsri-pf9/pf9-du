@@ -239,22 +239,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
 
 
     def hypervisor_info():
-        hypervisor_info = dict()
+        return {'hypervisor_type': 'kvm'}
 
-        # Existence of this file is an indicator of VMWare appliance,
-        # instead of conf parameter so that upgrades do not affect this determination
-        # The type listed in this file is used to determine if its Gateway appliance or Network node.
-        if os.path.isfile(HYPERVISOR_INFO_FILE):
-            try:
-                with open(HYPERVISOR_INFO_FILE, 'r') as host_details:
-                   hypervisor_info['hypervisor_type'] = json.loads(host_details.read()).get('hypervisor_type', 'VMWareCluster')
-            except Exception as e:
-                log.error('Setting default vmware hypervisor type as VMWareCluster due to: %s' % e)
-                hypervisor_info['hypervisor_type'] = 'VMWareCluster'
-        else:
-            hypervisor_info['hypervisor_type'] = 'kvm'
-
-        return hypervisor_info
 
     def get_current_config():
         """
