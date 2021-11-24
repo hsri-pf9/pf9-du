@@ -90,12 +90,13 @@ class GlanceCleanup(object):
                                     'path': '/%s' % prop_name,
                                     'value': STATUS_PENDING})
                 elif role_status != 'ok' and curr_value != STATUS_OFFLINE:
-                    LOG.warn('host %s is responding but role_status = %s, '
-                             'marking image offline', host['id'],
-                             role_status)
-                    updates.append({'op': 'add',
-                                    'path': '/%s' % prop_name,
-                                    'value': STATUS_OFFLINE})
+                    app_info = utils.get_host_app_info(host['id'])
+                    if app_info and "desired_apps" in app_info.get("pf9-glance-role", {}):
+                        LOG.warn('host %s is responding but glance role is not converged, '
+                                 'marking image offline', host['id'])
+                        updates.append({'op': 'add',
+                                        'path': '/%s' % prop_name,
+                                        'value': STATUS_OFFLINE})
             else:
                 LOG.info('host %s is not authorized for glance, removing status',
                          host['id'])

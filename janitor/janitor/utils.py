@@ -45,6 +45,17 @@ def get_resmgr_host_roles(resmgr_url, token, resmgr_host):
         return []
     return resp.json()["roles"]
 
+def get_host_app_info(host_id):
+    url = "http://localhost:8082/v1/hosts/%s/apps" % host_id
+    headers = {'Content-Type': 'application/json'}
+
+    resp = requests.get(url, verify=False, headers=headers)
+
+    if resp.status_code not in (requests.codes.ok, 204):
+        LOG.error('BBmaster query failed: %d', resp.status_code)
+        return None
+    return resp.json()
+
 def get_ostackhost_role_data(resmgr_hosts, resmgr_url, token):
     roles_to_look_for = set(['pf9-ostackhost-vmw', 'pf9-ostackhost-neutron-vmw'])
     headers = {'X-Auth-Token': token, 'Content-Type': 'application/json'}
