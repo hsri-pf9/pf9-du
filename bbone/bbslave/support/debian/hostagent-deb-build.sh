@@ -18,6 +18,7 @@ AMQP_USER=$6
 AMQP_PASS=$7
 DU_IS_CONTAINER="$8"
 CERT_VERSION="$9"
+HOSTAGENT_SKIP_CERTS="${10}"
 
 # The directory where the build is done
 SPEC_FILE_DIR=`mktemp -d -t pf9-XXX`
@@ -28,6 +29,8 @@ HOST_AGENT_DEB_SYMLINK=pf9-hostagent.x86_64.deb
 # Remove after-install.sh and hostagent-deb-build from the BUILD_DIR
 mv $TARBALL_EXPANDED_LOCATION/before-install.sh $SPEC_FILE_DIR
 mv $TARBALL_EXPANDED_LOCATION/after-install.sh $SPEC_FILE_DIR
+mv $TARBALL_EXPANDED_LOCATION/before-install-nocert.sh $SPEC_FILE_DIR
+mv $TARBALL_EXPANDED_LOCATION/after-install-nocert.sh $SPEC_FILE_DIR
 mv $TARBALL_EXPANDED_LOCATION/after-remove.sh $SPEC_FILE_DIR
 mv $TARBALL_EXPANDED_LOCATION/before-remove.sh $SPEC_FILE_DIR
 mv $TARBALL_EXPANDED_LOCATION/hostagent-deb-build.sh $SPEC_FILE_DIR
@@ -38,10 +41,17 @@ sed -i -e "s/CHANGE_TO_YOUR_AMQP_PASS/$AMQP_PASS/" $TARBALL_EXPANDED_LOCATION/et
 sed -i -e "s/CHANGE_TO_YOUR_DU_IS_CONTAINER_FLAG/$DU_IS_CONTAINER/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 sed -i -e "s/CHANGE_TO_YOUR_CERT_VERSION/$CERT_VERSION/" $TARBALL_EXPANDED_LOCATION/etc/pf9/hostagent.conf
 
+if [ -z ${HOSTAGENT_SKIP_CERTS} ]; then
+        BEFORE_INSTALL=$SPEC_FILE_DIR/before-install.sh
+        AFTER_INSTALL=$SPEC_FILE_DIR/after-install.sh
+else
+        BEFORE_INSTALL=$SPEC_FILE_DIR/before-install-nocert.sh
+        AFTER_INSTALL=$SPEC_FILE_DIR/after-install-nocert.sh
+fi
 fpm -t deb -s dir --provides "pf9-hostagent" --provides "pf9-bbslave" -d "sudo | sudo-ldap" -d "procps" \
-        -d "iptables-persistent" -d "python-apt" --after-install $SPEC_FILE_DIR/after-install.sh \
+        -d "iptables-persistent" -d "python-apt" --after-install $AFTER_INSTALL \
         --after-remove $SPEC_FILE_DIR/after-remove.sh --before-remove $SPEC_FILE_DIR/before-remove.sh \
-        --before-install $SPEC_FILE_DIR/before-install.sh \
+        --before-install $BEFORE_INSTALL \
         --license "Commercial" --architecture all --url "http://www.platform9.net" --vendor Platform9 \
         --config-files /etc/pf9/hostagent.conf \
         -v $VERSION-$RELEASE -p $DEB_FILE -n pf9-hostagent --description "Platform9 host agent" \
