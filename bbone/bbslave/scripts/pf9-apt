@@ -66,7 +66,11 @@ def _install_package(package_path, cache):
         missing_package.mark_install()
 
     cache.commit()
-    deb_package.install()
+    pkg_install = deb_package.install()
+    if pkg_install != 0:
+        raise Exception('Errors encountered while installing : {}'.format(
+                package_path
+            ))
 
 def _erase_package(package_name, cache):
     """
