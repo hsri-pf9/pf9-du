@@ -53,7 +53,7 @@ $(VENV_DIR): $(PYTHON_DIR)
 	mkdir -p $@
 	cd $@ && \
 	virtualenv -p ../python/bin/python $@ && \
-	curl https://bootstrap.pypa.io/get-pip.py |$(VENV_DIR)/bin/python - && \
+	curl https://bootstrap.pypa.io/pip/3.6/get-pip.py |$(VENV_DIR)/bin/python - && \
 	$(VENV_DIR)/bin/pip install --upgrade pip setuptools && \
 	$(VENV_DIR)/bin/pip list && \
 	$(VENV_DIR)/bin/pip install cryptography==2.8 && \
