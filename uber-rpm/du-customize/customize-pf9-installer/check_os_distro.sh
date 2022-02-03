@@ -16,7 +16,7 @@ UBUNTU_KNOWN_FILE="/etc/lsb-release"
 # DISTRIB_CODENAME=precise
 # DISTRIB_DESCRIPTION="Ubuntu 12.04.5 LTS"
 
-REDHAT_VERSIONS=("7.3" "7.4" "7.5" "7.6" "7.7" "7.8" "8.0" "8.1" "8.2" "8.3")
+REDHAT_VERSIONS=("7.3" "7.4" "7.5" "7.6" "7.7" "7.8" "7.9" "8.0" "8.1" "8.2" "8.3")
 UBUNTU_VERSIONS=("16.04" "18.04" "20.04")
 
 function check_platform()
