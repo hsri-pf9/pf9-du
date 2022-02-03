@@ -44,7 +44,7 @@ END_DATA
     if [ -z "${token}" ]; then
         echo "Failed to authenticate with the keystone server on $DU_FQDN, response:" >&2
         echo ${resp} >&2
-        return 1
+        return ${KEYSTONE_REQUEST_FAILED}
     else
         echo ${token}
     fi

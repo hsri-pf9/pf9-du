@@ -202,7 +202,7 @@ if ! packages_present ${EXT}; then
         if [[ ! -z "${OS_USERNAME}" ]] || [[ ! -z "${OS_PASSWORD}" ]]; then
             echo "Arg(s) username or password not required when user-token is provided"
             usage
-            exit 1
+            exit ${CREDS_NOT_NEEDED}
         fi
     fi
     if [ -z "${DONT_ASK_PROJECT}" ]; then
@@ -215,7 +215,7 @@ fi
 if [ ! -z "${missing_params}" ]; then
     echo "Required arg(s): ${missing_params} not specified"
     usage
-    exit 1
+    exit ${PARAMS_MISSING}
 fi
 
 function check_services_running()
@@ -223,27 +223,24 @@ function check_services_running()
     # verify that pf9-hostagent is running
     echo "Checking if services are running"
     ${SYSTEMCTL_CMD} is-active pf9-hostagent
-    if [[ $? != "0" ]]; then
+    check_exit_code_and_generate_support_bundle $? || return ${HOSTAGENT_NOT_RUNNING}
+    
+    # if hostagent is running, verify desired_apps.json includes pf9-comms with running=true
+    wait_dir_exists 60 ${HOSTAGENT_DIR}
+    check_exit_code_and_generate_support_bundle $? || return ${HOSTAGENT_FILES_MISSING}
+
+    local host_uuid=`ls -l ${HOSTAGENT_DIR} | grep "^d" | tr -s ' ' | cut -d' ' -f9`
+
+    local desired_apps="${HOSTAGENT_DIR}/${host_uuid}/${DESIRED_APPS}"
+    wait_file_exists 90 $desired_apps
+    check_exit_code_and_generate_support_bundle $? || return ${HOSTAGENT_FILES_MISSING}
+
+    local comms_state=`${JQ} '."pf9-comms".running' ${desired_apps}`
+    if [[ "${comms_state}" != "true" ]]; then
+        echo
+        echo "pf9-comms is not in the running state"
         support_generate_bundle
-        exit 1
-    else
-        # if hostagent is running, verify desired_apps.json includes pf9-comms with running=true
-        wait_dir_exists 60 ${HOSTAGENT_DIR}
-        check_exit_code_and_generate_support_bundle $?
-
-        local host_uuid=`ls -l ${HOSTAGENT_DIR} | grep "^d" | tr -s ' ' | cut -d' ' -f9`
-
-        local desired_apps="${HOSTAGENT_DIR}/${host_uuid}/${DESIRED_APPS}"
-        wait_file_exists 90 $desired_apps
-        check_exit_code_and_generate_support_bundle $?
-
-        local comms_state=`${JQ} '."pf9-comms".running' ${desired_apps}`
-        if [[ "${comms_state}" != "true" ]]; then
-            echo
-            echo "pf9-comms is not in the running state"
-            support_generate_bundle
-            exit 1
-        fi
+        return ${COMMS_NOT_RUNNING}
     fi
 }
 
@@ -251,17 +248,17 @@ function start_services()
 {
     echo "Starting services"
     # order is important here
-    ${SYSTEMCTL_CMD} start pf9-comms
+    ${SYSTEMCTL_CMD} start pf9-comms || return ${SYSTEMCTL_FAILED_TO_START_COMMS}
     wait_service_running 30 "pf9-comms"
-    check_exit_code_and_generate_support_bundle $?
+    check_exit_code_and_generate_support_bundle $? || return ${COMMS_NOT_UP}
 
-    ${SYSTEMCTL_CMD} start pf9-sidekick
+    ${SYSTEMCTL_CMD} start pf9-sidekick || return ${SYSTEMCTL_FAILED_TO_START_SIDEKICK}
     wait_service_running 30 "pf9-sidekick"
-    check_exit_code_and_generate_support_bundle $?
+    check_exit_code_and_generate_support_bundle $? || return ${SIDEKICK_NOT_UP}
 
-    ${SYSTEMCTL_CMD} start pf9-hostagent
+    ${SYSTEMCTL_CMD} start pf9-hostagent || return ${SYSTEMCTL_FAILED_TO_START_HOSTAGENT}
     wait_service_running 30 "pf9-hostagent"
-    check_exit_code_and_generate_support_bundle $?
+    check_exit_code_and_generate_support_bundle $? || return ${HOSTAGENT_NOT_UP}
 }
 
 # $1: exit code
@@ -269,10 +266,10 @@ function start_services()
 function check_exit_code_and_generate_support_bundle()
 {
     local exit_code=$1
-
+    
     if [[ "${exit_code}" != "0" ]]; then
         support_generate_bundle
-        exit 1
+        return ${exit_code}
     fi
 }
 
@@ -290,11 +287,11 @@ function pf9_install()
                     msg="$(hostname) with DU ${DU_FQDN} failed to install ${pkgname} package, giving up..."
                     echo ${msg}
                     curl -d "{\"text\":\"$msg\"}" "${INF_790_WEBHOOK}"
-                    return 1
+                    return ${HOSTAGENT_PKG_INSTALLATION_FAILED}
                 fi
             else
                 echo "${pkgname} installation failed"
-                return 1
+                return ${HOSTAGENT_PKG_INSTALLATION_FAILED}
             fi
         fi
     done
@@ -305,18 +302,18 @@ function require_keystone_credentials() {
         # unset by user AND unset by package build scripts
         echo "Please provide the Platform9 controller address with --controller" >&2
         usage >&2
-        return 1
+        return ${CONTROLLER_ADRESS_MISSING}
     fi
     if [ -z "$OS_USERNAME" ]; then
         echo "Please provide the Platform9 controller username with --username" >&2
         usage >&2
-        return 1
+        return ${CONTROLLER_USER_MISSING}
     fi
     if [ -z "$DONT_ASK_PROJECT" ]; then
         if [ -z "$OS_TENANT_NAME" ]; then
             echo "Please provide the Platform9 project/tenant with --project-name" >&2
             usage >&2
-            return 1
+            return ${CONTROLLER_PROJECTNAME_MISSING}
         fi
     fi
     if [ -z "$OS_PASSWORD" ]; then
@@ -325,30 +322,30 @@ function require_keystone_credentials() {
         if [ -z "$OS_PASSWORD" ]; then
             echo "Password is required." >&2
             usage >&2
-            return 1
+            return ${CONTROLLER_PASSWORD_MISSING}
         fi
     fi
 }
 
-function pre_install_check()
+function pre_install_check() 
 {
     # Check if we support this Linux distribution
-    check_platform
+    check_platform || return $?
 
     # Check if sudoers.d is included
-    check_sudoers
+    check_sudoers || return $?
 
     # Check if any ports we need are currently in use
-    check_ports
+    check_ports || return $?
 
     # Check if we can resolve and connect to  DU_FQDN
-    check_network
+    check_network || return $?
 
     echo "Checking if package manager is available"
     which ${PKG_MANAGER}
     if [[ $? != "0" ]]; then
         echo "${PKG_MANAGER} is not installed. Exiting..."
-        exit 1
+        return ${PKG_MANAGER_MISSING}
     fi
     ${QUERY_PKGS} | grep pf9-
     # fail if we match (exit code = 0) at least one package
@@ -356,7 +353,7 @@ function pre_install_check()
     if [[ $? == "0" ]]; then
         echo
         echo "Platform9 packages are already present. Exiting..."
-        exit 1
+        return ${PF9_PACKAGES_PRESENT}
     fi
     echo
 }
@@ -384,7 +381,7 @@ function add_proxy_to_env()
     fi
 }
 
-function main()
+function proxy_routine()
 {
     if [[ "${ASK_PROXY}" == "true" ]]; then
         if [[ "${TTY_AVAILABLE}" == "true" ]]; then
@@ -394,60 +391,105 @@ function main()
 
     # proxy settings are available for the rest of the installation.
     add_proxy_to_env
+}
 
+function get_keystone_routine()
+{
     if ! packages_present ${EXT}; then
         if [ ! -z "${OS_KEYSTONE_TOKEN}" ]; then
-            local token="${OS_KEYSTONE_TOKEN}"
+            token="${OS_KEYSTONE_TOKEN}"
         else
-            require_keystone_credentials || exit 1
-            local token=`keystone_token`
+            require_keystone_credentials || return $?
+            token=`keystone_token` || return $?
         fi
         if [ -z "${token}" ]; then
-            exit 1
+            return ${KEYSTONE_TOKEN_MISSING}
         fi
     fi
+}
 
+function ntpd_routine()
+{
     if [[ "${ASK_NTPD}" == "true" && "${TTY_AVAILABLE}" == "true" ]]; then
         ntpd_ask
     elif [[ "${INSTALL_NTPD}" == "true" ]]; then
-        install_ntpd
+        install_ntpd || return $?
     else
         print_ntpd_warning
     fi
+}
 
+function pre_install_routine()
+{
     pre_install_check
+}
 
+function distro_install_routine()
+{
     distro_install
-    check_exit_code_and_generate_support_bundle $?
+    check_exit_code_and_generate_support_bundle $? || return $?
+}
 
+function download_nocert_routine()
+{
     if ! packages_present ${EXT}; then
         download_nocert ${EXT} ${token}
-        check_exit_code_and_generate_support_bundle $?
+        check_exit_code_and_generate_support_bundle $? || return $?
     fi
+}
 
+function install_hostagent_routine()
+{
     echo "Installing Platform9 host agent"
     pf9_install
-    check_exit_code_and_generate_support_bundle $?
+    check_exit_code_and_generate_support_bundle $? || return $?
+}
 
+function set_proxy_routine()
+{
     if [[ "${SETUP_PROXY}" == "true" ]]; then
-        proxy_setup
+        proxy_setup || return ${PROXY_SETUP_FAILED}
     fi
+}
 
+function update_config_routine()
+{
     update_config
-    check_exit_code_and_generate_support_bundle $?
+    check_exit_code_and_generate_support_bundle $? || return $UPDATE_CONFIG_FAILED
+}
 
+function get_certs_routine()
+{
     local host_id=$(get_or_create_host_id)
     get_certs_from_vouch ${token} ${host_id}
-    check_exit_code_and_generate_support_bundle $?
+    check_exit_code_and_generate_support_bundle $? || return $?
+}
+
+function post_install_routine()
+{
 
     # this directory shouldn't exist, but just in case
     rm -rf /var/opt/pf9/hostagent
 
-    start_services
-    check_services_running
-
+    start_services || return $?
+    check_services_running || return $?
     echo
     echo "Installation succeeded!"
+}
+
+function main()
+{
+    routines=( "proxy_routine" "get_keystone_routine" "ntpd_routine" \
+               "pre_install_routine" "distro_install_routine" \
+               "download_nocert_routine" "install_hostagent_routine" \
+               "set_proxy_routine" "update_config_routine" \
+               "get_certs_routine" "post_install_routine" )
+
+    for routine in ${routines[@]}; do
+        echo "Starting with $routine"
+        $routine || exit $?
+        echo "$routine exictuted successfully"
+    done
 }
 
 main

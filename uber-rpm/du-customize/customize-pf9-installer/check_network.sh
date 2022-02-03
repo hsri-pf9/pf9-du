@@ -52,7 +52,7 @@ function connection_failed()
     echo
     echo "Cannot connect to ${DU_FQDN}"
     echo "Exiting..."
-    exit 1
+    return ${CONNECTION_FAILED}
 }
 
 function proxy_connection_failed()
@@ -60,5 +60,5 @@ function proxy_connection_failed()
     echo
     echo "Cannot connect to ${DU_FQDN} via ${PROXY_HOST}"
     echo "Exiting..."
-    exit 1
+    return ${CONNECTION_FAILED_VIA_PROXY}
 }

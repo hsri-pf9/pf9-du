@@ -25,7 +25,7 @@ function check_platform()
     if [[ `uname -m` != "x86_64" ]]; then
         echo "Sorry but we currently only support x86_64 (64-bit) machines"
         echo
-        exit 1
+        return ${ARCHITECTURE_NOT_SUPPORTED}
     fi
 
     local version=""
@@ -81,7 +81,7 @@ function _print_not_supported()
     if [[ "${TTY_AVAILABLE}" == "false" ]]; then
         # Let the users explicity set the --skip-os-check
         # option if they want to continue installation
-        exit 1
+        return ${OS_NOT_SUPPORTED}
     fi
 
     read -p "Do you still want to continue? (yes/no) " yn

@@ -7,10 +7,10 @@ THIS_DIR=$(cd $(dirname ${BASH_SOURCE[0]}); pwd)
 function download_nocert() {
     if [ -z "$1" ]; then
         echo "download_nocert(): arg1: rpm or deb" >&2
-        return 1
+        return ${DOWNLOAD_NOCERT_ARGUMENT_MISSING}
     elif [ -z "$2" ]; then
         echo "download_nocert(): arg2: keystone token" >&2
-        return 1
+        return ${DOWNLOAD_NOCERT_ARGUMENT_MISSING}
     fi
 
     local packagelist="${THIS_DIR}/packagelist"
@@ -20,7 +20,7 @@ function download_nocert() {
     curl -# ${CURL_RETRY_OPTS} ${CURL_INSECURE} -f -H "X-Auth-Token: $2" "https://$DU_FQDN/protected/nocert-packagelist.$1" > ${packagelist}
     if [ ! -f "${packagelist}" ]; then
         echo "Failed to download package list, exiting." >&2
-        return 1
+        return ${PACKAGE_LIST_DOWNLOAD_FAILED}
     fi
 
     while read f; do
@@ -30,12 +30,12 @@ function download_nocert() {
                 msg="$(hostname) with DU ${DU_FQDN} failed to download ${f}"
                 echo ${msg}
                 curl ${CURL_RETRY_OPTS} -d "{\"text\":\"$msg\"}" "${INF_790_WEBHOOK}"
-                return 1
+                return ${PACKAGE_DOWNLOAD_FAILED}
             fi
         fi
         if [ ! -f "${THIS_DIR}/${f}" ]; then
             echo "Failed to download ${f} exiting." >&2
-            return 1
+            return ${PACKAGE_DOWNLOAD_FAILED}
         fi
         # The following two echo's succeed even if awk/md5sum are absent -- ok
         echo "file size: $(ls -l ${THIS_DIR}/${f} | awk '{print $5}')"
@@ -70,7 +70,7 @@ function update_config() {
 function get_certs_from_vouch() {
     if [ -z "$1" ]; then
         echo "get_certs_from_vouch(): arg1: keystone token" >&2
-        return 1
+        return ${VOUCH_ARGUMENT_MISSING}
     fi
     if [ -z "$2" ]; then
         echo "get_certs_from_vouch(): arg2: host_id" >&2
@@ -105,7 +105,7 @@ function get_certs_from_vouch() {
             echo "WARNING: ${common_name} doesn't appear to meet the CN requirements for the CSR. Proceeding anyway but the signing request may fail."
         fi
         echo "Using certificate common name = ${common_name}."
-        $host_certs refresh ${vouch_args} --common-name ${common_name} || return_code=$?
+        $host_certs refresh ${vouch_args} --common-name ${common_name} || return_code=${HOST_CERTS_SCRIPT_FAILED}
     else
         echo "Certificate signing is not available on ${DU_FQDN}, keeping original certificate/key."
     fi

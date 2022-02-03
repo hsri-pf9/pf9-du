@@ -2,7 +2,7 @@
 # Copyright (c) 2016 Platform9 Systems Inc.
 
 # list of ports taken from pf9-comms's sni_maps/default.json
-IMPORTANT_PORTS=(8158 5672 5673 3306 8023 9080 6264)
+IMPORTANT_PORTS=(8158 5672 5673 3306 8023 9080 6264 5395 8558)
 NET_TOOLS=(netstat ss)
 
 function check_ports()
@@ -53,5 +53,5 @@ function in_use()
     echo
     echo "The Platform9 hostagent needs port $used_port to work properly."
     echo "Exiting..."
-    exit  1
+    return  ${IMPORTANT_PORT_OCCUPIED}
 }
