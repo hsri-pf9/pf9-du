@@ -224,11 +224,11 @@ function check_services_running()
     echo "Checking if services are running"
     ${SYSTEMCTL_CMD} is-active pf9-hostagent
     check_exit_code_and_generate_support_bundle $? || return ${HOSTAGENT_NOT_RUNNING}
-    
+
     # if hostagent is running, verify desired_apps.json includes pf9-comms with running=true
-    wait_dir_exists 60 ${HOSTAGENT_DIR}
+    wait_dir_exists 150 ${HOSTAGENT_DIR}
     check_exit_code_and_generate_support_bundle $? || return ${HOSTAGENT_FILES_MISSING}
-    
+
     local host_id_conf=/etc/pf9/host_id.conf
     local host_uuid=$(sed -n 's/^ *host_id *= *\([A-Fa-f0-9-]*\) *$/\1/ p' ${host_id_conf})
 
@@ -267,7 +267,7 @@ function start_services()
 function check_exit_code_and_generate_support_bundle()
 {
     local exit_code=$1
-    
+
     if [[ "${exit_code}" != "0" ]]; then
         support_generate_bundle
         return ${exit_code}
@@ -328,7 +328,7 @@ function require_keystone_credentials() {
     fi
 }
 
-function pre_install_check() 
+function pre_install_check()
 {
     # Check if we support this Linux distribution
     check_platform || return $?
