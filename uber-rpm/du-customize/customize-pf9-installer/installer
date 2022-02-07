@@ -228,8 +228,9 @@ function check_services_running()
     # if hostagent is running, verify desired_apps.json includes pf9-comms with running=true
     wait_dir_exists 60 ${HOSTAGENT_DIR}
     check_exit_code_and_generate_support_bundle $? || return ${HOSTAGENT_FILES_MISSING}
-
-    local host_uuid=`ls -l ${HOSTAGENT_DIR} | grep "^d" | tr -s ' ' | cut -d' ' -f9`
+    
+    local host_id_conf=/etc/pf9/host_id.conf
+    local host_uuid=$(sed -n 's/^ *host_id *= *\([A-Fa-f0-9-]*\) *$/\1/ p' ${host_id_conf})
 
     local desired_apps="${HOSTAGENT_DIR}/${host_uuid}/${DESIRED_APPS}"
     wait_file_exists 90 $desired_apps
