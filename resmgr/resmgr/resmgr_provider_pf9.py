@@ -1340,25 +1340,27 @@ class BbonePoller(object):
                             self.rolemgr.push_configuration(host, expected_cfg)
                     self._update_role_status(host, host_info)
 
-                    if 'info' not in host_info:
-                        return
+                    if 'info' in host_info:
+                        # info field can be missing for the host (can happen in certain
+                        # status like missing status), only update fields if
+                        # this data is available
 
-                    # Host OS info as reported from bbmaster
-                    current_host_info = {
-                        'hostarch': host_info['info'].get('arch'),
-                        'hostname': host_info['info'].get('hostname'),
-                        'hostosfamily': host_info['info'].get('os_family'),
-                        'hostosinfo': host_info['info'].get('os_info'),
-                    }
+                        # Host OS info as reported from bbmaster
+                        current_host_info = {
+                            'hostarch': host_info['info'].get('arch'),
+                            'hostname': host_info['info'].get('hostname'),
+                            'hostosfamily': host_info['info'].get('os_family'),
+                            'hostosinfo': host_info['info'].get('os_info'),
+                        }
 
-                    # Compare host info from bbmaster to values stored in resmgr
-                    updated_host_info = { k: v for k, v in iteritems(current_host_info)
-                        if authorized_hosts[host][k] != v }
+                        # Compare host info from bbmaster to values stored in resmgr
+                        updated_host_info = { k: v for k, v in iteritems(current_host_info)
+                            if authorized_hosts[host][k] != v }
 
-                    # Update resmgr DB if host info has changed
-                    if updated_host_info:
-                        self.db_handle.update_host_info(host, updated_host_info)
-                        self.notifier.publish_notification('change', 'host', host)
+                        # Update resmgr DB if host info has changed
+                        if updated_host_info:
+                            self.db_handle.update_host_info(host, updated_host_info)
+                            self.notifier.publish_notification('change', 'host', host)
 
                 except (BBMasterNotFound, HostConfigFailed):
                     log.exception('Backbone request for %s failed', host)
