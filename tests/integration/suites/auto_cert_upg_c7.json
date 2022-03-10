@@ -1,0 +1,13 @@
+{
+  "suite": "auto_cert_upg_centos7",
+  "testbed": {
+    "type": "pf9lab.testbeds.pmk_testbed.PmkTestbed",
+    "params": {
+      "tag": "auto_cert_upg_c7",
+      "template_key": "centos7"
+    }
+  },
+  "modules": [
+    "integration.test_automated_cert_upgrade"
+  ]
+}
