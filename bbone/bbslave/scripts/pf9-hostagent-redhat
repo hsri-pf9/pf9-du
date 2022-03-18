@@ -1,9 +1,11 @@
 #!/opt/pf9/hostagent/bin/python
 
-import platform
+import distro
 import sys
 
-if platform.linux_distribution()[1].startswith('7'):
+
+# TODO: Is this still needed? Revisit
+if distro.linux_distribution()[1].startswith('7'):
     # For yum
     sys.path.append('/usr/lib/python2.7/site-packages')
     # For rpm

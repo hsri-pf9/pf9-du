@@ -122,7 +122,8 @@ class BBoneIntegrationTest(unittest.TestCase):
             self.slaves.append(subprocess.Popen([sys.executable,
                                                  slave_script], env=env))
 
-        self.master = subprocess.Popen(['pecan', 'serve', pecan_conf], env=env)
+        pecan_exec = join(dirname(sys.executable), 'pecan')
+        self.master = subprocess.Popen([pecan_exec, 'serve', pecan_conf], env=env)
         self.url = 'http://localhost:8082/v1/hosts/'
         self.wait_period = env.get('BBONE_TEST_WAIT_PERIOD', 1)
         self.wait_timeout = env.get('BBONE_TEST_WAIT_TIMEOUT', 30)
@@ -250,4 +251,3 @@ class BBoneIntegrationTest(unittest.TestCase):
         #self._wait_until(self._verify_subset, 0, {})
         #self._deploy_to_subset(1, {})
         #self._wait_until(self._verify_subset, 1, {})
-

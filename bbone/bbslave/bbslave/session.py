@@ -755,7 +755,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
         log.info("Using virtual host %s on the AMQP broker %s",
                  vhost, amqp_host)
     except:
-        # If virtual host is not defined, leave it as None
+        # If virtual host is not defined, default to using '/' vhost
+        vhost = "/"
         log.info("Using the default virtual host '/' on the AMQP broker %s",
                  amqp_host)
 

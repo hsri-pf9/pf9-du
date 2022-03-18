@@ -11,7 +11,7 @@
 include ../../../../common-defs.mk
 
 BUILD_DIR := $(BUILD_ROOT)/hostagent/redhat
-PYTHON_VERSION = 3.6
+PYTHON_VERSION = 3.9
 
 # This defines SRC_DIR, VENV_DIR, HOSTAGENT_TARBALL,
 # HOSTAGENT_TARBALL_SRCDIR and SED_CMD
@@ -21,6 +21,7 @@ RPM_DIR := $(BUILD_DIR)/rpmbuild
 MOCK = /usr/bin/mock -r epel-7-x86_64
 UID ?= $(shell id -u)
 GID ?= $(shell id -g)
+TARGET_DISTRO = redhat
 
 $(HOSTAGENT_TARBALL): $(VENV_DIR)
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/etc/sudoers.d
@@ -78,11 +79,9 @@ hostagent-rpm-nocert: hostagent-tarball
 	chmod +x ${BUILD_DIR}/45-customize-hostagent-rpm && \
 	HOSTAGENT_SKIP_CERTS=1 DU_FQDN='' ${BUILD_DIR}/45-customize-hostagent-rpm '' ''
 
-hostagent-redhat: $(HOSTAGENT_TARBALL) hostagent-tarball-rpm-redhat
-hostagent-redhat hostagent-rpm-nocert : TARGET_DISTRO = redhat
+hostagent-redhat: hostagent-tarball hostagent-tarball-rpm-redhat
 
 hostagent-redhat-centos65: redhat-container hostagent-tarball-rpm-redhat
-hostagent-redhat-centos65: TARGET_DISTRO = redhat
 
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${SRC_ROOT}/bbone/bbmaster ${PF9APP_DIR} ${CONFIGUTILS_DIR}
@@ -96,8 +95,7 @@ ${TEST_VENV}: ${BUILD_DIR}
 	$(SRC_ROOT)/build-venv.sh ${TEST_VENV} ${PY_VERSION}
 
 pre-reqs : ${TEST_VENV}
-	source ${TEST_VENV}/bin/activate && \
-	pip install --upgrade pip setuptools && \
+	${TEST_VENV}/bin/pip install --upgrade pip setuptools && \
 	for pkg in ${TEST_SETUP_DEPS}; do \
 		cd $${pkg} && \
 		${TEST_VENV_DEVELOP_CMD};\
@@ -107,16 +105,13 @@ pre-reqs : ${TEST_VENV}
 
 unit-test-setup: pre-reqs
 	# Setup up nose and coverage in addition to pre-reqs
-	source ${TEST_VENV}/bin/activate && \
-	pip install nose && \
-	pip install coverage
+	${TEST_VENV}/bin/pip install nose && \
+	${TEST_VENV}/bin/pip install coverage
 
 unit-test: unit-test-setup
 	cd ${SRC_DIR} && \
-	HOSTAGENT_HOST_ID_BASEDIR=${BUILD_DIR} ${TEST_VENV}/bin/nosetests --with-coverage --cover-html --cover-html-dir=${BUILD_DIR}/coverage \
-			--cover-package=bbslave --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/test_slave.py
-	cd ${BUILD_DIR}/coverage && \
-	zip -q ${COVERAGE_ZIP} *
+	HOSTAGENT_HOST_ID_BASEDIR=${BUILD_DIR} ${TEST_VENV}/bin/nosetests -s \
+	--verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/test_slave.py
 
 
 clean:

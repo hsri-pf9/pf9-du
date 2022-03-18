@@ -11,29 +11,16 @@ import socket
 import subprocess
 import cpuinfo
 import psutil
-import sys
+import distro
 
-_dist_res = (re.compile("(?:DISTRIB_ID\s*=)\s*(.*)", re.I),
-             re.compile("(?:DISTRIB_RELEASE\s*=)\s*(.*)", re.I),
-             re.compile("(?:DISTRIB_CODENAME\s*=)\s*(.*)", re.I))
 
 CPU_INFO = None
 
 def _get_os_info():
     """
-    The Python platform module detects Ubuntu distributions as Debian,
-    so check the lsb release file first. See IAAS-3596.
+    Get OS dist information
     """
-    try:
-        with open("/etc/lsb-release", "rU") as f:
-            lsb_contents = f.read()
-        dist = [dist_re.search(lsb_contents).group(1).strip()
-                for dist_re in _dist_res
-                if dist_re.search(lsb_contents)]
-    except:
-        dist = []
-    if len(dist) != 3:
-        dist = platform.dist()
+    dist = distro.linux_distribution()
     return ' '.join(dist)
 
 def get_sysinfo(log):

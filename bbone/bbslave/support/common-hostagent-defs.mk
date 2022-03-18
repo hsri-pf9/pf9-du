@@ -33,9 +33,9 @@ HOSTAGENT_DEPS = six==1.12.0 \
                  $(SRC_DIR)
 SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(PF9_VERSION)/"
 
-PYTHON_DOWNLOAD_URL := artifacts.platform9.horse/repository/yum-repo-frozen/hostagent-components/python3.6.7.tgz
+PYTHON_DOWNLOAD_URL := https://artifactory.platform9.horse/artifactory/pf9-bins/python/3.9.10/python3.9.10.tgz
 # Include pf9-lib, which contains .so files used by all pf9 apps
-SO_DOWNLOAD_URL := "http://artifacts.platform9.horse/service/rest/v1/search/assets?repository=yum-repo-frozen&name=hostagent-components/libs/pf9-lib-py3/*.so.*"
+#SO_DOWNLOAD_URL := "http://artifacts.platform9.horse/service/rest/v1/search/assets?repository=yum-repo-frozen&name=hostagent-components/libs/pf9-lib-py3/*.so.*"
 
 $(HOSTAGENT_TARBALL_SRCDIR):
 	mkdir -p $@
@@ -47,13 +47,16 @@ $(PYTHON_DIR): $(HOSTAGENT_TARBALL_SRCDIR)
 	mkdir -p $@
 	wget -q -O- $(PYTHON_DOWNLOAD_URL) | tar zxf - --strip-components=3 -C $@
 	mkdir -p $@/pf9-lib
-	curl -X GET $(SO_DOWNLOAD_URL) -H  "accept: application/json" | jq '.items[] | .downloadUrl' | xargs -I {} wget --directory-prefix=$@/pf9-lib {}
+#	curl -X GET $(SO_DOWNLOAD_URL) -H  "accept: application/json" | jq '.items[] | .downloadUrl' | xargs -I {} wget --directory-prefix=$@/pf9-lib {}
 
 $(VENV_DIR): $(PYTHON_DIR)
 	mkdir -p $@
 	cd $@ && \
 	virtualenv -p ../python/bin/python $@ && \
 	curl https://bootstrap.pypa.io/pip/3.6/get-pip.py |$(VENV_DIR)/bin/python - && \
+	export LD_LIBRARY_PATH=$(PYTHON_DIR)/pf9-lib:${LD_LIBRARY_PATH} && \
+	../python/bin/python -m venv --copies $@ && \
+	curl https://bootstrap.pypa.io/get-pip.py |$(VENV_DIR)/bin/python - && \
 	$(VENV_DIR)/bin/pip install --upgrade pip setuptools && \
 	$(VENV_DIR)/bin/pip list && \
 	$(VENV_DIR)/bin/pip install cryptography==2.8 && \
@@ -71,7 +74,7 @@ $(VENV_DIR): $(PYTHON_DIR)
 	# Create a symlink so that the program names of the hostagent and the
 	# init script are different. This will allow the start-stop-daemon to
 	# determine if the imagelibrary is running by looking at the program names.
-	cd $(VENV_DIR)/bin && ln -s pf9-hostagent pf9-hostd
+	cd $(VENV_DIR)/bin && ln -sf pf9-hostagent pf9-hostd
 	mkdir -p $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/support/allowed_commands
 	cp $(SRC_DIR)/allowed_commands/* $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/support/allowed_commands
 	cp $(SRC_DIR)/support_scripts/common/* $(HOSTAGENT_TARBALL_SRCDIR)/opt/pf9/support

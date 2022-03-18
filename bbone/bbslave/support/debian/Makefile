@@ -7,7 +7,7 @@
 include ../../../../common-defs.mk
 
 BUILD_DIR := $(BUILD_ROOT)/hostagent/debian
-PYTHON_VERSION = 3.6
+PYTHON_VERSION = 3.9
 
 # This defines SRC_DIR, VENV_DIR, HOSTAGENT_TARBALL,
 # HOSTAGENT_TARBALL_SRCDIR and SED_CMD
@@ -36,6 +36,8 @@ $(HOSTAGENT_TARBALL): | $(VENV_DIR)
 	cd $(HOSTAGENT_TARBALL_SRCDIR) && \
 	tar -czf $(HOSTAGENT_TARBALL) *
 
+hostagent-tarball: $(HOSTAGENT_TARBALL)
+
 hostagent-tarball-rpm-debian: $(HOSTAGENT_TARBALL)
 	$(SED_CMD) ${SRC_DIR}/support/debian/46-customize-hostagent-deb > ${BUILD_DIR}/46-customize-hostagent-deb
 	chmod +x ${BUILD_DIR}/46-customize-hostagent-deb
@@ -46,7 +48,7 @@ hostagent-tarball-rpm-debian: $(HOSTAGENT_TARBALL)
 	rpmbuild -bb $(BUILD_DIR)/hostagent-tarball-rpm.spec --define "_topdir $(BUILD_DIR)"
 	$(SRC_ROOT)/sign_packages.sh $(BUILD_DIR)/RPMS/*/pf9-hostagent-tarball-debian*.rpm
 
-hostagent-tarball-rpm-debian hostagent-deb-nocert: TARGET_DISTRO = debian
+hostagent-tarball-rpm-debian hostagent-deb-nocert hostagent-tarball: TARGET_DISTRO = debian
 
 # build a hostagent rpm with no certs, no DU_FQDN and no amqp credentials
 hostagent-deb-nocert: $(HOSTAGENT_TARBALL)

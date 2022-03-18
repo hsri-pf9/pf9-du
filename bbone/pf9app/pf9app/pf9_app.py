@@ -22,7 +22,7 @@ def prune_pf9_python_path():
     """
     Removes the Platform9 specific python path if it exists in the environment
     """
-    pf9_python_path = '/opt/pf9/python/lib/python3.6:'
+    pf9_python_path = '/opt/pf9/python/lib/python3.9:'
     run_env = os.environ
 
     if pf9_python_path in os.environ.get('PYTHONPATH', ''):

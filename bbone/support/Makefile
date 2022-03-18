@@ -22,7 +22,7 @@ ${BUILD_DIR}:
 	mkdir -p $@
 
 ${TEST_VENV}: ${BUILD_DIR}
-	virtualenv -p python3 ${TEST_VENV}
+	python3 -m venv ${TEST_VENV}
 	${TEST_VENV}/bin/pip install --upgrade pip setuptools
 	${TEST_VENV}/bin/pip install cryptography==2.8
 
@@ -34,17 +34,13 @@ pre-reqs : ${TEST_VENV}
 
 integration-test-setup: pre-reqs
 	# Setup nose in addition to the pre-reqs
-	source ${TEST_VENV}/bin/activate && \
-	pip install nose && \
-	deactivate
+	${TEST_VENV}/bin/pip install nose
 
 integration-test: integration-test-setup
 	cd ${SRC_DIR} && \
-	source ${TEST_VENV}/bin/activate && \
 	PF9_COMMS_VERSION=1.0.0-1.2 PF9_COMMS_FILENAME=pf9-comms-1.0.0-1.2.rpm \
 	PF9_MUSTER_VERSION=1.0.0-1.2 PF9_MUSTER_FILENAME=pf9-muster-1.0.0-1.2.rpm \
-	${TEST_VENV}/bin/nosetests --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/bbone_integration_test.py && \
-	deactivate
+	${TEST_VENV}/bin/nosetests --verbosity=2 --with-xunit --xunit-file=${BUILD_DIR}/test_output.xml test/bbone_integration_test.py
 
 clean:
 	rm -rf $(BUILD_DIR)

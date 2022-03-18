@@ -13,7 +13,7 @@ setup(
     author='',
     author_email='',
     install_requires=[
-        'pika==0.10.0',
+        'pika==0.13.1',
         'netifaces==0.10.6',
         'py-cpuinfo==7.0.0',
         'psutil==5.4.5',
@@ -21,6 +21,7 @@ setup(
         'bbcommon',
         'configutils',
         'pyyaml==5.3.1',
+        'distro',
     ],
     test_suite='bbslave',
     zip_safe=False,
