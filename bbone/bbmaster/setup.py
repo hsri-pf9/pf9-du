@@ -13,6 +13,7 @@ setup(
     author='',
     author_email='',
     install_requires=[
+        "typing-extensions==4.1.1",
         "pecan==1.4.0",
         "requests==2.26.0",
         "pika==0.10.0",
