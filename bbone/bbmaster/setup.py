@@ -16,7 +16,7 @@ setup(
         "typing-extensions==4.1.1",
         "pecan==1.4.0",
         "requests==2.26.0",
-        "pika==0.10.0",
+        "pika==0.13.1",
         "cryptography==3.3.2",
         "webob==1.8.7",
         "MarkupSafe==2.0.1",

@@ -52,8 +52,6 @@ $(PYTHON_DIR): $(HOSTAGENT_TARBALL_SRCDIR)
 $(VENV_DIR): $(PYTHON_DIR)
 	mkdir -p $@
 	cd $@ && \
-	virtualenv -p ../python/bin/python $@ && \
-	curl https://bootstrap.pypa.io/pip/3.6/get-pip.py |$(VENV_DIR)/bin/python - && \
 	export LD_LIBRARY_PATH=$(PYTHON_DIR)/pf9-lib:${LD_LIBRARY_PATH} && \
 	../python/bin/python -m venv --copies $@ && \
 	curl https://bootstrap.pypa.io/get-pip.py |$(VENV_DIR)/bin/python - && \

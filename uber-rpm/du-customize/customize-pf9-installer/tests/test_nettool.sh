@@ -164,7 +164,7 @@ function main()
     test_urlparse_success https://squid.platform9.net:443 \
         "https squid.platform9.net 443"
 
-    test_urlparse_fail http://squid.platform9.net:portstring "Could not parse port:"
+    test_urlparse_fail http://squid.platform9.net:portstring "invalid port \":portstring\" after host"
     test_urlparse_fail nopassword@squid.platform9.net "Password not found in user info"
     test_urlparse_fail ftp://squid.platform9.net "Invalid protocol: ftp"
     test_urlparse_fail squid.platform9.net:80:82 "too many colons in address"

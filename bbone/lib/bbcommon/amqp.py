@@ -111,6 +111,9 @@ def io_loop(log,
                                        no_ack=True)
 
     port = 5671 if ssl_options else 5672
+    if not virtual_host:
+        virtual_host = "/"
+
     # NOTE: The connection below doesn't use socket timeout yet because the only
     # consumers of this io_loop call are services within the DU and being local to
     # rabbit, they don't have latency issues like services running on customer
@@ -226,6 +229,8 @@ def dual_channel_io_loop(log,
     #--------------------------------------------------------------------------
 
     port = 5671 if ssl_options else 5672
+    if not virtual_host:
+        virtual_host = "/"
     conn = pika.SelectConnection(
             pika.ConnectionParameters(
                 host=host,

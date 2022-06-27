@@ -95,7 +95,7 @@ BRANCH_NAME ?= $(or $(TEAMCITY_BUILD_BRANCH), $(TEAMCITY_BUILD_BRANCH), $(shell 
 $(DISTS):
 	cd $(SETUP_ROOT) && \
 	rm -f dist/* && \
-	python setup.py sdist && \
+	python3 setup.py sdist && \
 	cp -vf dist/* $@
 
 $(HOSTAGENT_RPM):
@@ -134,9 +134,10 @@ check-ostack-pkgs:
 # nginx container build so it can be served publically from there. Having it
 # here allows us to test hostagent installation without nginx.
 
-stage: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT) $(HOSTAGENT_VERSION_FILE)
+stage-with-py-build-container: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT) $(HOSTAGENT_VERSION_FILE)
 	cp -rv $(SRCROOT)/resmgr/container/* $(STAGE)/
-	python $(Y2J) $(APP_METADATA_YAML) > $(APP_METADATA_JSON)
+	pip3 install pyyaml
+	python3 $(Y2J) $(APP_METADATA_YAML) > $(APP_METADATA_JSON)
 	cp -v $(SRCROOT)/resmgr/upper-constraints.txt $(STAGE)/
 	cp -v $(SUPPORT_WRAPPER) $(STAGE)/
 	private=$(STAGE)/opt/pf9/www/private && \
@@ -158,6 +159,9 @@ stage: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIA
 	cat $(PACKAGELIST_RPM) &&\
 	echo "$(PACKAGELIST_DEB):" && \
 	cat $(PACKAGELIST_DEB)
+
+stage:
+	$(SRCROOT)/resmgr/container/run-staging-in-container.sh
 
 $(BLDROOT):
 	mkdir -p $@
@@ -208,4 +212,3 @@ clean:
 	if [ -n "$${images}" ]; then \
 	    docker rmi $${images}; \
 	fi
-

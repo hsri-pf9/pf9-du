@@ -9,11 +9,14 @@ STAGING := $(BLDROOT)/$(NAME)-$(PF9_VERSION)
 TARBALL := $(STAGING).tar.gz
 NETTOOL := $(STAGING)/opt/pf9/du-customize/customize-pf9-installer/nettool
 
-GLIDE_VERSION := 0.12.3
-GLIDE_ARCH := linux-amd64
-GLIDE_TARBALL := glide-v$(GLIDE_VERSION)-$(GLIDE_ARCH).tar.gz
-GLIDE_URL := https://github.com/Masterminds/glide/releases/download/v$(GLIDE_VERSION)/$(GLIDE_TARBALL)
-GLIDE := $(BLDROOT)/$(GLIDE_ARCH)/glide
+# Do some extra handling for gimme installs because the docker container
+# builds don't have user home dir set as expected.
+IN_CONTAINER := $(shell grep -q docker /proc/1/cgroup; echo $$?)
+ifeq ($(IN_CONTAINER), 1)
+	GIMME_HOME := ~
+else
+	GIMME_HOME := $(BLDROOT)/../../build/.home
+endif
 
 RPM := $(BLDROOT)/RPMS/$(NAME)-$(PF9_VERSION)-0.22c871a.x86_64.rpm
 MOCK := /usr/bin/mock -r epel-7-x86_64
@@ -37,18 +40,15 @@ $(TARBALL): $(STAGING) $(NETTOOL)
 	cd $(BLDROOT) && tar -zcf $(TARBALL) $(NAME)-$(PF9_VERSION)
 
 nettool: $(NETTOOL)
-$(NETTOOL): $(STAGING) $(GLIDE)
-	export GOPATH="$(SRCROOT)/nettool" && \
-	export CGO_ENABLED=0 && \
-	cd $(SRCROOT)/nettool/src/nettool && \
-	$(GLIDE) install && \
-	go vet nettool nettool/cmd && \
+$(NETTOOL): $(STAGING)
+	curl -L -o $(BLDROOT)/gimme https://raw.githubusercontent.com/travis-ci/gimme/master/gimme && \
+	chmod a+x $(BLDROOT)/gimme && \
+	mkdir -p $(BLDROOT)/gimme-1.18 && \
+	$(BLDROOT)/gimme 1.18 && \
+	source $(GIMME_HOME)/.gimme/envs/go1.18.linux.amd64.env && \
+	cd $(SRCROOT)/nettool && \
 	go build -o $@ nettool
 
-$(GLIDE):
-	cd $(BLDROOT) && \
-	wget $(GLIDE_URL) && \
-	tar xf $(GLIDE_TARBALL)
 
 $(STAGING):
 	mkdir -p $(STAGING)/opt/pf9/du-customize

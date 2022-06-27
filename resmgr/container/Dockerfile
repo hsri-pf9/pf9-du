@@ -1,5 +1,4 @@
-FROM artifactory.platform9.horse/docker-local/pf9-py36-baseimg:5.4.0-stable
-MAINTAINER rdeuel@platform9.com
+FROM artifactory.platform9.horse/docker-local/pf9-py39-baseimg:stable
 LABEL com.platform9.image-type=du
 
 RUN apt-get update \
@@ -22,7 +21,7 @@ COPY bblib-sdist.tgz \
 WORKDIR /root
 RUN pip install cryptography==2.1.4 \
                 bblib-sdist.tgz
-               
+
 RUN pip install bbmaster-sdist.tgz
 RUN pip install configutils-sdist.tgz \
                 notifier-sdist.tgz \
@@ -39,7 +38,7 @@ COPY usr/ /usr/
 
 # copy pf9-support files
 COPY pf9-support-*.deb /opt/pf9/www/private/
-COPY pf9-support-[^wrapper]*.rpm /opt/pf9/www/private/
+COPY pf9-support-*.rpm /opt/pf9/www/private/
 COPY pf9-support-role.json ./
 RUN export pf9_version=$(cat ./pf9-support-role.json | python -c 'import json,sys; print (json.load(sys.stdin)["role_version"])') \
 && mkdir -p /etc/pf9/resmgr_roles/pf9-support/$pf9_version-1 \
