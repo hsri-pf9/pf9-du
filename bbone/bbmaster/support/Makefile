@@ -21,7 +21,6 @@ PF9CERT_DIR := $(SRC_ROOT)/lib/pf9cert
 PF9_VERSION ?= 1.3.0
 BUILD_NUMBER ?= 0
 RPM_DIR := $(BUILD_DIR)/rpmbuild
-MOCK = /usr/bin/mock -r epel-7-x86_64
 
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${PROD_SETUP_DEPS} ${SRC_ROOT}/bbone/bbslave ${PF9APP_DIR}
@@ -35,6 +34,11 @@ PROD_VENV = ${PF9_OPT_DIR}/bbmaster
 # These are additional modules needed to setup for production purposes
 PROD_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${CONFIGUTILS_DIR} ${PF9CERT_DIR}
 PROD_VENV_INSTALL_CMD=${PROD_VENV}/bin/python setup.py install
+name = pf9-bbmaster
+desc = "Platform9 bbmaster service"
+arch = "noarch"
+GITHASH = $(shell git rev-parse --short HEAD)
+package = ${RPM_DIR}/${name}-${PF9_VERSION}-${BUILD_NUMBER}.$(GITHASH).${arch}.rpm
 
 ifeq ($(MAKECMDGOALS),rpm)
 	VENV=${PROD_VENV}
@@ -62,13 +66,15 @@ ${VENV}: ${BUILD_DIR}
 
 ${BBMASTER_SRC_STAGE}: pre-reqs
 	mkdir -p ${BBMASTER_SRC_STAGE}/etc/pf9
+	mkdir -p ${BBMASTER_SRC_STAGE}/usr/lib/systemd/system/
+	mkdir -p ${BUILD_DIR}/rpmbuild
 	mkdir -p ${BBMASTER_SRC_STAGE}/var/log/pf9
 	cp ${BBMASTER_DIR}/etc/bbmaster.conf ${BBMASTER_SRC_STAGE}/etc/pf9
 	cp ${BBMASTER_DIR}/config.py ${BBMASTER_SRC_STAGE}/etc/pf9/bbmaster_config.py
 	mkdir -p ${PF9_OPT_DIR}/du-customize
 	cp ${BBMASTER_DIR}/support/60-customize-bbmaster ${PF9_OPT_DIR}/du-customize
 	mkdir -p ${PF9_OPT_DIR}/support
-	cp ${BBMASTER_DIR}/pf9-bbmaster.service ${BBMASTER_SRC_STAGE}/pf9-bbmaster.service
+	cp ${BBMASTER_DIR}/pf9-bbmaster.service ${BBMASTER_SRC_STAGE}/usr/lib/systemd/system/pf9-bbmaster.service
 
 ${BBMASTER_SRC_TARBALL}: ${BBMASTER_SRC_STAGE}
 	cd ${BUILD_DIR}/srcstage && \
@@ -76,14 +82,20 @@ ${BBMASTER_SRC_TARBALL}: ${BBMASTER_SRC_STAGE}
 
 rpm: ${BBMASTER_SRC_TARBALL}
 	echo "RPM build goes here"
-	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__VERSION__/${PF9_VERSION}/" \
-	    -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" \
-	    bbmaster-rpm.spec > ${BUILD_DIR}/bbmaster-rpm.spec
-	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/bbmaster-rpm.spec --resultdir ${RPM_DIR}
-	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
-	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm
+	
+	fpm -t rpm -s dir -n ${name} \
+	--license "Commercial" \
+        --description ${desc} \
+        --package ${package} \
+        --architecture ${arch} \
+        --url "http://www.platform9.com" \
+        --vendor Platform9 \
+	--version ${PF9_VERSION} \
+	--iteration ${BUILD_NUMBER}.${GITHASH} \
+        --provides ${name} \
+        -C ${BBMASTER_SRC_STAGE} .
+
 	${SRC_ROOT}/sign_packages.sh ${RPM_DIR}/pf9-bbmaster*.rpm
-	rm -f ${BUILD_DIR}/*.src.rpm
 
 pre-reqs : ${VENV}
 	for pkg in ${SETUP_DEPS}; do \

@@ -1,0 +1,4 @@
+if [ $1 = 0 ]; then # package is being erased, not upgraded
+    /sbin/service pf9-janitor stop > /dev/null 2>&1
+    /sbin/chkconfig --del pf9-janitor
+fi

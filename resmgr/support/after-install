@@ -1,0 +1,6 @@
+f [ "$1" = "1" ]; then
+    # assume that keystone is already in place with the admin key
+    pattern="^[ \t]*admin_token[ \t]*=[ \t]*.*";
+    adminkeyline=`grep "$pattern" /etc/keystone/keystone.conf`;
+    sed -i.orig "s/$pattern/$adminkeyline/g" /etc/pf9/resmgr-paste.ini
+fi

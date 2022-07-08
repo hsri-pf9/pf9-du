@@ -15,27 +15,28 @@ CONFIGUTILS_DIR :=$(SRC_ROOT)/lib/configutils
 NOTIFIER_DIR :=$(SRC_ROOT)/lib/notifier
 RABBIT_MGMT_DIR :=$(SRC_ROOT)/lib/rabbit
 
-FIRKINIZE = $(PARENT_DIR)/firkinize
-
 PF9_VERSION ?= 1.3.0
 BUILD_NUMBER ?= 0
 RPM_DIR := $(BUILD_DIR)/rpmbuild
-MOCK = /usr/bin/mock -r epel-7-x86_64
-
+name = pf9-resmgr
 RESMGR_SRC_STAGE = ${BUILD_DIR}/srcstage/pf9-resmgr-${PF9_VERSION}
 RESMGR_SRC_TARBALL = ${BUILD_DIR}/pf9-resmgr-${PF9_VERSION}.tgz
 PF9_OPT_DIR = ${RESMGR_SRC_STAGE}/opt/pf9
 CONSTRAINTS_FILE=${SRC_DIR}/upper-constraints.txt
 PROD_VENV = ${PF9_OPT_DIR}/resmgr
 # These are additional modules needed to setup for production purposes
-PROD_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${CONFIGUTILS_DIR} ${NOTIFIER_DIR} ${RABBIT_MGMT_DIR} ${FIRKINIZE}
-PROD_VENV_INSTALL_CMD_PIP=${PROD_VENV}/bin/pip install --upgrade pip==20.2.4;
+PROD_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${CONFIGUTILS_DIR} ${NOTIFIER_DIR} ${RABBIT_MGMT_DIR}
+PROD_VENV_INSTALL_CMD_PIP=${PROD_VENV}/bin/pip install --upgrade pip==21.2.4;
 PROD_VENV_INSTALL_CMD=${PROD_VENV_INSTALL_CMD_PIP} ${PROD_VENV}/bin/python ${PROD_VENV}/bin/pip install  -c${CONSTRAINTS_FILE}
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${PROD_SETUP_DEPS}
 TEST_VENV = ${BUILD_DIR}/test_venv
-TEST_VENV_DEVELOP_CMD_PIP=${TEST_VENV}/bin/pip install --upgrade pip==20.2.4; 
+TEST_VENV_DEVELOP_CMD_PIP=${TEST_VENV}/bin/pip install --upgrade pip==21.2.4; 
 TEST_VENV_DEVELOP_CMD=${TEST_VENV_DEVELOP_CMD_PIP} ${TEST_VENV}/bin/python ${TEST_VENV}/bin/pip install -c${CONSTRAINTS_FILE} -e
+desc = "Platform9 Resource Manager"
+arch = noarch
+GITHASH = $(shell git rev-parse --short HEAD)
+package = ${RPM_DIR}/${name}-${PF9_VERSION}-${BUILD_NUMBER}.$(GITHASH).${arch}.rpm 
 
 ifeq ($(MAKECMDGOALS),rpm)
 	VENV=${PROD_VENV}
@@ -64,10 +65,12 @@ ${RESMGR_SRC_STAGE}: pre-reqs
 	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9
 	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9/resmgr_roles
 	mkdir -p ${RESMGR_SRC_STAGE}/etc/pf9/resmgr_svc_configs
+	mkdir -p ${RESMGR_SRC_STAGE}/usr/lib/systemd/system/
+	mkdir -p ${BUILD_DIR}/rpmbuild
 	cp ${RESMGR_DIR}/etc/pf9/resmgr.conf ${RESMGR_SRC_STAGE}/etc/pf9/
 	cp ${RESMGR_DIR}/etc/pf9/resmgr_config.py ${RESMGR_SRC_STAGE}/etc/pf9/
 	cp ${RESMGR_DIR}/etc/pf9/resmgr-paste.ini ${RESMGR_SRC_STAGE}/etc/pf9/
-	cp ${RESMGR_DIR}/pf9-resmgr.service ${RESMGR_SRC_STAGE}/pf9-resmgr.service
+	cp ${RESMGR_DIR}/pf9-resmgr.service ${RESMGR_SRC_STAGE}/usr/lib/systemd/system/pf9-resmgr.service
 
 	mkdir -p ${VENV}/bin
 	cp ${RESMGR_DIR}/bin/db_sync.py ${VENV}/bin
@@ -81,14 +84,21 @@ ${RESMGR_SRC_TARBALL}: ${RESMGR_SRC_STAGE}
 	tar -czf ${RESMGR_SRC_TARBALL} *
 
 rpm: ${RESMGR_SRC_TARBALL}
-	sed -e "s/__BUILDNUM__/${BUILD_NUMBER}/" -e "s/__VERSION__/${PF9_VERSION}/" \
-	    -e "s/__GITHASH__/$(shell git rev-parse --short HEAD)/" resmgr-rpm.spec \
-	    > ${BUILD_DIR}/resmgr-rpm.spec
-	${MOCK} --buildsrpm --sources ${BUILD_DIR} --spec ${BUILD_DIR}/resmgr-rpm.spec --resultdir ${RPM_DIR}
-	mv ${RPM_DIR}/*.src.rpm ${BUILD_DIR}
-	${MOCK} --rebuild --resultdir ${RPM_DIR} ${BUILD_DIR}/*.src.rpm
+	fpm -t rpm -s dir -n ${name} \
+	--license "Commercial" \
+	--architecture ${arch} \
+	--url "http://www.platform9.com" \
+	--description ${desc} \
+	--package ${package} \
+	--after-install ${RESMGR_DIR}/support/after-install \
+	--before-remove ${RESMGR_DIR}/support/before-remove \
+	--vendor "Platform9" \
+	--version ${PF9_VERSION} \
+	--iteration ${BUILD_NUMBER}.${GITHASH} \
+	--provides ${name} \
+	-C ${RESMGR_SRC_STAGE} .
+
 	${SRC_ROOT}/sign_packages.sh ${RPM_DIR}/pf9-resmgr*.rpm
-	rm -f ${BUILD_DIR}/*.src.rpm
 
 pre-reqs: ${VENV}
 	${VENV_CMD} ${SETUP_DEPS} ${RESMGR_DIR}

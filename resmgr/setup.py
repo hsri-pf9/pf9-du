@@ -15,6 +15,7 @@ setup(
     install_requires=[
         'alembic',
         'pecan',
+        'firkinize',
         'keystonemiddleware',
         'python-memcached',
         'sqlalchemy',
