@@ -5,7 +5,7 @@ owner = 'root'
 mode = '0644'
 keys = [
     '/rabbit_broker/users',
-    '/environment',
+    '/pmk_environment',
     '/services/bbmaster',
 ]
 reload_cmd = 'supervisorctl restart bbmaster'
