@@ -52,7 +52,7 @@ $(PYTHON_DIR): $(HOSTAGENT_TARBALL_SRCDIR)
 $(VENV_DIR): $(PYTHON_DIR)
 	mkdir -p $@
 	cd $@ && \
-	export LD_LIBRARY_PATH=$(PYTHON_DIR)/pf9-lib:${LD_LIBRARY_PATH} && \
+	export LD_LIBRARY_PATH=$(PYTHON_DIR)/lib:$(PYTHON_DIR)/pf9-lib:${LD_LIBRARY_PATH} && \
 	../python/bin/python -m venv --copies $@ && \
 	curl https://bootstrap.pypa.io/get-pip.py |$(VENV_DIR)/bin/python - && \
 	$(VENV_DIR)/bin/pip install --upgrade pip setuptools && \
