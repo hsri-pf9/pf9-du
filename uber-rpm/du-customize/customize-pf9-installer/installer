@@ -489,7 +489,7 @@ function main()
     for routine in ${routines[@]}; do
         echo "Starting with $routine"
         $routine || exit $?
-        echo "$routine exictuted successfully"
+        echo "$routine executed successfully"
     done
 }
 
