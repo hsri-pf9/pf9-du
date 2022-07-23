@@ -6,8 +6,11 @@ REDHAT_KNOWN_FILE="/etc/redhat-release"
 # Example: CentOS 6.6:
 # CentOS release 6.6 (Final)
 #
-# Example: CentOS 7  :
+# Example: CentOS 7:
 # CentOS Linux release 7.0.1406 (Core)
+#
+# Example: RedHat 8:
+# Red Hat Enterprise Linux release 8.6 (Ootpa)
 UBUNTU_KNOWN_FILE="/etc/lsb-release"
 # Example Ubuntu 12.04:
 #
@@ -16,7 +19,7 @@ UBUNTU_KNOWN_FILE="/etc/lsb-release"
 # DISTRIB_CODENAME=precise
 # DISTRIB_DESCRIPTION="Ubuntu 12.04.5 LTS"
 
-REDHAT_VERSIONS=("7.3" "7.4" "7.5" "7.6" "7.7" "7.8" "7.9" "8.0" "8.1" "8.2" "8.3")
+REDHAT_VERSIONS=("7.3" "7.4" "7.5" "7.6" "7.7" "7.8" "7.9" "8.5" "8.6")
 UBUNTU_VERSIONS=("16.04" "18.04" "20.04")
 
 function check_platform()
