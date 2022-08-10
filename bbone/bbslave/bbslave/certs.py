@@ -145,23 +145,37 @@ def backup_and_save_certs(cert_info):
 
     return backups
 
-def restart_comms():
+def restart_service(svc_name):
     """
-    Restart the comms service. Must be root or should have sudo rights.
+    Restart a service. Must be root or should have sudo rights.
+    No check is done to see if a valid service name is passed.
     """
-    LOG.info('Restarting pf9-comms...')
+    LOG.info('Restarting {}...'.format(svc_name))
     try:
-        subprocess.check_call(['sudo', 'systemctl', 'restart', 'pf9-comms'])
+        subprocess.check_call(['sudo', 'systemctl', 'restart', svc_name])
         return True
     except subprocess.CalledProcessError:
-        LOG.exception('systemctl failed, trying init-style service restart...')
+        LOG.exception('systemctl failed, trying init-style service restart of {}...'.format(svc_name))
 
     try:
-        subprocess.check_call(['sudo', 'service', 'pf9-comms', 'restart'])
+        subprocess.check_call(['sudo', 'service', svc_name, 'restart'])
         return True
     except subprocess.CalledProcessError:
-        LOG.exception('service restart failed, giving up')
+        LOG.exception('service restart of {} failed, giving up'.format(svc_name))
     return False
+
+def restart_comms_sidekick():
+    """
+    Restart the comms service followed by the sidekick service.
+    Return False if either service runs into restart errors
+    """
+    svcs = ['pf9-comms', 'pf9-sidekick']
+    hasErrors = False
+    for s in svcs:
+        if not restart_service(s):
+            hasErrors = True
+
+    return not hasErrors
 
 def check_connection(vouch_url=COMMS_VOUCH_URL):
     wait_time = 0

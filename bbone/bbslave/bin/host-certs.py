@@ -35,14 +35,18 @@ def _refresh(args):
     })
 
     print ('Updating pf9-comms with new certs...')
-    if certs.restart_comms() and certs.check_connection():
+    if certs.restart_comms_sidekick() and certs.check_connection():
+        # Note that we check connection only through comms. And assume
+        # sidekick connectivity on restart will work if comms works.
         print ('Refreshed host certs and verified controller connection.')
         return 0
     else:
         sys.stderr.write('Failed to bring up pf9_comms with new certs, '
                          'restoring old ones.\n')
         certs.restore_backups(backups)
-        if certs.restart_comms() and certs.check_connection():
+        if certs.restart_comms_sidekick() and certs.check_connection():
+            # Note that we check connection only through comms. And assume
+            # sidekick connectivity on restart will work if comms works.
             sys.stderr.write('Restored old certificates and successfully '
                              'reconnected... Done\n')
             return 1
