@@ -3,6 +3,8 @@ import time
 import datetime
 import threading
 import re
+import requests
+import os
 from socket import gethostname
 from six import iteritems
 
@@ -36,6 +38,9 @@ def cert_update_thread(config, log):
     private_key_pem_file = config.get('hostagent', 'private_key_file') if \
         config.has_option('hostagent', 'private_key_file') else \
             util.PRIVATE_KEY_PEM_FILE
+    ca_directory = config.get('hostagent', 'ca_directory') if \
+        config.has_option('hostagent', 'ca_directory') else \
+            util.CA_DIRECTORY
 
     util.check_vouch_connection(vouch_url)
 
@@ -50,6 +55,7 @@ def cert_update_thread(config, log):
     time.sleep(30)
 
 # ---------------------------- Nested functions -------------------------------
+
     def cert_refresh_needed(cert_expiry_date):
         curr_time = datetime.datetime.now(tz=datetime.timezone.utc)
         expiry_datetime = datetime.datetime.fromtimestamp(cert_expiry_date,
@@ -57,7 +63,7 @@ def cert_update_thread(config, log):
         return (expiry_datetime - curr_time) <= datetime.timedelta(
             days=automatic_cert_refresh_interval_days)
 
-    def process_cert_update_request():
+    def process_cert_update_request(new_ca=False):
         """
         Triggers an update of certificates.
         Sends CSR to vouch service via comms. On receiving new certs, it would
@@ -94,6 +100,7 @@ def cert_update_thread(config, log):
 
         log.info('Requesting certificates from {} with CN = {}'.format(vouch_url,
             common_name))
+
         vouch = certs.VouchCerts(vouch_url)
         privatekey, csr = certs.generate_key_and_csr(common_name)
         privatekey = privatekey.decode("utf-8")
@@ -104,6 +111,17 @@ def cert_update_thread(config, log):
             cert_pem_file: cert.encode("utf-8"),
             ca_pem_file: ca.encode("utf-8")
         })
+
+        if new_ca:
+            log.info('Starting process of updating the CA certificates')
+            try:
+                ca_list = vouch.get_all_ca()
+                certs.place_new_CAs(ca_pem_file, ca_list)
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 404:
+                    log.info("Vouch doesn't have endpoint to list CAs")
+                else:
+                    log.exception('Exception occurred while fetching CA List')
 
         log.info ('Updating pf9-comms with new certificates.')
         if certs.restart_comms_sidekick() and certs.check_connection():
@@ -145,7 +163,7 @@ def cert_update_thread(config, log):
                 # Just return None.
                 return None
 
-    def _get_cert_info(certs_file = util.CERT_PEM_FILE):
+    def _get_cert_info(certs_file):
         """
         Retrieves cert info like version, serial number, expiry date.
         retruns a dict containing this info.
@@ -167,7 +185,8 @@ def cert_update_thread(config, log):
             cert_details['timestamp'] = datetime.datetime.utcnow().timestamp()
             return cert_details
         except Exception :
-            log.exception ('Exception occurred while getting certificate info')
+            log.exception("Exception occurred while getting certificate info for cert file : {}".format(
+                certs_file))
             cert_details['status'] = util.CERT_DETAILS_STATUS_FAILED
             cert_details['version'] = ''
             cert_details['serial_number'] = ''
@@ -175,6 +194,41 @@ def cert_update_thread(config, log):
             cert_details['start_date'] = ''
             cert_details['timestamp'] = ''
             return cert_details
+
+    def new_ca_cert_available():
+        """
+        Checks if local CAs are in sync with CAs returned by vouch
+        """
+        vouch = certs.VouchCerts(vouch_url)
+        try:
+            ca_list = vouch.get_all_ca()
+            vouch_ca = set()
+            for certstr in ca_list:
+                certstr = certstr.encode('UTF-8')
+                cert_data = x509.load_pem_x509_certificate(certstr, default_backend())
+                vouch_ca.add(cert_data.serial_number)
+
+            local_ca = set()
+            for ca_file in os.listdir(ca_directory):
+                f = os.path.join(ca_directory, ca_file)
+                ca_cert_data = _get_cert_info(f)
+                if ca_cert_data['status'] == util.CERT_DETAILS_STATUS_SUCCESS:
+                    local_ca.add(ca_cert_data['serial_number'])
+
+            if vouch_ca.issubset(local_ca):
+                log.info('CA list returned by vouch is subset of CAs on host. No CA update needed.')
+                return False
+            else:
+                log.info('CA list returned by vouch is NOT a subset of CAs on host. CA update needed.')
+                return True
+
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                log.info("Vouch doesn't have endpoint to list CAs")
+                return False
+            else:
+                log.exception('Exception occurred while fetching list of CAs from vouch')
+
 
 # -------------------------- End of nested functions --------------------------
     while True:
@@ -185,7 +239,8 @@ def cert_update_thread(config, log):
             try:
                 cert_expiry_date = cert_data['expiry_date']
                 needs_cert_refresh = cert_refresh_needed(cert_expiry_date)
-                if needs_cert_refresh:
+                new_ca = new_ca_cert_available()
+                if needs_cert_refresh or new_ca:
                     # Put a message on the queue that certs are being updated.
                     # This will be sent to bbmaster by the main thread.
                     resp = {}
@@ -201,7 +256,7 @@ def cert_update_thread(config, log):
 
                     util.cert_info_q.put(resp, timeout=10)
 
-                    response = process_cert_update_request()
+                    response = process_cert_update_request(new_ca)
 
                     # Now put the cert update response in the queue
                     util.cert_info_q.put(response, timeout=10)
@@ -213,6 +268,7 @@ def cert_update_thread(config, log):
                 cert_msg = {}
                 cert_msg['msg']  = 'cert_info'
                 cert_msg['details'] = cert_data
+
                 util.cert_info_q.put(cert_msg, timeout=10)
 
             except Queue.Full:
@@ -245,7 +301,10 @@ def cert_update_thread(config, log):
 
                 util.cert_info_q.put(cert_msg, timeout=10)
 
-                response = process_cert_update_request()
+                # check if CA refresh is also needed. Intent is to invoke
+                # CA refresh only if needed.
+                ca_refresh_needed = new_ca_cert_available()
+                response = process_cert_update_request(ca_refresh_needed)
 
                 # Now put the cert update response in the queue
                 util.cert_info_q.put(response, timeout=10)

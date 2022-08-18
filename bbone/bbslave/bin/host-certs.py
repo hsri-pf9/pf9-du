@@ -4,6 +4,7 @@ import logging
 import os
 import pwd
 import sys
+import requests
 
 from argparse import ArgumentParser
 from bbslave import certs
@@ -33,6 +34,16 @@ def _refresh(args):
         args.cert: cert.encode("utf-8"),
         args.cacert: ca.encode("utf-8")
     })
+
+    try:
+        ca_list = vouch.get_all_ca()
+        certs.place_new_CAs(args.cacert, ca_list)
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            print ("Vouch doesn't have endpoint to list CAs")
+        else:
+            print ('Exception occurred while fetching CA List %s', str(e))
+            return 1
 
     print ('Updating pf9-comms with new certs...')
     if certs.restart_comms_sidekick() and certs.check_connection():

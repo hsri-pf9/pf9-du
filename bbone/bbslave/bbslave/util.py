@@ -6,6 +6,7 @@ from bbslave import certs
 PRIVATE_KEY_PEM_FILE = '/etc/pf9/certs/hostagent/key.pem'
 CERT_PEM_FILE = '/etc/pf9/certs/hostagent/cert.pem'
 CA_PEM_FILE = '/etc/pf9/certs/ca/cert.pem'
+CA_DIRECTORY = '/etc/pf9/certs/ca'
 
 CERT_DETAILS_STATUS_SUCCESS = 'successful'
 CERT_DETAILS_STATUS_FAILED = 'FAILED'

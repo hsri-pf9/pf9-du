@@ -33,6 +33,14 @@ class VouchCerts(object):
         if keystone_token:
             self._session.headers.update({'X-Auth-Token': keystone_token})
 
+    def get_all_ca(self):
+        """
+        Get all the CAs accepted by the DU
+        """
+        resp = self._session.get('%s/v1/cas' % self._vouch_addr)
+        resp.raise_for_status()
+        return resp.json()
+
     def get_ca(self):
         """
         Get the configured CA certificate from vouch.
@@ -144,6 +152,28 @@ def backup_and_save_certs(cert_info):
         os.chown(path, pf9_uid, pf9group_gid)
 
     return backups
+
+def place_new_CAs(ca_pem_file, ca_list):
+    """
+    Save adds the CA certs returned from vouch
+    :param ca_list    : List of CAs returned from vouch
+    :param ca_pem_file: CA file path
+    """
+    # TODO: Need some smarter logic to backup the
+    # current CAs and restore on failed CA rotation
+    pf9_uid = pwd.getpwnam('pf9')[2]
+    pf9group_gid = grp.getgrnam('pf9group')[2]
+    for certstr in ca_list:
+        idx = 0
+        while (True):
+            ca = '%s.%d' % (ca_pem_file, idx)
+            if os.path.isfile(ca):
+                idx += 1
+            else:
+                with open(ca, 'wt') as f:
+                    f.write(certstr)
+                    os.chown(ca, pf9_uid, pf9group_gid)
+                break
 
 def restart_service(svc_name):
     """
