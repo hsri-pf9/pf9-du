@@ -54,6 +54,7 @@ $(VENV_DIR): $(PYTHON_DIR)
 	cd $@ && \
 	export LD_LIBRARY_PATH=$(PYTHON_DIR)/lib:$(PYTHON_DIR)/pf9-lib:${LD_LIBRARY_PATH} && \
 	../python/bin/python -m venv --copies $@ && \
+	cp -rp ../python/include/python3.9/* $@/include/ && \
 	curl https://bootstrap.pypa.io/get-pip.py |$(VENV_DIR)/bin/python - && \
 	$(VENV_DIR)/bin/pip install --upgrade pip setuptools && \
 	$(VENV_DIR)/bin/pip list && \
