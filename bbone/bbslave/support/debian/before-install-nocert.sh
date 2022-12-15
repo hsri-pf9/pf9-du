@@ -15,8 +15,15 @@ if [[ "$1" = "upgrade" ]]; then
     fi
     # Download the latest hostagent.conf from the DDU.
     if [[ $(curl ${CURL_OPTS} ${CURL_OPTS_CHECK} ${HOSTAGENT_CNF_URL}) == 200 ]]; then
-        echo "Downloading hostagent.conf from the DDU."
-        curl ${CURL_OPTS} -o ${HOSTAGENT_CNF}.from.du ${HOSTAGENT_CNF_URL}
+        echo "Downloading hostagent.conf from PF9"
+        if [[ $(curl ${CURL_OPTS} -o ${HOSTAGENT_CNF}.from.du ${HOSTAGENT_CNF_URL}) != 200 ]]; then
+            # Failed to download the hostagent.conf from DDU
+            echo "Failed to download hostagent.conf from PF9"
+            exit 1
+        fi
+    else
+        echo "Failed to check existence hostagent.conf from PF9"
+        exit 1
     fi
     # Backup the certs directory
     if [[ -d ${CERTS_DIR} ]]; then

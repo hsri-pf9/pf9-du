@@ -62,8 +62,15 @@ rm -rf $RPM_BUILD_ROOT
 if [ "$1" = "2" ]; then
     # In case of host upgrade get the latest hostgent.conf from DU.
     if [[ $(curl --retry 5 --silent -o /dev/null --head --write-out %{http_code} http://localhost:9080/private/hostagent.conf) == 200 ]]; then
-        echo "Downloading hostagent.conf from the DDU."
-        curl --retry 5 --silent -o /etc/pf9/hostagent.conf.from.du http://localhost:9080/private/hostagent.conf
+        echo "Downloading hostagent.conf from PF9"
+        if [[ $(curl --retry 5 --silent -o /etc/pf9/hostagent.conf.from.du http://localhost:9080/private/hostagent.conf) != 200 ]]; then
+            # Failed to download the hostagent.conf from DDU
+            echo "Failed to download hostagent.conf from PF9"
+            exit 1
+        fi
+    else
+        echo "Failed to check existence hostagent.conf from PF9"
+        exit 1
     fi
     # Take a backup of certs directory
     if [ -d "/etc/pf9/certs" ]; then
