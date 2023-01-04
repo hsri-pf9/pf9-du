@@ -16,7 +16,7 @@ if [[ "$1" = "upgrade" ]]; then
     # Download the latest hostagent.conf from the DDU.
     if [[ $(curl ${CURL_OPTS} ${CURL_OPTS_CHECK} ${HOSTAGENT_CNF_URL}) == 200 ]]; then
         echo "Downloading hostagent.conf from PF9"
-        if [[ $(curl ${CURL_OPTS} -o ${HOSTAGENT_CNF}.from.du ${HOSTAGENT_CNF_URL}) != 200 ]]; then
+        if ! curl ${CURL_OPTS} --fail -o ${HOSTAGENT_CNF}.from.du ${HOSTAGENT_CNF_URL}; then
             # Failed to download the hostagent.conf from DDU
             echo "Failed to download hostagent.conf from PF9"
             exit 1
