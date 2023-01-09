@@ -3,11 +3,17 @@
 source $(dirname $0)/../check_os_distro.sh
 
 
-redhat_ok=`ls $(dirname $0)/release-files/redhat-*.ok`
-redhat_ok_array=(${redhat_ok// /})
+centos_ok=`ls $(dirname $0)/release-files/centos*.ok`
+centos_ok_array=(${centos_ok// /})
 
-redhat_fail=`ls $(dirname $0)/release-files/redhat-*.fail`
-redhat_fail_array=(${redhat_fail// /})
+centos_fail=`ls $(dirname $0)/release-files/centos*.fail`
+centos_fail_array=(${centos_fail// /})
+
+rhel_ok=`ls $(dirname $0)/release-files/rhel*.ok`
+rhel_ok_array=(${rhel_ok// /})
+
+rhel_fail=`ls $(dirname $0)/release-files/rhel*.fail`
+rhel_fail_array=(${rhel_fail// /})
 
 ubuntu_ok=`ls $(dirname $0)/release-files/ubuntu-*.ok`
 ubuntu_ok_array=(${ubuntu_ok// /})
@@ -36,9 +42,10 @@ function test()
 {
     local release_file=$1
     local distro=$2[@]
-    local expected_return_code=$3
+    local os=$3
+    local expected_return_code=$4
 
-    _check_version "${release_file}" ${distro}
+    _check_version "${release_file}" ${distro} "${os}"
     if [[ $? != "${expected_return_code}" ]]; then
         format_print "${release_file}" ${distro} "FAILED"
         exit 1
@@ -49,22 +56,32 @@ function test()
 
 
 
-for file in ${redhat_ok_array[@]}
+for file in ${centos_ok_array[@]}
 do
-    test "${file}" REDHAT_VERSIONS "0"
+    test "${file}" REDHAT_VERSIONS centos "0"
 done
 
-for file in ${redhat_fail_array[@]}
+for file in ${centos_fail_array[@]}
 do
-    test "${file}" REDHAT_VERSIONS "1"
+    test "${file}" REDHAT_VERSIONS centos "1"
+done
+
+for file in ${rhel_ok_array[@]}
+do
+    test "${file}" REDHAT_VERSIONS "red hat" "0"
+done
+
+for file in ${rhel_fail_array[@]}
+do
+    test "${file}" REDHAT_VERSIONS "red hat" "1"
 done
 
 for file in ${ubuntu_ok_array[@]}
 do
-    test "${file}" UBUNTU_VERSIONS "0"
+    test "${file}" UBUNTU_VERSIONS ubuntu "0"
 done
 
 for file in ${ubuntu_fail_array[@]}
 do
-    test "${file}" UBUNTU_VERSIONS "1"
+    test "${file}" UBUNTU_VERSIONS ubuntu "1"
 done

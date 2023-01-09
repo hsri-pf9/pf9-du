@@ -20,6 +20,7 @@ UBUNTU_KNOWN_FILE="/etc/lsb-release"
 # DISTRIB_DESCRIPTION="Ubuntu 12.04.5 LTS"
 
 REDHAT_VERSIONS=("7.3" "7.4" "7.5" "7.6" "7.7" "7.8" "7.9" "8.5" "8.6" "8.7")
+ROCKY_VERSIONS=("9.1")
 UBUNTU_VERSIONS=("16.04" "18.04" "20.04")
 
 function check_platform()
@@ -34,13 +35,13 @@ function check_platform()
     local version=""
     if [[ -f ${REDHAT_KNOWN_FILE} ]]; then
         echo "Operating system belongs to the Redhat family"
-        _check_version "${REDHAT_KNOWN_FILE}" REDHAT_VERSIONS
+        _check_version "${REDHAT_KNOWN_FILE}" REDHAT_VERSIONS redhat || _check_version "${REDHAT_KNOWN_FILE}" REDHAT_VERSIONS centos || _check_version "${REDHAT_KNOWN_FILE}" ROCKY_VERSIONS rocky
         if [[ $? != "0" ]]; then
             _print_not_supported
         fi
     elif [[ -f ${UBUNTU_KNOWN_FILE} ]]; then
         echo "Operating system is Ubuntu"
-        _check_version "${UBUNTU_KNOWN_FILE}" UBUNTU_VERSIONS
+        _check_version "${UBUNTU_KNOWN_FILE}" UBUNTU_VERSIONS ubuntu
         if [[ $? != "0" ]]; then
             _print_not_supported
         fi
@@ -54,11 +55,12 @@ function _check_version()
     echo "Checking operating system version/release"
     local file=$1
     local distro=$2[@]
+    local os=$3
 
     for distro_version in "${!distro}"
     do
-        echo "Checking if operating system version is ${distro_version}"
-        grep -q "${distro_version}" ${file}
+        echo "Checking if operating system is ${os} and version is ${distro_version}"
+        grep  "${distro_version}" ${file} | grep -iq "${os}"
         if [[ $? == "0" ]]; then
             echo "Operating system is supported"
             return 0
