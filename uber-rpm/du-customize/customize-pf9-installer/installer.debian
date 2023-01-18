@@ -10,7 +10,7 @@ function distro_install()
 {
     echo "Installing Debian packages"
     apt-get update > /dev/null
-    DEBIAN_FRONTEND=noninteractive apt-get install -y python-apt iptables-persistent procps
+    DEBIAN_FRONTEND=noninteractive apt-get install -y python-apt iptables-persistent procps logrotate
     if [[ $? != "0" ]]; then
         echo "pf9-hostagent dependencies installation failed"
         return ${HOSTAGENT_DEPENDANCY_INSTALLATION_FAILED}
