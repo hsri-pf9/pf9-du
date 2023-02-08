@@ -100,7 +100,7 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
                         'in app spec'.format(os_name))
                     raise PackageFileNameNotSpecified
 
-                filename = filename_dict[filename_list[0]]
+                filename = filename_list[0]
                 if len(filename_list) > 1:
                     log.warn('More than one keys are matching the OS name {} in '\
                         'app spec. Selecting {}'.format(os_name, filename_list[0]))
@@ -223,4 +223,3 @@ def get_app_ordering(apps_to_order, app_config, log):
     """
     return sorted(apps_to_order, key=lambda t:
                                  float(app_config[t].get('rank', 0.0)))
-

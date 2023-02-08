@@ -5,7 +5,7 @@ import sys
 
 
 # TODO: Is this still needed? Revisit
-if distro.linux_distribution()[1].startswith('7'):
+if distro.version().startswith('7'):
     # For yum
     sys.path.append('/usr/lib/python2.7/site-packages')
     # For rpm

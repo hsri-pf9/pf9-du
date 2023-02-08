@@ -18,7 +18,7 @@ DOWNLOAD_CHUNK_SIZE = 512 * 1024
 
 SUPPORTED_DEBIAN_DISTROS = set(['debian', 'ubuntu'])
 SUPPORTED_REDHAT_DISTROS = set(['redhat', 'centos',
-                                'centos linux', 'scientific linux'])
+                                'centos linux', 'scientific linux', 'rocky linux'])
 
 def get_supported_distro(log=None):
     """
