@@ -1,7 +1,9 @@
 function install_ntpd
 {
+    # some of the hosts don't have the bc package installed
+    yum -y install bc
     . /etc/os-release
-    if [[ "$VERSION_ID" == "8" ]]; then
+    if (( $(echo "$VERSION_ID >= 8" | bc -lq) )); then
         setup_chronyd
     else
         setup_ntpd
