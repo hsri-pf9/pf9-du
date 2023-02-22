@@ -1,11 +1,19 @@
-FROM artifactory.platform9.horse/docker-local/pf9-py39-baseimg:stable
+FROM  artifactory.platform9.horse/docker-local/pf9-py39-baseimg-alpine:stable
 LABEL com.platform9.image-type=du
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-     libssl-dev \
+RUN apk update \
+    && apk add \
+     bash \
+     curl \
      gcc \
-     default-libmysqlclient-dev \
+     g++ \
+     dpkg \
+     musl-dev \
+     libressl-dev \ 
+     mariadb \
+     mariadb-dev \
+     mariadb-client \
+     mariadb-connector-c-dev \
      python3-dev \
      libffi-dev
 
@@ -19,6 +27,7 @@ COPY bblib-sdist.tgz \
      /root/
 
 WORKDIR /root
+
 RUN pip install cryptography==2.1.4 \
                 bblib-sdist.tgz
 
