@@ -35,7 +35,7 @@ function check_platform()
     local version=""
     if [[ -f ${REDHAT_KNOWN_FILE} ]]; then
         echo "Operating system belongs to the Redhat family"
-        _check_version "${REDHAT_KNOWN_FILE}" REDHAT_VERSIONS redhat || _check_version "${REDHAT_KNOWN_FILE}" REDHAT_VERSIONS centos || _check_version "${REDHAT_KNOWN_FILE}" ROCKY_VERSIONS rocky
+        _check_version "${REDHAT_KNOWN_FILE}" REDHAT_VERSIONS "red hat" || _check_version "${REDHAT_KNOWN_FILE}" REDHAT_VERSIONS centos || _check_version "${REDHAT_KNOWN_FILE}" ROCKY_VERSIONS rocky
         if [[ $? != "0" ]]; then
             _print_not_supported
         fi
