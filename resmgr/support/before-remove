@@ -1,4 +1,4 @@
-f [ $1 = 0 ]; then # package is being erased, not upgraded
+if [ $1 = 0 ]; then # package is being erased, not upgraded
     systemctl stop pf9-resmgr.service
     systemctl disable pf9-resmgr.service
 fi
