@@ -340,9 +340,8 @@ class RolesMgr(object):
         self.db_handler = db_handler
         rabbit_username = config.get('amqp', 'username')
         rabbit_password = config.get('amqp', 'password')
-        self.rabbit_mgmt_cl = rabbit.RabbitMgmtClient(rabbit_username,
-                                                      rabbit_password)
-
+        rabbit_host = config.get('amqp', 'host')
+        self.rabbit_mgmt_cl = rabbit.RabbitMgmtClient(rabbit_username, rabbit_password, rabbit_host)
         # Map to keep track of when the last push was made to each host.
         # This will be updated each time we push configuration to a host,
         # and checked when we process the host. Without this, when a host

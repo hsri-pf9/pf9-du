@@ -10,7 +10,7 @@ class RabbitMgmtClient(object):
     def __init__(self,
                  user,
                  password,
-                 amqp_host='localhost',
+                 amqp_host,
                  amqp_mgmt_port=15672,
                  vhost='/'):
         self.endpoint = 'http://%s:%s/api/' % (amqp_host, amqp_mgmt_port)

@@ -60,6 +60,7 @@ pollInterval = 1
 [amqp]
 username = rabbituser
 password = rabbitpass
+host = rabbithost
 
 [resmgr]
 defaultNonResponsiveHostThreshold = 30
