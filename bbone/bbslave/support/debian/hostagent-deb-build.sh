@@ -49,7 +49,7 @@ else
         AFTER_INSTALL=$SPEC_FILE_DIR/after-install-nocert.sh
 fi
 fpm -t deb -s dir --provides "pf9-hostagent" --provides "pf9-bbslave" -d "sudo | sudo-ldap" -d "procps" \
-        -d "iptables-persistent" -d "python-apt" --after-install $AFTER_INSTALL \
+        -d "iptables-persistent" -d "python3-apt" --after-install $AFTER_INSTALL \
         --after-remove $SPEC_FILE_DIR/after-remove.sh --before-remove $SPEC_FILE_DIR/before-remove.sh \
         --before-install $BEFORE_INSTALL \
         --license "Commercial" --architecture all --url "http://www.platform9.net" --vendor Platform9 \

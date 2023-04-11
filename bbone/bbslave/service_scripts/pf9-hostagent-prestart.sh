@@ -19,5 +19,12 @@ then
     then
         ln -sf /usr/lib/python3/dist-packages/apt_inst.cpython-38-x86_64-linux-gnu.so /opt/pf9/python/lib/python3.9/apt_inst.so
         ln -sf /usr/lib/python3/dist-packages/apt_pkg.cpython-38-x86_64-linux-gnu.so /opt/pf9/python/lib/python3.9/apt_pkg.so
+    elif [[ "${VERSION_ID%.*}" == "22" ]]
+    then
+        ln -sf /usr/lib/python3/dist-packages/apt_inst.cpython-310-x86_64-linux-gnu.so /opt/pf9/python/lib/python3.9/apt_inst.so
+        ln -sf /usr/lib/python3/dist-packages/apt_pkg.cpython-310-x86_64-linux-gnu.so /opt/pf9/python/lib/python3.9/apt_pkg.so
+    else
+        echo "This version of Ubuntu is not supported."
+        exit 1
     fi
 fi

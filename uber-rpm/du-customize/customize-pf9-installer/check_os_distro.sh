@@ -21,7 +21,7 @@ UBUNTU_KNOWN_FILE="/etc/lsb-release"
 
 REDHAT_VERSIONS=("7.3" "7.4" "7.5" "7.6" "7.7" "7.8" "7.9" "8.5" "8.6" "8.7")
 ROCKY_VERSIONS=("9.1")
-UBUNTU_VERSIONS=("16.04" "18.04" "20.04")
+UBUNTU_VERSIONS=("16.04" "18.04" "20.04" "22.04")
 
 function check_platform()
 {
