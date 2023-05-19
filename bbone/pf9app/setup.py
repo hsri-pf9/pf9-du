@@ -12,7 +12,7 @@ setup(
     description='',
     author='',
     author_email='',
-    install_requires=['configutils', 'requests', 'distro'],
+    install_requires=['configutils', 'requests==2.26.0', 'distro'],
     test_suite='pf9app',
     zip_safe=False,
     include_package_data=True,

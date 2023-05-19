@@ -13,7 +13,7 @@ setup(
     author='',
     author_email='',
     install_requires=[
-        'requests',
+        'requests==2.26.0',
         'six==1.12.0'
     ],
     test_suite='bbcommon',
