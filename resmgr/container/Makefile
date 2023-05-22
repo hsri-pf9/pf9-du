@@ -87,7 +87,7 @@ PACKAGELIST_LINES_DEB = $(notdir $(HOSTAGENT_DEB)) \
                         $(notdir $(COMMS_DEB))
 
 BUILD_ID := $(BUILD_NUMBER)
-CONTAINER_IMG ?= 514845858982.dkr.ecr.us-west-1.amazonaws.com/pf9-resmgr
+CONTAINER_IMG ?= quay.io/platform9/pf9-resmgr
 IMAGE_TAG ?= $(or $(PF9_VERSION), "latest")-$(BUILD_ID)
 IMAGE_K8S_ONLY_TAG ?= $(or $(PF9_VERSION), "latest")-$(BUILD_ID)-k8sonly
 BRANCH_NAME ?= $(or $(TEAMCITY_BUILD_BRANCH), $(TEAMCITY_BUILD_BRANCH), $(shell git symbolic-ref --short HEAD))
@@ -192,9 +192,7 @@ image-k8s-only: stage
 # Expects the image tag to be passed in as an argument
 # Example: $(call image_push, "a.b.c.d")
 define image_push
-	(docker push $(CONTAINER_IMG):$(1) || \
-	(aws ecr get-login --region=us-west-1 --no-include-email |sh && \
-	docker push $(CONTAINER_IMG):$(1))) && \
+	docker push $(CONTAINER_IMG):$(1) && \
 	docker rmi $(CONTAINER_IMG):$(1) && \
 	mkdir -p $(BLDROOT) && \
 	echo -ne "$(1)" >$(BLDROOT)/container-tag
