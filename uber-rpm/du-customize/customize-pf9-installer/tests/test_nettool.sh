@@ -98,33 +98,33 @@ function main()
 
     # Test http proxy connect
     test_connect_success --host df.platform9.net --port 443 \
-        --proxy-host squid-01.platform9.horse --proxy-port 3128
+        --proxy-host squid-rspc-01.platform9.horse --proxy-port 3128
 
     # Test https proxy connect
     test_connect_success --host df.platform9.net --port 443 \
-        --proxy-protocol https --proxy-host squid-01.platform9.horse --proxy-port 443
+        --proxy-protocol https --proxy-host squid-rspc-01.platform9.horse --proxy-port 443
 
     # Test http proxy with basic auth connect
     test_connect_success --host df.platform9.net --port 443 \
-        --proxy-host squid-basic-auth-01.platform9.horse --proxy-port 3128 \
+        --proxy-host squid-basic-auth-rspc-01.platform9.horse --proxy-port 3128 \
         --proxy-user pf9 --proxy-pass dummy
 
     # Test https proxy with basic auth connect
     test_connect_success --host df.platform9.net --port 443 \
-        --proxy-protocol https --proxy-host squid-basic-auth-01.platform9.horse --proxy-port 443 \
+        --proxy-protocol https --proxy-host squid-basic-auth-rspc-01.platform9.horse --proxy-port 443 \
         --proxy-user pf9 --proxy-pass dummy
 
 
     # Test unresolvable hostnames
     test_connect_fail "no such host" --host "no-such-host.platform9.com" --port 443
     test_connect_fail "503 Service Unavailable" --host "no-such-host.platform9.com" --port 443 \
-        --proxy-host squid-01.platform9.horse
+        --proxy-host squid-rspc-01.platform9.horse
     test_connect_fail "503 Service Unavailable" --host "no-such-host.platform9.com" --port 443 \
-        --proxy-host squid-01.platform9.horse --proxy-protocol https --proxy-port 443
+        --proxy-host squid-rspc-01.platform9.horse --proxy-protocol https --proxy-port 443
     test_connect_fail "503 Service Unavailable" --host "no-such-host.platform9.com" --port 443 \
-        --proxy-host squid-basic-auth-01.platform9.horse --proxy-user pf9 --proxy-pass dummy
+        --proxy-host squid-basic-auth-rspc-01.platform9.horse --proxy-user pf9 --proxy-pass dummy
     test_connect_fail "503 Service Unavailable" --host "no-such-host.platform9.com" --port 443 \
-        --proxy-host squid-basic-auth-01.platform9.horse --proxy-user pf9 --proxy-pass dummy \
+        --proxy-host squid-basic-auth-rspc-01.platform9.horse --proxy-user pf9 --proxy-pass dummy \
         --proxy-protocol https --proxy-port 443
 
     # Test connection timeouts
@@ -132,10 +132,10 @@ function main()
 
     # Test invalid passwords
     test_connect_fail "407 Proxy Authentication Required" --host "df.platform9.net" --port 443 \
-        --proxy-host squid-basic-auth-01.platform9.horse --proxy-user pf9 --proxy-pass wrongPassword \
+        --proxy-host squid-basic-auth-rspc-01.platform9.horse --proxy-user pf9 --proxy-pass wrongPassword \
         --proxy-protocol https --proxy-port 443
     test_connect_fail "407 Proxy Authentication Required" --host "df.platform9.net" --port 443 \
-        --proxy-host squid-basic-auth-01.platform9.horse --proxy-user wrongUser --proxy-pass dummy
+        --proxy-host squid-basic-auth-rspc-01.platform9.horse --proxy-user wrongUser --proxy-pass dummy
 
 
     test_urlparse_success http://squid.platform9.net:3128 "http squid.platform9.net 3128"

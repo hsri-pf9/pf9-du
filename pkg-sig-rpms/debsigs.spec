@@ -1,5 +1,5 @@
 Name:		debsigs
-Version:	0.1.18
+Version:	0.1.24
 Release:	1%{?dist}
 Summary:	toolset for applying cryptographic signatures to Debian packages
 

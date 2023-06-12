@@ -24,7 +24,7 @@ import test_slave_data
 import os
 import shutil
 
-amqp_host = "rabbitmq-01.platform9.horse"
+amqp_host = "rabbitmq-rspc-01.platform9.horse"
 amqp_endpoint = "http://%s:15672/api" % amqp_host
 
 config = ConfigParser()

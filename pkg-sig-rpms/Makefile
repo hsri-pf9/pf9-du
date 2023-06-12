@@ -1,6 +1,6 @@
 SOURCE_SHA2SUMS=\
 ee446635e246bc6575822b353d59f9f409e3ac9b1e139d887cf318adc814053c  build/SOURCES/debsig-verify_0.8.tar.gz\n\
-bae1e8bb28a6ab921e77dcadb1fc65f2058f4ff50255d090baa42cf918f760cc  build/SOURCES/debsigs_0.1.18.tar.xz\n\
+2f6ecdcda41a37496ec31ffd7e9d788541b4b3d2440bacca36826a2701d0d37a build/SOURCES/debsigs_0.1.24.tar.xz\n\
 
 
 build:
