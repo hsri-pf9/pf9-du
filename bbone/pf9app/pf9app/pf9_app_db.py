@@ -9,11 +9,12 @@ import os
 import platform
 import subprocess
 import time
+import distro
 from six import iteritems
 
 from pf9app.app_db import AppDb
 from pf9app.pf9_app_cache import get_supported_distro, SUPPORTED_DEBIAN_DISTROS
-from pf9app.pf9_app import Pf9App, _run_command_with_custom_pythonpath
+from pf9app.pf9_app import Pf9App, _run_command_with_custom_pythonpath, _run_command
 from pf9app.exceptions import NotInstalled, UpdateOperationFailed, \
     RemoveOperationFailed, InstallOperationFailed, Pf9Exception
 
@@ -104,6 +105,11 @@ class AptPkgMgr(object):
             self.log.error('Install command failed: %s. Return code: %d, '
                            'stdout: %s, stderr: %s', install_cmd, code, out, err)
             raise InstallOperationFailed()
+
+    def install_dep(self, name):
+        """
+        Installs dependency for pf9-kube
+        """
 
     def update_from_file(self, pkg_path):
         """
@@ -238,6 +244,28 @@ class YumPkgMgr(object):
                            'stdout: %s, stderr: %s', install_cmd, code, out, err)
             raise InstallOperationFailed()
 
+    def install_dep(self, name):
+        """
+        Installs dependency for pf9-kube
+        """
+        if name == "libcgroup-tools":
+            version = distro.version().split('.')[0]
+            version_number = int(version)
+
+            if version_number < 9:
+                check_command = 'rpm -q %s' % (name)
+                code, out, err = _run_command(check_command)
+                if code:
+                    self.log.info('Installing %s', name)
+                    install_cmd = 'sudo yum install -y %s' % (name)
+                    code, out, err = _run_command(install_cmd)
+                    if code:
+                        self.log.error('Install command failed : %s. Return code: %d, '
+                                        'stdout: %s, stderr: %s', install_cmd, code, out, err)
+                        raise InstallOperationFailed()
+                    self.log.info('Dependency installed: %s', name)
+
+
     def update_from_file(self, pkg_path):
         """
         Updates a package from the specified local path
@@ -310,6 +338,12 @@ class Pf9AppDb(AppDb):
         :raises OSError: if the file provided by path is not found
         """
         self.pkgmgr.install_from_file(path)
+
+    def install_dep(self, name):
+        """
+        Installs dependency needed for pf9-kube
+        """
+        self.pkgmgr.install_dep(name)
 
     def remove_package(self, app_name):
         """

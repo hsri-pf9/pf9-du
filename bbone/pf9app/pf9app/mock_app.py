@@ -92,9 +92,10 @@ class MockRemoteApp(MockInstalledApp, RemoteApp):
         # If the url is of the form http://..../pkgname-xx.yy.rpm then
         # we interpret xx.yy as the version. This allows us to simulate
         # cases where the specified version and the actual version differ.
-        m = re.match('.*/\w*-(\d+\.\d+)\.rpm', url)
-        if m:
-            version = m.groups()[0]
+        if url:
+            m = re.match('.*/\w*-(\d+\.\d+)\.rpm', url)
+            if m:
+                version = m.groups()[0]
 
         MockInstalledApp.__init__(self,
                                   name=name,
@@ -114,6 +115,12 @@ class MockRemoteApp(MockInstalledApp, RemoteApp):
         self.log.info('Installing %s %s', self.app_name, self.app_version)
         self.installed = True
         self.app_db.app_installed(self)
+
+    def install_dep(self):
+        if self.installed:
+            return
+        self.log.info('Installing %s %s', self.app_name)
+        self.installed = True
 
     def download(self):
         self.log.info('Downloading %s %s from %s',

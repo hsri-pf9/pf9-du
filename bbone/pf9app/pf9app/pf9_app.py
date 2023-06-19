@@ -396,7 +396,12 @@ class Pf9RemoteApp(Pf9App, RemoteApp):
         localpath = self.download()
         self.app_db.install_package(localpath)
         self.log.info("%s.%s installed successfully", self.name, self.version)
-
+    
+    def install_dep(self):
+        """
+        Installs dependencies needed for pf9-kube
+        """
+        self.app_db.install_dep(self.name)
 
     def download(self):
         """

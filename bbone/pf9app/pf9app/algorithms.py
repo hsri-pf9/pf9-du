@@ -117,6 +117,16 @@ def process_apps(app_db, app_cache, remote_app_class, new_config,
             url %= url_interpolations
         return url, change_extension
 
+    ## Install dependencies: libcgroup-tools
+    new_app = remote_app_class(name="libcgroup-tools",
+                               version=None,
+                               url=None,
+                               change_extension=None,
+                               app_db=app_db,
+                               app_cache=app_cache,
+                               log=log)
+    new_app.install_dep()
+
     for app_name in identical_app_names:
         app = installed_apps[app_name]
         new_app_spec = new_config[app_name]
