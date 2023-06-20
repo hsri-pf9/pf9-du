@@ -161,7 +161,9 @@ stage-with-py-build-container: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) 
 	cat $(PACKAGELIST_DEB)
 
 stage:
-	$(SRCROOT)/resmgr/container/run-staging-in-container.sh
+	$(SRCROOT)/resmgr/container/run-staging-in-container.sh && \
+    $(SRCROOT)/sign_packages.sh $(BLDROOT)/hostagent/redhat-nocert/rpm-build/RPMS/x86_64/pf9-hostagent-*.rpm && \
+    $(SRCROOT)/sign_packages_deb.sh $(BLDROOT)/hostagent/debian-nocert/deb-build/DEBS/x86_64/pf9-hostagent-*.deb
 
 $(BLDROOT):
 	mkdir -p $@
