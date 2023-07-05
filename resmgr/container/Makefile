@@ -134,7 +134,7 @@ check-ostack-pkgs:
 # nginx container build so it can be served publically from there. Having it
 # here allows us to test hostagent installation without nginx.
 
-stage-with-py-build-container: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT) $(HOSTAGENT_VERSION_FILE)
+stage-with-py-build-container: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) $(HOSTAGENT_DEB) $(DEBIAN_INSTALLER_SCRIPT) $(HOSTAGENT_VERSION_FILE) sign-packages
 	cp -rv $(SRCROOT)/resmgr/container/* $(STAGE)/
 	pip3 install pyyaml
 	python3 $(Y2J) $(APP_METADATA_YAML) > $(APP_METADATA_JSON)
@@ -161,9 +161,11 @@ stage-with-py-build-container: dist $(HOSTAGENT_RPM) $(REDHAT_INSTALLER_SCRIPT) 
 	cat $(PACKAGELIST_DEB)
 
 stage:
-	$(SRCROOT)/resmgr/container/run-staging-in-container.sh && \
-    $(SRCROOT)/sign_packages.sh $(BLDROOT)/hostagent/redhat-nocert/rpm-build/RPMS/x86_64/pf9-hostagent-*.rpm && \
-    $(SRCROOT)/sign_packages_deb.sh $(BLDROOT)/hostagent/debian-nocert/deb-build/DEBS/x86_64/pf9-hostagent-*.deb
+	$(SRCROOT)/resmgr/container/run-staging-in-container.sh
+
+sign-packages:
+	$(SRCROOT)/sign_packages.sh $(BLDROOT)/hostagent/redhat-nocert/rpm-build/RPMS/x86_64/pf9-hostagent-*.rpm && \
+	$(SRCROOT)/sign_packages_deb.sh $(BLDROOT)/hostagent/debian-nocert/deb-build/DEBS/x86_64/pf9-hostagent-*.deb
 
 $(BLDROOT):
 	mkdir -p $@
