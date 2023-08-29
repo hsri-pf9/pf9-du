@@ -84,7 +84,7 @@ function get_certs_from_vouch() {
         local hostname=$(hostname) || true
         if [ -n "${hostname}" ]; then
             # Get first 54 chars of hostname
-            adj_host_name=$(echo ${hostname} | cut -c 1-54)
+            adj_host_name=$(echo ${hostname} | cut -c 1-54 | sed 's/[.]$//g')
             # Append the - to hostname to tack on the uuid later
             adj_host_name=${adj_host_name}-
         fi

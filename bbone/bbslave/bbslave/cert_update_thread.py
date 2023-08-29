@@ -77,7 +77,7 @@ def cert_update_thread(config, log):
         resp['msg']  = 'cert_update_result'
         hostname = gethostname()
         if len(hostname):
-            common_name = hostname[0:54] + '-'
+            common_name = hostname[0:54].rstrip('.') + '-'
 
         common_name += _host_id[0:8]
 
