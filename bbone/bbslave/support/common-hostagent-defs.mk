@@ -33,7 +33,7 @@ HOSTAGENT_DEPS = six==1.12.0 \
                  $(SRC_DIR)
 SED_CMD=sed -e "s/__BUILDNUM__/$(BUILD_NUMBER)/" -e "s/__GITHASH__/$(GITHASH)/" -e "s/__VERSION__/$(PF9_VERSION)/"
 
-PYTHON_DOWNLOAD_URL := https://artifactory.platform9.horse/artifactory/pf9-bins/python/3.9.10/python3.9.10.tgz
+PYTHON_DOWNLOAD_URL := https://artifactory.platform9.horse/artifactory/pf9-bins/python/3.9.18/python3.9.18.tgz
 # Include pf9-lib, which contains .so files used by all pf9 apps
 #SO_DOWNLOAD_URL := "http://artifacts.platform9.horse/service/rest/v1/search/assets?repository=yum-repo-frozen&name=hostagent-components/libs/pf9-lib-py3/*.so.*"
 
