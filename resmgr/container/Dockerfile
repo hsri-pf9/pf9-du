@@ -9,13 +9,13 @@ RUN apk update \
      g++ \
      dpkg \
      musl-dev \
-     libressl-dev \ 
+     libressl-dev==3.5.3 \ 
      mariadb \
      mariadb-dev \
      mariadb-client \
      mariadb-connector-c-dev \
      python3-dev \
-     libffi-dev
+     libffi-dev --force-broken-world
 
 COPY bblib-sdist.tgz \
      bbmaster-sdist.tgz \
@@ -28,7 +28,7 @@ COPY bblib-sdist.tgz \
 
 WORKDIR /root
 
-RUN pip install cryptography==2.1.4 \
+RUN pip install cryptography==41.0.4 \
                 bblib-sdist.tgz
 
 RUN pip install bbmaster-sdist.tgz
