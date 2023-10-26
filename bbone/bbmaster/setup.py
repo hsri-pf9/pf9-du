@@ -14,13 +14,16 @@ setup(
     author_email='',
     install_requires=[
         "typing-extensions==4.1.1",
-        "pecan==1.4.0",
-        "requests==2.26.0",
+        "pecan==1.5.0",
+        "WebTest==2.0.35",
+        "requests==2.31.0",
+        "urllib3==1.24.2",
         "pika==0.13.1",
-        "cryptography==3.3.2",
+        "cryptography==41.0.4",
         "webob==1.8.7",
         "MarkupSafe==2.0.1",
-        "boto3==1.18.28"
+        "boto3==1.15.18",
+        "botocore==1.18.18"
     ],
     test_suite='bbmaster',
     zip_safe=False,

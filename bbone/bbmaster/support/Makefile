@@ -62,7 +62,7 @@ ${VENV}: ${BUILD_DIR}
 	mkdir -p $@
 	$(SRC_ROOT)/build-venv.sh ${VENV} ${PY_VERSION}
 	${VENV}/bin/pip install --upgrade pip setuptools
-	${VENV}/bin/pip install six==1.12.0
+	${VENV}/bin/pip install six==1.16.0
 
 ${BBMASTER_SRC_STAGE}: pre-reqs
 	mkdir -p ${BBMASTER_SRC_STAGE}/etc/pf9

@@ -14,7 +14,8 @@ setup(
     author_email='',
     install_requires=[
         'alembic',
-        'pecan',
+        "pecan==1.5.0",
+        "WebTest==2.0.35",
         'firkinize',
         'keystonemiddleware',
         'python-memcached',

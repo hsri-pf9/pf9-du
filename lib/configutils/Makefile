@@ -19,7 +19,7 @@ DISTUTILS_DEBUG = 1
 
 ${TEST_VENV}: ${BUILD_DIR}
 	virtualenv -p python3 ${TEST_VENV}
-	${TEST_VENV}/bin/pip install six==1.12.0
+	${TEST_VENV}/bin/pip install six==1.16.0
 
 pre-reqs : ${TEST_VENV}
 	cd ${SRC_DIR} && \
@@ -28,6 +28,7 @@ pre-reqs : ${TEST_VENV}
 unit-test-setup: pre-reqs
 	# Setup up nose and coverage in addition to pre-reqs
 	source ${TEST_VENV}/bin/activate && \
+	pip install --upgrade pip setuptools && \
 	pip install nose && \
 	pip install coverage && \
 	deactivate

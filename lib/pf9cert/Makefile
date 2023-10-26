@@ -29,6 +29,7 @@ pre-reqs : ${TEST_VENV}
 unit-test-setup: pre-reqs
 	# Setup up nose and coverage in addition to pre-reqs
 	source ${TEST_VENV}/bin/activate && \
+	pip install --upgrade pip setuptools && \
 	pip install nose && \
 	pip install coverage && \
 	deactivate

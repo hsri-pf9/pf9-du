@@ -5,13 +5,14 @@ RUN apk update \
     && apk add \
      bash \
      curl \
+     pkgconfig \
      gcc \
      g++ \
      dpkg \
      musl-dev \
      libressl-dev==3.5.3 \ 
      mariadb \
-     mariadb-dev \
+     --no-cache mariadb-dev \
      mariadb-client \
      mariadb-connector-c-dev \
      python3-dev \
@@ -36,7 +37,7 @@ RUN pip install configutils-sdist.tgz \
                 notifier-sdist.tgz \
                 rabbitmgmt-sdist.tgz \
                 -c upper-constraints.txt \
-                setuptools==33.1.1
+                setuptools==68.2.2
 
 RUN pip install resmgr-sdist.tgz \
                 -c upper-constraints.txt

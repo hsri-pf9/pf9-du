@@ -26,12 +26,12 @@ CONSTRAINTS_FILE=${SRC_DIR}/upper-constraints.txt
 PROD_VENV = ${PF9_OPT_DIR}/resmgr
 # These are additional modules needed to setup for production purposes
 PROD_SETUP_DEPS = ${BBLIBCOMMON_DIR} ${CONFIGUTILS_DIR} ${NOTIFIER_DIR} ${RABBIT_MGMT_DIR}
-PROD_VENV_INSTALL_CMD_PIP=${PROD_VENV}/bin/pip install --upgrade pip==21.2.4;
+PROD_VENV_INSTALL_CMD_PIP=${PROD_VENV}/bin/pip install --upgrade pip==23.3.1;
 PROD_VENV_INSTALL_CMD=${PROD_VENV_INSTALL_CMD_PIP} ${PROD_VENV}/bin/python ${PROD_VENV}/bin/pip install  -c${CONSTRAINTS_FILE}
 # These additional modules need to be setup in order for our tests to run
 TEST_SETUP_DEPS = ${PROD_SETUP_DEPS}
 TEST_VENV = ${BUILD_DIR}/test_venv
-TEST_VENV_DEVELOP_CMD_PIP=${TEST_VENV}/bin/pip install --upgrade pip==21.2.4; 
+TEST_VENV_DEVELOP_CMD_PIP=${TEST_VENV}/bin/pip install --upgrade pip==23.3.1;
 TEST_VENV_DEVELOP_CMD=${TEST_VENV_DEVELOP_CMD_PIP} ${TEST_VENV}/bin/python ${TEST_VENV}/bin/pip install -c${CONSTRAINTS_FILE} -e
 desc = "Platform9 Resource Manager"
 arch = noarch
@@ -106,7 +106,7 @@ pre-reqs: ${VENV}
 unit-test-setup: pre-reqs
 	# Setup up nose and coverage in addition to pre-reqs
 	source ${TEST_VENV}/bin/activate && \
-	python -m pip install --upgrade pip==20.2.4 && \
+	python -m pip install --upgrade pip==23.3.1 && \
 	python -m pip install nose mock coverage httpretty pylint && \
 	deactivate
 

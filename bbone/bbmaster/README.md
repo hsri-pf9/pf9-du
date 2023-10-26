@@ -34,7 +34,9 @@ running on that host. It reports the version of the host agent and its status.
 Current possible values for status are 'running' and 'updating'.
 
 Example:
-```
+
+```json
+
     {
         'host_id': 'da79das',
         'status': 'ok',
@@ -70,16 +72,20 @@ Example:
         }
     }
 ```
+
 ### GET /v1/hosts/ ###
+
 Returns a list of all host descriptors.
 
 ### POST /v1/hosts/__id__/support/bundle ###
+
 Sends a request to the host agent on the specified host to generate and return a
 support bundle to the deployment unit. The request is asynchronous and not
 guaranteed to succeed.
 Returns a 404 error code if the specified host does not exist.
 
 ### POST /v1/hosts/__id__/support/command ###
+
 Sends a request to the host agent on the specified host to run a command and
 return the output to the deployment unit. The request is asynchronous and not
 guaranteed to succeed.
@@ -98,13 +104,16 @@ commands:
 ]
 
 ### GET /v1/hosts/__id__/apps ###
+
 Returns the apps configuration for the specified host.
 
 ### GET /v1/hosts/__id__/apps_internal ###
+
 Returns the apps configuration for the specified host, including internal
 infrastructure applications that are normally hidden (e.g. pf9-comms)
 
 ### PUT /v1/hosts/__id__/apps ###
+
 Sets the desired pf9 application configuration state of the specified host.
 The expected format is similar to the 'apps' section of the descriptor returned
 by GET /v1/hosts/__id__ as described above.
@@ -126,10 +135,12 @@ installing or upgrading infrastructure software used internally by the backbone
 system on the host, such as the pf9-comms application.
 
 ### GET /v1/hosts/__id__/hostagent ###
+
 Returns information about the host agent that is present on the specified
 host. Response contains the status of the agent and the version of the
 host agent that it is currently running.
-```
+
+```json
     {
         'status': 'running',
         'version': '1.0.0-1'
@@ -141,11 +152,11 @@ Update the hostagent on the host specified by the host id. The request body
 should provide the a URL for the hostagent rpm that needs to be installed on
 the host.
 Request body:
-```
+
+```json
     {
         'name': 'pf9-hostagent',
         'version': '1.2.3',
         'url': 'http://agentserver/hostagent/pf9-hostagent-1.2.3.x86-64.rpm'
     }
 ```
-

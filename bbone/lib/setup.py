@@ -13,8 +13,9 @@ setup(
     author='',
     author_email='',
     install_requires=[
-        'requests==2.26.0',
-        'six==1.12.0'
+        'requests==2.31.0',
+        'urllib3==1.24.2',
+        'six==1.16.0'
     ],
     test_suite='bbcommon',
     zip_safe=False,

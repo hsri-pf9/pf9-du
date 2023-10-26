@@ -25,7 +25,7 @@ ${BUILD_DIR}:
 ${TEST_VENV}: ${BUILD_DIR}
 	python3.9 -m venv ${TEST_VENV}
 	${TEST_VENV}/bin/pip install --upgrade pip setuptools
-	${TEST_VENV}/bin/pip install cryptography==2.8
+	${TEST_VENV}/bin/pip install cryptography==41.0.4
 
 pre-reqs : ${TEST_VENV}
 	for pkg in ${TEST_SETUP_DEPS}; do \
