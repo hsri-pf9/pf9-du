@@ -25,6 +25,7 @@ COPY bblib-sdist.tgz \
      rabbitmgmt-sdist.tgz \
      resmgr-sdist.tgz \
      upper-constraints.txt \
+     liveness_probe.sh \
      /root/
 
 WORKDIR /root
