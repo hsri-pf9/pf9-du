@@ -52,6 +52,16 @@ is_ubuntu_20() {
     fi
 }
 
+is_ubuntu_22() {
+   # Checks if the OS is Ubuntu22. If so, return 0, else 1
+    if [[ "$ID" == "ubuntu" && "$VERSION_ID" == "22.04" ]]
+    then
+        return 0
+    else
+        return 1
+    fi
+}
+
 is_centos_7() {
     # Checks if the OS is CentOS7. If so, returns 0, else 1
     if [[ "$ID" == "centos" && "$VERSION_ID" == "7" ]]
