@@ -19,7 +19,7 @@ setup(
         "requests==2.31.0",
         "urllib3==1.24.2",
         "pika==0.13.1",
-        "cryptography==41.0.4",
+        "cryptography==42.0.4",
         "webob==1.8.7",
         "MarkupSafe==2.0.1",
         "boto3==1.15.18",
