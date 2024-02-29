@@ -16,7 +16,7 @@ setup(
         'pika==0.13.1',
         'netifaces==0.10.6',
         'py-cpuinfo==7.0.0',
-        'psutil==5.4.5',
+        'psutil==5.6.6',
         'pf9app',
         'bbcommon',
         'configutils',
