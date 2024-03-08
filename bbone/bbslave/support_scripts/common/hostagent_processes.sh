@@ -13,9 +13,7 @@ fi
 
 set -x
 
-service --status-all
 ps aux | grep pf9
 
 systemctl list-units --all --no-pager
 systemd-cgls --no-pager
-
