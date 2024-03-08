@@ -55,8 +55,8 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0550, root, root) /opt/pf9/hostagent/bin/jq
 %attr(0550, root, root) /opt/pf9/hostagent/pf9-hostagent-prestart.sh
 %dir /var/opt/pf9
-%config /etc/pf9/hostagent.conf
 %dir /var/log/pf9
+/etc/pf9/hostagent.conf
 /etc/pf9/certs
 %pre
 if [ "$1" = "2" ]; then
@@ -166,6 +166,8 @@ change_file_permissions() {
 # Replace the hostagent.conf with the one downloaded from DDU.
 if [ -f "/etc/pf9/hostagent.conf.from.du" ]; then
     echo "Replacing the hostagent.conf with the one downloaded from the DDU"
+    # backup the previous hostagent conf, in case there were any custom changes
+    cp /etc/pf9/hostagent.conf /etc/pf9/hostagent.conf.$(date +"%Y-%m-%d-%H-%M").bkup || true
     mv -f /etc/pf9/hostagent.conf.from.du /etc/pf9/hostagent.conf
 fi
 # Check if we have created a backup of certs directory

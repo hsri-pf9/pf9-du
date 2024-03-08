@@ -55,7 +55,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0550, root, root) /opt/pf9/hostagent/bin/jq
 %attr(0550, root, root) /opt/pf9/hostagent/pf9-hostagent-prestart.sh
 %dir /var/opt/pf9
-%config /etc/pf9/hostagent.conf
+/etc/pf9/hostagent.conf
 /etc/pf9/certs
 %dir /var/log/pf9
 
