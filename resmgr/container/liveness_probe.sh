@@ -2,26 +2,37 @@
 
 exec >> /var/log/pf9/bbmaster.log 2>&1
 
-echo "Starting health check at $(date)"
+# Usage: log_message "Your message here"
+log_message() {
+    message=$1
+
+    # Get current date and time
+    current_time=$(date "+%Y-%m-%d %H:%M:%S")
+
+    # Append the message to the logfile with a timestamp
+    echo "[$current_time] liveness_probe:: $message"
+}
+
+log_message "starting health check"
 
 # Perform the health check using curl and capture the HTTP status code
-http_status=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 http://localhost:8082/v1/hosts)
+http_status=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 http://localhost:18082/v1/hosts)
 
 # Log the HTTP status code
-echo "HTTP status code: $http_status"
+log_message "status check returned code: $http_status"
 
 # Check if the HTTP status code is 200 (OK)
 if [ "$http_status" -eq 200 ]; then
-    echo "Health check passed. No action required."
+    log_message "health check passed. No action required"
 else
     # Log that the health check failed
-    echo "Health check failed. Restarting bbmaster."
+    log_message "health check failed. Restarting bbmaster"
 
     # Restart the bbmaster process
     supervisorctl restart bbmaster
 
-    echo "bbmaster restarted."
+    log_message "bbmaster restarted"
 fi
 
-echo "Health check completed at $(date)"
+log_message "health check completed"
 exit 0

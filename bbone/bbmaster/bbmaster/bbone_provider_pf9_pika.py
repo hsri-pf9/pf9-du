@@ -111,6 +111,7 @@ class bbone_provider_pf9(bbone_provider_memory):
                                   host_state=host_state, is_ddu=self.is_ddu)
             super(bbone_provider_pf9, self).set_host_apps(id, desired_apps)
             host_state = self.hosts[id]
+            self.log.info("added host %s to hosts table", id)
         try:
             self._converge_host_if_necessary(host_state, desired_apps)
         except AttributeError:
