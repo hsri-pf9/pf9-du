@@ -1655,12 +1655,20 @@ class ResMgrPf9Provider(ResMgrProvider):
         t.daemon = True
         t.start()
 
-        try:
-            self._consul_roles = ConsulRoles(config, self.res_mgr_db)
-            self._consul_roles.startwatch()
-        except ConsulUnavailable as e:
-            log.info('Consul isn\'t available. Roles are loaded from the '
-                     'filesystem only: %s', e)
+        while True:
+            try:
+                self._consul_roles = ConsulRoles(config, self.res_mgr_db)
+                break
+            except ConsulUnavailable as e:
+                log.info('Consul isn\'t available. Roles are loaded from the '
+                        'filesystem only: %s', e)
+                break
+            except Exception:
+                log.exception('Consul operation error. Retrying in a bit... ')
+                time.sleep(20)
+
+        self._consul_roles.startwatch()
+
 
     @staticmethod
     def _load_config(config_file):

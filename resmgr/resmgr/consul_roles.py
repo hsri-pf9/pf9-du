@@ -9,6 +9,7 @@ import os
 import re
 import requests
 import threading
+import time
 
 from six.moves.configparser import DuplicateSectionError
 
@@ -17,6 +18,9 @@ from firkinize.configstore.consul import Consul
 LOG = logging.getLogger(__name__)
 
 class ConsulUnavailable(Exception):
+    pass
+
+class ConsulOperationError(Exception):
     pass
 
 class ConsulRoles(object):
@@ -47,7 +51,7 @@ class ConsulRoles(object):
             self._prefix = 'customers/%s/regions/%s/roles' % (customer_id, region_id)
             self._consul = Consul(consul_url, consul_token)
             self._watch = self._consul.prefix_watch(self._prefix, self._callback)
-            self._watch_thread = threading.Thread(target=self._watch.run)
+            self._watch_thread = threading.Thread(target=self.run_with_catch)
             self._watch_thread.daemon = True
             self._pending_role_updates = set()
             LOG.info('Initialized consul watch for role changes on %s',
@@ -57,7 +61,7 @@ class ConsulRoles(object):
                 'consul watcher, role updates from consul are not available: '
                 '%s' % e)
         except requests.RequestException as e:
-            raise ConsulUnavailable('Failed to contact consul at %s, role '
+            raise ConsulOperationError('Failed to contact consul at %s, role '
                 'updates from consul are not available: %s' % (consul_url, e))
         self._key_callbacks = [
             # prefix/rolename/version/config = config json
@@ -68,6 +72,13 @@ class ConsulRoles(object):
              self._on_params_change)
         ]
         self._active_roles = {}
+
+    def run_with_catch(self):
+        while True:
+            self._watch.run()
+        except Exception:
+            LOG.exception("Error while running consul watch thread")
+            time.sleep(20)
 
     def startwatch(self):
         LOG.info('Starting consul role watch')
