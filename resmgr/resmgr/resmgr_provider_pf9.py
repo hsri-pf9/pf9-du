@@ -1658,6 +1658,7 @@ class ResMgrPf9Provider(ResMgrProvider):
         while True:
             try:
                 self._consul_roles = ConsulRoles(config, self.res_mgr_db)
+                self._consul_roles.startwatch()
                 break
             except ConsulUnavailable as e:
                 log.info('Consul isn\'t available. Roles are loaded from the '
@@ -1666,8 +1667,6 @@ class ResMgrPf9Provider(ResMgrProvider):
             except Exception:
                 log.exception('Consul operation error. Retrying in a bit... ')
                 time.sleep(20)
-
-        self._consul_roles.startwatch()
 
 
     @staticmethod

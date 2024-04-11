@@ -75,10 +75,11 @@ class ConsulRoles(object):
 
     def run_with_catch(self):
         while True:
-            self._watch.run()
-        except Exception:
-            LOG.exception("Error while running consul watch thread")
-            time.sleep(20)
+            try:
+                self._watch.run()
+            except Exception:
+                LOG.exception("Error while running consul watch thread")
+                time.sleep(20)
 
     def startwatch(self):
         LOG.info('Starting consul role watch')
