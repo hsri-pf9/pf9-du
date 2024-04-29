@@ -105,7 +105,28 @@ def cert_update_thread(config, log):
         privatekey, csr = certs.generate_key_and_csr(common_name)
         privatekey = privatekey.decode("utf-8")
         csr = csr.decode("utf-8")
-        cert, ca = vouch.sign_csr(csr, common_name)
+        try:
+            cert, ca = vouch.sign_csr(csr, common_name)
+            if not cert or not ca:
+                log.error('Failed to get new certificates from vouch.')
+                msg_info = {
+                    'status' : util.CERT_REFRESH_STATUS_FAILED,
+                    'message' : 'Failed to get new certificates from vouch on {}'.format(
+                        datetime.datetime.utcnow().strftime("%c")),
+                    'timestamp' : datetime.datetime.utcnow().timestamp()
+                }
+                resp['details'] = msg_info
+                return resp
+        except Exception:
+            log.exception('Exception occurred while getting new certificates from vouch')
+            msg_info = {
+                    'status' : util.CERT_REFRESH_STATUS_FAILED,
+                    'message' : 'Failed to get new certificates from vouch on {}'.format(
+                        datetime.datetime.utcnow().strftime("%c")),
+                    'timestamp' : datetime.datetime.utcnow().timestamp()
+                }
+            resp['details'] = msg_info
+            return resp
         backups = certs.backup_and_save_certs({
             private_key_pem_file: privatekey.encode("utf-8"),
             cert_pem_file: cert.encode("utf-8"),
@@ -132,8 +153,8 @@ def cert_update_thread(config, log):
             msg_info = {
                 'status' : util.CERT_REFRESH_STATUS_SUCCESS,
                 'message' : 'Host certs refreshed successfully on {}'.format(
-                    datetime.datetime.utcnow().strftime("%c")),
-                'timestamp' : datetime.datetime.utcnow().timestamp()
+                    datetime.datetime().utcnow().strftime("%c")),
+                'timestamp' : datetime.datetime().utcnow().timestamp()
             }
             resp['details'] = msg_info
             return resp

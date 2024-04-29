@@ -142,6 +142,7 @@ def backup_and_save_certs(cert_info):
                 backup = '%s.%d' % (path, idx)
                 if not os.path.isfile(backup):
                     backups[path] = backup
+                    LOG.info('Backing up directory %s to %s', path, backup)
                     os.rename(path, backup)
                     break
                 else:
@@ -171,6 +172,7 @@ def place_new_CAs(ca_pem_file, ca_list):
                 idx += 1
             else:
                 with open(ca, 'wt') as f:
+                    LOG.info('Writing CA cert to %s', ca)
                     f.write(certstr)
                     os.chown(ca, pf9_uid, pf9group_gid)
                 break
@@ -226,4 +228,5 @@ def check_connection(vouch_url=COMMS_VOUCH_URL):
 def restore_backups(backups):
     for dest, src in iteritems(backups):
         os.unlink(dest)
+        LOG.info("Restoring %s from backup %s", dest, src)
         os.rename(src, dest)
