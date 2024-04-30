@@ -153,8 +153,8 @@ def cert_update_thread(config, log):
             msg_info = {
                 'status' : util.CERT_REFRESH_STATUS_SUCCESS,
                 'message' : 'Host certs refreshed successfully on {}'.format(
-                    datetime.datetime().utcnow().strftime("%c")),
-                'timestamp' : datetime.datetime().utcnow().timestamp()
+                    datetime.datetime.utcnow().strftime("%c")),
+                'timestamp' : datetime.datetime.utcnow().timestamp()
             }
             resp['details'] = msg_info
             return resp
