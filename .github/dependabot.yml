@@ -9,15 +9,19 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
   - package-ecosystem: "pip" # See documentation for possible values
     directory: "/resmgr" # Location of package manifests
     schedule:
-      interval: "weekly"      
+      interval: "weekly"
+    open-pull-requests-limit: 0
   - package-ecosystem: "pip" # See documentation for possible values
     directory: "/bbone/bbmaster" # Location of package manifests
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
   - package-ecosystem: "pip" # See documentation for possible values
     directory: "/bbone/bbslave" # Location of package manifests
     schedule:
-      interval: "weekly"      
+      interval: "weekly"
+    open-pull-requests-limit: 0
