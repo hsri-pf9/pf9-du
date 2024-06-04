@@ -17,9 +17,9 @@ def find_rule(portnum):
     else:
         output = proc.stdout.read()
         for line in output.splitlines():
-            if line.find('ACCEPT') >= 0 and \
-               line.find('tcp') >= 0 and \
-               line.find('dpt:%d' % portnum) >= 0:
+            if line.find(str.encode('ACCEPT')) >= 0 and \
+               line.find(str.encode('tcp')) >= 0 and \
+               line.find(str.encode('dpt:%d' % portnum)) >= 0:
                 linenum = line.split()[0]
                 return linenum
         return None
