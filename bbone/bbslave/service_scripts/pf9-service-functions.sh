@@ -184,7 +184,7 @@ pf9_remove_service_files() {
 pf9_disable_service_on_boot() {
     # Remove the service from startup on boot. Service name is passed as an
     # argument to the function.
-    if is_ubuntu_14
+    if is_ubuntu_14 || is_ubuntu_22
     then
         update-rc.d $1 remove
     else
@@ -197,7 +197,7 @@ pf9_disable_service_on_boot() {
 pf9_enable_service_on_boot() {
     # Add the service to startup on boot. Service name is passed as an
     # argument to the function.
-    if is_ubuntu_14
+    if is_ubuntu_14 || is_ubuntu_22
     then
         update-rc.d $1 defaults
     else
