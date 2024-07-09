@@ -322,7 +322,7 @@ def start(config, log, app_db, agent_app_db, app_cache,
                         ext_result = {
                             'status': 'ok',
                             # Python3: JSON object cannot be 'bytes'. It has to be a string.
-                            'data': json.loads(output.decode())
+                            'data': json.loads(output.decode(), strict=False)
                         }
                     except Exception as e:
                         log.error('Extension data %s is not JSON serializable: %s',
