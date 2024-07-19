@@ -13,8 +13,7 @@ import os
 import re
 import json
 import tarfile
-import argparse
-from subprocess import check_call
+from subprocess import CalledProcessError, check_call
 import subprocess
 
 """
@@ -264,14 +263,6 @@ def generate_support_bundle(out_tgz_file, logger):
         logger.exception(f"Failed to generate support bundle: {e}")
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Generate Support Bundle')
-    parser.add_argument('--file-list', type=str, nargs='+', default=None,
-                        help='List of files or directories to include in the support bundle')
-    parser.add_argument('--output', type=str, default='/tmp/pf9-support.tgz',
-                        help='Output tar.gz file for the support bundle')
-
-    args = parser.parse_args()
-
     file_list = []
 
     # Prompt the user for each entry in the default file list
@@ -280,12 +271,7 @@ if __name__ == '__main__':
         if confirm.lower() == 'yes':
             file_list.append(item)
 
-    # Append the provided file list from CLI arguments
-    if args.file_list:
-        # Ensure all file patterns end with '**'
-        args.file_list = [pattern if pattern.endswith('/**') else pattern.rstrip('/') + '/**' for pattern in args.file_list]
-        file_list.extend(args.file_list)
+    output_file = '/tmp/pf9-support.tgz'
 
     logger = setup_logger()
-    logger.info(f"Final file list: {file_list}")
-    generate_support_bundle(args.output, logger)
+    generate_support_bundle(output_file, logger)
