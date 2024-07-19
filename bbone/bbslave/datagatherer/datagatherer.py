@@ -68,10 +68,10 @@ def setup_logger():
     ch.setLevel(logging.DEBUG)
     # Create formatter and add it to the handlers
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    # fh.setFormatter(formatter)
+    fh.setFormatter(formatter)
     ch.setFormatter(formatter)
     # Add the handlers to the logger
-    # logger.addHandler(fh)
+    logger.addHandler(fh)
     logger.addHandler(ch)
     return logger
 
