@@ -13,9 +13,9 @@ import os
 import re
 import json
 import tarfile
-import hashlib
-from OpenSSL import crypto
+import argparse
 from subprocess import check_call
+import subprocess
 
 """
 Want to be able to do the following eventually:
@@ -24,7 +24,8 @@ captures it at run time for the app.
 2. Run a command on the host and capture its output in a file in the bundle.
 """
 
-file_list = [
+# Default file list
+default_file_list = [
     '/etc/pf9/**',
     '/var/log/pf9/**',
     '/var/opt/pf9/hostagent/**',
@@ -56,71 +57,111 @@ sensitive_patterns = [
     re.compile(r'hashed certificate data:\s*[A-Za-z0-9+/=]+\s*', re.IGNORECASE)
 ]
 
-def redact_files(file, logger=logging):
+def setup_logger():
+    logger = logging.getLogger('SupportBundleLogger')
+    logger.setLevel(logging.DEBUG)
+    # Create file handler which logs even debug messages
+    fh = logging.FileHandler(os.path.join(support_logging_dir, 'support_bundle.log'))
+    fh.setLevel(logging.DEBUG)
+    # Create console handler with a higher log level
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    # Create formatter and add it to the handlers
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    # fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+    # Add the handlers to the logger
+    # logger.addHandler(fh)
+    logger.addHandler(ch)
+    return logger
+
+def redact_files(file, common_base_dir, logger=logging):
     try:
+        redacted_file = f"{file}.redacted"
+        sensitive_found = False
         with open(file, 'r') as f:
             if file.endswith('.json'):
                 content = json.load(f)
-                redact_sensitive(content)
-                with open(file, 'w') as fw:
-                    json.dump(content, fw, indent=2)
+                if redact_sensitive(content):
+                    sensitive_found = True
+                    with open(os.path.join(common_base_dir, redacted_file), 'w') as fw:
+                        json.dump(content, fw, indent=2)
             else:
                 lines = f.readlines()
                 redacted_lines = []
                 for line in lines:
                     redacted_line = line
                     for pattern in sensitive_patterns:
-                        if isinstance(pattern, re.Pattern):
+                        if pattern.search(line):
+                            sensitive_found = True
                             redacted_line = pattern.sub('REDACTED', redacted_line)
-                        else:
-                            redacted_line = re.sub(pattern, 'REDACTED', redacted_line, flags=re.IGNORECASE | re.MULTILINE)
                     redacted_lines.append(redacted_line)
 
-                with open(file, 'w') as fw:
-                    fw.writelines(redacted_lines)
+                if sensitive_found:
+                    with open(os.path.join(common_base_dir, redacted_file), 'w') as fw:
+                        fw.writelines(redacted_lines)
 
-        logger.debug(f"Redacted sensitive information in: {file}")
+        if sensitive_found:
+            logger.debug(f"Redacted sensitive information in: {file}, created redacted copy: {redacted_file}")
+            return redacted_file
+        else:
+            logger.debug(f"No sensitive information found in: {file}, including original file.")
+            return file
     except Exception as e:
         logger.warning(f"Failed to redact file: {file}, Error: {e}")
+        return None
 
 def redact_sensitive(content):
+    sensitive_found = False
     if isinstance(content, dict):
         for key, value in content.items():
             for pattern in sensitive_patterns:
                 if pattern.search(key):
+                    sensitive_found = True
                     if isinstance(value, str):
                         content[key] = "REDACTED"
                     elif isinstance(value, list):
                         content[key] = ["REDACTED" for _ in value]
             if isinstance(value, (dict, list)):
-                redact_sensitive(value)
+                if redact_sensitive(value):
+                    sensitive_found = True
     elif isinstance(content, list):
         for index, item in enumerate(content):
             if isinstance(item, str):
                 for pattern in sensitive_patterns:
                     if pattern.search(item):
+                        sensitive_found = True
                         content[index] = "REDACTED"
             else:
-                redact_sensitive(item)
-
-def hash_content(content):
-    return hashlib.sha256(content.encode('utf-8')).hexdigest()
+                if redact_sensitive(item):
+                    sensitive_found = True
+    return sensitive_found
 
 def extract_certificate_dates(cert_path):
-    cert = crypto.load_certificate(crypto.FILETYPE_PEM, open(cert_path).read())
-    start_date = cert.get_notBefore().decode('utf-8')
-    end_date = cert.get_notAfter().decode('utf-8')
-    return start_date, end_date
+    try:
+        # Extract the start date
+        start_date_command = ["openssl", "x509", "-in", cert_path, "-noout", "-startdate"]
+        start_date_output = subprocess.check_output(start_date_command, text=True)
+        start_date = start_date_output.strip().split('=')[1]
+
+        # Extract the end date
+        end_date_command = ["openssl", "x509", "-in", cert_path, "-noout", "-enddate"]
+        end_date_output = subprocess.check_output(end_date_command, text=True)
+        end_date = end_date_output.strip().split('=')[1]
+
+        return start_date, end_date
+    except subprocess.CalledProcessError as e:
+        logger.warning(f"Failed to extract certificate dates for {cert_path}: {e}")
+        return None, None
 
 def generate_cert_dates(cert_path, logger):
     try:
         start_date, end_date = extract_certificate_dates(cert_path)
         cert_info = f"start_date={start_date}, end_date={end_date}\n"
-        hashed_cert_info = hash_content(cert_info)
         cert_info_file = f"{cert_path}.hash"
 
         with open(cert_info_file, 'w') as f:
-            f.write(hashed_cert_info)
+            f.write(cert_info)
 
         logger.debug(f"Generated hashed certificate info file: {cert_info_file}")
         return cert_info_file
@@ -160,14 +201,14 @@ def should_exclude(file, logger):
         logger.debug(f"Excluding because of file name: {file}")
         return True
 
-    # Exclude .crt files anywhere
-    if file.endswith('.crt'):
+    # Exclude .crt files but allow .crt.hash files
+    if file.endswith('.crt') and not file.endswith('.crt.hash'):
         logger.debug(f"Excluding because of file extension: {file}")
         return True
 
     return False
 
-def generate_support_bundle(out_tgz_file, logger=logging):
+def generate_support_bundle(out_tgz_file, logger):
     """
     Run the support scripts and generate a tgz file in
     /var/opt/pf9/hostagent. Overwrites the previously generated
@@ -185,35 +226,66 @@ def generate_support_bundle(out_tgz_file, logger=logging):
     except Exception as e:
         logger.exception("Failed to run the support scripts: %s", e)
 
-    tgzfile = tarfile.open(out_tgz_file, 'w:gz')
-    # cert_dates_collected = set()
-    for pattern in file_list:
-        expanded_pattern = os.path.expandvars(os.path.expanduser(pattern))
+    try:
+        with tarfile.open(out_tgz_file, 'w:gz') as tgzfile:
+            for pattern in file_list:
+                expanded_pattern = os.path.expandvars(os.path.expanduser(pattern))
 
-        for file in glob.iglob(expanded_pattern, recursive=True):
-            logger.debug(f"Current File/Dir is: {file}")
+                for file in glob.iglob(expanded_pattern, recursive=True):
+                    logger.debug(f"Current File/Dir is: {file}")
 
-            if should_exclude(file, logger):
-                logger.debug(f"Excluding file: {file}")
-                continue
-            try:
-                if os.path.isfile(file):
-                    if file.endswith('.crt') or file.startswith('cert.pem'):
+                    if os.path.isfile(file) and (file.endswith('.crt') or file.startswith('cert.pem') or re.match(r'cert\.pem(\.\d+)?$', os.path.basename(file))):
                         cert_info_file = generate_cert_dates(file, logger)
                         if cert_info_file:
-                            tgzfile.add(cert_info_file, arcname=os.path.basename(cert_info_file))
-                    else:
-                        redact_files(file)
+                            tgzfile.add(cert_info_file, arcname=os.path.relpath(cert_info_file, start='/'))
+                            os.remove(cert_info_file)
 
-                logger.debug(f"Adding file: {file}")
-                tgzfile.add(file)
+                    if should_exclude(file, logger):
+                        logger.debug(f"Excluding file: {file}")
+                        continue
+                    try:
+                        if os.path.isfile(file):
+                            redacted_file = redact_files(file, '/', logger)
+                            if redacted_file:
+                                tgzfile.add(redacted_file, arcname=os.path.relpath(redacted_file, start='/'))
+                                os.remove(redacted_file)
+                            else:
+                                tgzfile.add(file, arcname=os.path.relpath(file, start='/'))
 
-            except (IOError, OSError) as e:
-                logger.warning(f"Failed to add file: {file}, Error: {e}")
-            except Exception as e:
-                logger.warning(f"Failed to process file: {file}, Error: {e}")
-    tgzfile.close()
+                        logger.debug(f"Adding file: {file}")
+
+                    except (IOError, OSError) as e:
+                        logger.warning(f"Failed to add file: {file}, Error: {e}")
+                    except Exception as e:
+                        logger.warning(f"Failed to process file: {file}, Error: {e}")
+            logger.info(f"Support bundle created successfully: {out_tgz_file}")
+
+    except Exception as e:
+        logger.exception(f"Failed to generate support bundle: {e}")
 
 if __name__ == '__main__':
-    tmp_file = '/tmp/pf9-support.tgz'
-    generate_support_bundle(tmp_file)
+    parser = argparse.ArgumentParser(description='Generate Support Bundle')
+    parser.add_argument('--file-list', type=str, nargs='+', default=None,
+                        help='List of files or directories to include in the support bundle')
+    parser.add_argument('--output', type=str, default='/tmp/pf9-support.tgz',
+                        help='Output tar.gz file for the support bundle')
+
+    args = parser.parse_args()
+
+    file_list = []
+
+    # Prompt the user for each entry in the default file list
+    for item in default_file_list:
+        confirm = input(f"Do you want to include {item} in the support bundle? (yes/no): ")
+        if confirm.lower() == 'yes':
+            file_list.append(item)
+
+    # Append the provided file list from CLI arguments
+    if args.file_list:
+        # Ensure all file patterns end with '**'
+        args.file_list = [pattern if pattern.endswith('/**') else pattern.rstrip('/') + '/**' for pattern in args.file_list]
+        file_list.extend(args.file_list)
+
+    logger = setup_logger()
+    logger.info(f"Final file list: {file_list}")
+    generate_support_bundle(args.output, logger)
