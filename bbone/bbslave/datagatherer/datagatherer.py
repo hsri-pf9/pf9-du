@@ -261,7 +261,6 @@ def should_exclude(file):
     if file.startswith('/etc/pf9/') and (file.endswith('.key') or file.endswith('.csr')):
         return True
 
-
     # Include only .json, .log, and .crt files in the kube.d/certs* directory
     if '/etc/pf9/kube.d/certs' in file and not (file.endswith('.json') or file.endswith('.log') or file.endswith('.crt')):
         return True
