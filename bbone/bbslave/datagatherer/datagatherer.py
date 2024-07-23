@@ -15,7 +15,7 @@ import json
 import yaml
 import tarfile
 import tempfile
-from subprocess import check_call
+from subprocess import CalledProcessError, check_call
 import subprocess
 
 """
@@ -35,6 +35,9 @@ default_file_list = [
 
 support_logging_dir = '/var/log/pf9/support'
 support_script = '/opt/pf9/hostagent/bin/run_support_scripts.sh'
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger()
 
 sensitive_patterns = [
     re.compile(r'(password\s*=\s*".*?")', re.IGNORECASE),
@@ -79,7 +82,7 @@ sensitive_keys_within_strings = {
     "ETCD_INITIAL_CLUSTER_TOKEN": re.compile(r'(ETCD_INITIAL_CLUSTER_TOKEN\s*=\s*)[^\n\\]+', re.IGNORECASE)
 }
 
-def redact_cert_requests(log_file_path, logger=logging):
+def redact_cert_requests(log_file_path):
     cert_request_pattern = re.compile(
         r'(-----BEGIN CERTIFICATE REQUEST-----.*?-----END CERTIFICATE REQUEST-----)',
         re.DOTALL
@@ -97,8 +100,7 @@ def redact_cert_requests(log_file_path, logger=logging):
         with open(redacted_file_path, 'w') as file:
             file.write(redacted_content)
         return redacted_file_path
-    except Exception as e:
-        logger.warning(f"Error redacting certificate requests in {log_file_path}: {e}")
+    except Exception:
         return None
 
 def redact_sensitive_key_values(content):
@@ -186,8 +188,7 @@ def redact_files(file, common_base_dir, logger=logging):
             return redacted_file
         else:
             return file
-    except Exception as e:
-        logger.warning(f"Failed to redact file: {file}, Error: {e}")
+    except Exception:
         return None
 
 def redact_sensitive(content):
@@ -215,7 +216,7 @@ def redact_sensitive(content):
     else:
         return content
 
-def extract_certificate_dates(cert_path, logger=logging):
+def extract_certificate_dates(cert_path):
     try:
         # Extract the start date
         start_date_command = ["openssl", "x509", "-in", cert_path, "-noout", "-startdate"]
@@ -228,11 +229,10 @@ def extract_certificate_dates(cert_path, logger=logging):
         end_date = end_date_output.strip().split('=')[1]
 
         return start_date, end_date
-    except subprocess.CalledProcessError as e:
-        logger.warning(f"Failed to extract certificate dates for {cert_path}: {e}")
+    except subprocess.CalledProcessError:
         return None, None
 
-def generate_cert_dates(cert_path, logger=logging):
+def generate_cert_dates(cert_path):
     try:
         start_date, end_date = extract_certificate_dates(cert_path)
         cert_info = f"start_date={start_date}, end_date={end_date}\n"
@@ -242,8 +242,8 @@ def generate_cert_dates(cert_path, logger=logging):
             f.write(cert_info)
 
         return cert_info_file
-    except Exception as e:
-        logger.warning(f"Failed to update certificate {cert_path}: {e}")
+    except Exception:
+        pass
 
 def should_exclude(file):
     if os.path.isdir(file):
@@ -327,9 +327,9 @@ def generate_support_bundle(out_tgz_file, logger=logging):
                                 tgzfile.add(file, arcname=os.path.relpath(file, start='/'))
 
                     except (IOError, OSError) as e:
-                        logger.warning(f"Failed to add file: {file}, Error: {e}")
+                        pass
                     except Exception as e:
-                        logger.warning(f"Failed to process file: {file}, Error: {e}")
+                        pass
             logger.info(f"Support bundle created successfully: {out_tgz_file}")
 
     except Exception as e:
