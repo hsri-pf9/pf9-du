@@ -79,21 +79,7 @@ sensitive_keys_within_strings = {
     "ETCD_INITIAL_CLUSTER_TOKEN": re.compile(r'(ETCD_INITIAL_CLUSTER_TOKEN\s*=\s*)[^\n\\]+', re.IGNORECASE)
 }
 
-def setup_logger():
-    logger = logging.getLogger('SupportBundleLogger')
-    logger.setLevel(logging.DEBUG)
-    # Create console handler with a higher log level
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-    # Create formatter and add it to the handlers
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-    # Add the handlers to the logger
-    logger.addHandler(ch)
-    return logger
-
-
-def redact_cert_requests(log_file_path, logger):
+def redact_cert_requests(log_file_path, logger=logging):
     cert_request_pattern = re.compile(
         r'(-----BEGIN CERTIFICATE REQUEST-----.*?-----END CERTIFICATE REQUEST-----)',
         re.DOTALL
@@ -110,8 +96,6 @@ def redact_cert_requests(log_file_path, logger):
         redacted_file_path = f"{log_file_path}.redacted"
         with open(redacted_file_path, 'w') as file:
             file.write(redacted_content)
-
-        logger.debug(f"Redacted certificate requests in: {log_file_path}, created {redacted_file_path}")
         return redacted_file_path
     except Exception as e:
         logger.warning(f"Error redacting certificate requests in {log_file_path}: {e}")
@@ -199,10 +183,8 @@ def redact_files(file, common_base_dir, logger=logging):
                         fw.write(redacted_content)
 
         if sensitive_found:
-            logger.debug(f"Redacted sensitive information in: {file}, created redacted copy: {redacted_file}")
             return redacted_file
         else:
-            logger.debug(f"No sensitive information found in: {file}, including original file.")
             return file
     except Exception as e:
         logger.warning(f"Failed to redact file: {file}, Error: {e}")
@@ -233,7 +215,7 @@ def redact_sensitive(content):
     else:
         return content
 
-def extract_certificate_dates(cert_path):
+def extract_certificate_dates(cert_path, logger=logging):
     try:
         # Extract the start date
         start_date_command = ["openssl", "x509", "-in", cert_path, "-noout", "-startdate"]
@@ -250,7 +232,7 @@ def extract_certificate_dates(cert_path):
         logger.warning(f"Failed to extract certificate dates for {cert_path}: {e}")
         return None, None
 
-def generate_cert_dates(cert_path, logger):
+def generate_cert_dates(cert_path, logger=logging):
     try:
         start_date, end_date = extract_certificate_dates(cert_path)
         cert_info = f"start_date={start_date}, end_date={end_date}\n"
@@ -259,52 +241,42 @@ def generate_cert_dates(cert_path, logger):
         with open(cert_info_file, 'w') as f:
             f.write(cert_info)
 
-        logger.debug(f"Generated hashed certificate info file: {cert_info_file}")
         return cert_info_file
     except Exception as e:
         logger.warning(f"Failed to update certificate {cert_path}: {e}")
 
-def should_exclude(file, logger):
-    logger.debug(f"Checking exclusion for file: {file}")
-
+def should_exclude(file):
     if os.path.isdir(file):
-        logger.debug(f"Skipping directory: {file}")
         return True
 
     # Exclude etcd-backup directory
     if 'etcd-backup' in file:
-        logger.debug(f"Excluding because of etcd-backup: {file}")
         return True
 
     # Exclude files named key.pem, key.pem.0, key.pem.1, etc.
     if re.match(r'.*key\.pem(\.\d+)?$', file):
-        logger.debug(f"Excluding because of file name: {file}")
         return True
 
     # Exclude .key and .csr files anywhere in /etc/pf9
     if file.startswith('/etc/pf9/') and (file.endswith('.key') or file.endswith('.csr')):
-        logger.debug(f"Excluding because of file extension: {file}")
         return True
 
 
     # Include only .json, .log, and .crt files in the kube.d/certs* directory
     if '/etc/pf9/kube.d/certs' in file and not (file.endswith('.json') or file.endswith('.log') or file.endswith('.crt')):
-        logger.debug(f"Excluding because of file type in kube.d/certs*: {file}")
         return True
 
     # Exclude files named cert.pem, cert.pem.0, cert.pem.1, etc.
     if re.match(r'.*cert\.pem(\.\d+)?$', file):
-        logger.debug(f"Excluding because of file name: {file}")
         return True
 
     # Exclude .crt files but allow .crt.hash files
     if file.endswith('.crt'):
-        logger.debug(f"Excluding because of file extension: {file}")
         return True
 
     return False
 
-def generate_support_bundle(out_tgz_file, logger):
+def generate_support_bundle(out_tgz_file, logger=logging):
     """
     Run the support scripts and generate a tgz file in
     /var/opt/pf9/hostagent. Overwrites the previously generated
@@ -328,10 +300,8 @@ def generate_support_bundle(out_tgz_file, logger):
                 expanded_pattern = os.path.expandvars(os.path.expanduser(pattern))
 
                 for file in glob.iglob(expanded_pattern, recursive=True):
-                    logger.debug(f"Current File/Dir is: {file}")
-
                     if os.path.isfile(file) and (file.endswith('.crt') or file.startswith('cert.pem') or re.match(r'cert\.pem(\.\d+)?$', os.path.basename(file))):
-                        cert_info_file = generate_cert_dates(file, logger)
+                        cert_info_file = generate_cert_dates(file)
                         if cert_info_file:
                             with tempfile.NamedTemporaryFile(delete=False) as temp_cert_file:
                                 temp_cert_filename = temp_cert_file.name
@@ -341,12 +311,11 @@ def generate_support_bundle(out_tgz_file, logger):
                             tgzfile.add(temp_cert_filename, arcname=os.path.relpath(file, start='/'))
                             os.remove(temp_cert_filename)
 
-                    if should_exclude(file, logger):
-                        logger.debug(f"Excluding file: {file}")
+                    if should_exclude(file):
                         continue
                     try:
                         if os.path.isfile(file):
-                            redacted_file = redact_files(file, '/', logger)
+                            redacted_file = redact_files(file, '/')
                             if redacted_file:
                                 with tempfile.NamedTemporaryFile(delete=False) as temp_redact_file:
                                     temp_redact_filename = temp_redact_file.name
@@ -357,8 +326,6 @@ def generate_support_bundle(out_tgz_file, logger):
                                 os.remove(temp_redact_filename)
                             else:
                                 tgzfile.add(file, arcname=os.path.relpath(file, start='/'))
-
-                        logger.debug(f"Adding file: {file}")
 
                     except (IOError, OSError) as e:
                         logger.warning(f"Failed to add file: {file}, Error: {e}")
@@ -383,6 +350,4 @@ if __name__ == '__main__':
             print(f"Invalid response '{confirm}' received. Defaulting to 'no'.")
 
     output_file = '/tmp/pf9-support.tgz'
-
-    logger = setup_logger()
-    generate_support_bundle(output_file, logger)
+    generate_support_bundle(output_file)
