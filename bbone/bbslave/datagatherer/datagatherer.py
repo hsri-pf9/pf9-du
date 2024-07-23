@@ -14,6 +14,7 @@ import re
 import json
 import yaml
 import tarfile
+import tempfile
 from subprocess import check_call
 import subprocess
 
@@ -49,7 +50,7 @@ sensitive_patterns = [
     re.compile(r'(ETCD_INITIAL_CLUSTER_TOKEN\s*=\s*".*?")', re.IGNORECASE),
     re.compile(r'(DOCKERHUB_PASSWORD\s*=\s*".*?")', re.IGNORECASE),
     re.compile(r'(OS_PASSWORD\s*=\s*".*?")', re.IGNORECASE),
-    re.compile(r'(VAULT_TOKEN\s*=\s*".*?")', re.IGNORECASE),
+    re.compile(r'(VAULT_TOKEN\s*=\s*(?:"[^"]*"|[^;\n]*))', re.IGNORECASE),
     re.compile(r'(CUSTOM_REGISTRY_PASSWORD\s*:\s*".*?")', re.IGNORECASE),
     re.compile(r'(certificate-authority-data\s*:\s*[A-Za-z0-9+/=]+)', re.IGNORECASE),
     re.compile(r'(client-certificate-data\s*:\s*[A-Za-z0-9+/=]+)', re.IGNORECASE),
@@ -74,18 +75,6 @@ sensitive_patterns_for_yaml_json = [
     re.compile(r'ETCD_INITIAL_CLUSTER_TOKEN', re.IGNORECASE),
 ]
 
-# sensitive_patterns_for_yaml_json = [
-#     re.compile(r'client-key-data\s*=\s*.*', re.IGNORECASE),
-#     re.compile(r'client-certificate-data\s*=\s*.*', re.IGNORECASE),
-#     re.compile(r'certificate-authority-data\s*=\s*.*', re.IGNORECASE),
-#     re.compile(r'token\s*=\s*.*', re.IGNORECASE),
-#     re.compile(r'vault-token\s*=\s*.*', re.IGNORECASE)
-# ]
-
-# Specific keys to redact within strings
-# sensitive_keys_within_strings = {
-#     "ETCD_INITIAL_CLUSTER_TOKEN": re.compile(r'(ETCD_INITIAL_CLUSTER_TOKEN\s*=\s*).*', re.IGNORECASE)
-# }
 sensitive_keys_within_strings = {
     "ETCD_INITIAL_CLUSTER_TOKEN": re.compile(r'(ETCD_INITIAL_CLUSTER_TOKEN\s*=\s*)[^\n\\]+', re.IGNORECASE)
 }
@@ -93,18 +82,13 @@ sensitive_keys_within_strings = {
 def setup_logger():
     logger = logging.getLogger('SupportBundleLogger')
     logger.setLevel(logging.DEBUG)
-    # Create file handler which logs even debug messages
-    fh = logging.FileHandler(os.path.join(support_logging_dir, 'support_bundle.log'))
-    fh.setLevel(logging.DEBUG)
     # Create console handler with a higher log level
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
     # Create formatter and add it to the handlers
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    # fh.setFormatter(formatter)
     ch.setFormatter(formatter)
     # Add the handlers to the logger
-    # logger.addHandler(fh)
     logger.addHandler(ch)
     return logger
 
@@ -168,6 +152,19 @@ def redact_sensitive_key_values(content):
 
     return '\n'.join(redacted_lines)
 
+def redact_yaml_content(content):
+    """
+    Redact sensitive information from YAML content with multiple documents.
+    """
+    documents = yaml.safe_load_all(content)
+    redacted_docs = []
+    for doc in documents:
+        if doc is None:
+            continue
+        redacted_doc = redact_sensitive(doc)
+        redacted_docs.append(redacted_doc)
+    return redacted_docs
+
 def redact_files(file, common_base_dir, logger=logging):
     try:
         if file.endswith('.log'):
@@ -187,8 +184,8 @@ def redact_files(file, common_base_dir, logger=logging):
                     with open(os.path.join(common_base_dir, redacted_file), 'w') as fw:
                         json.dump(redacted_content, fw, indent=2)
             elif file.endswith('.yaml') or file.endswith('.yml'):
-                content = yaml.safe_load(f)
-                redacted_content = redact_sensitive(content)
+                content = f.read()
+                redacted_content = redact_yaml_content(content)
                 if redacted_content:
                     sensitive_found = True
                     with open(os.path.join(common_base_dir, redacted_file), 'w') as fw:
@@ -336,8 +333,13 @@ def generate_support_bundle(out_tgz_file, logger):
                     if os.path.isfile(file) and (file.endswith('.crt') or file.startswith('cert.pem') or re.match(r'cert\.pem(\.\d+)?$', os.path.basename(file))):
                         cert_info_file = generate_cert_dates(file, logger)
                         if cert_info_file:
-                            tgzfile.add(cert_info_file, arcname=os.path.relpath(cert_info_file, start='/'))
+                            with tempfile.NamedTemporaryFile(delete=False) as temp_cert_file:
+                                temp_cert_filename = temp_cert_file.name
+                                with open(cert_info_file, 'r') as src, open(temp_cert_filename, 'w') as dst:
+                                    dst.write(src.read())
                             os.remove(cert_info_file)
+                            tgzfile.add(temp_cert_filename, arcname=os.path.relpath(file, start='/'))
+                            os.remove(temp_cert_filename)
 
                     if should_exclude(file, logger):
                         logger.debug(f"Excluding file: {file}")
@@ -346,8 +348,13 @@ def generate_support_bundle(out_tgz_file, logger):
                         if os.path.isfile(file):
                             redacted_file = redact_files(file, '/', logger)
                             if redacted_file:
-                                tgzfile.add(redacted_file, arcname=os.path.relpath(redacted_file, start='/'))
+                                with tempfile.NamedTemporaryFile(delete=False) as temp_redact_file:
+                                    temp_redact_filename = temp_redact_file.name
+                                    with open(redacted_file, 'r') as src, open(temp_redact_filename, 'w') as dst:
+                                        dst.write(src.read())
                                 os.remove(redacted_file)
+                                tgzfile.add(temp_redact_filename, arcname=os.path.relpath(file, start='/'))
+                                os.remove(temp_redact_filename)
                             else:
                                 tgzfile.add(file, arcname=os.path.relpath(file, start='/'))
 
@@ -367,9 +374,13 @@ if __name__ == '__main__':
 
     # Prompt the user for each entry in the default file list
     for item in default_file_list:
-        confirm = input(f"Do you want to include {item} in the support bundle? (yes/no): ")
-        if confirm.lower() == 'yes':
+        confirm = input(f"Do you want to include {item} in the support bundle? (yes/no): ").strip().lower()
+        if confirm in ['yes', 'y', 'ye', '']:
             file_list.append(item)
+        elif confirm in ['no', 'n']:
+            continue
+        else:
+            print(f"Invalid response '{confirm}' received. Defaulting to 'no'.")
 
     output_file = '/tmp/pf9-support.tgz'
 
