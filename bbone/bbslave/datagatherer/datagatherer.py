@@ -12,8 +12,9 @@ import logging
 import os
 import re
 import json
+import yaml
 import tarfile
-from subprocess import CalledProcessError, check_call
+from subprocess import check_call
 import subprocess
 
 """
@@ -35,9 +36,32 @@ support_logging_dir = '/var/log/pf9/support'
 support_script = '/opt/pf9/hostagent/bin/run_support_scripts.sh'
 
 sensitive_patterns = [
-    re.compile(r'password\s*=\s*".*?"', re.IGNORECASE),
-    re.compile(r'password\s*=\s*\'.*?\'', re.IGNORECASE),
-    re.compile(r'password\s*=\s*[^;\n]*', re.IGNORECASE),
+    re.compile(r'(password\s*=\s*".*?")', re.IGNORECASE),
+    re.compile(r'(password\s*=\s*\'.*?\')', re.IGNORECASE),
+    re.compile(r'(password\s*=\s*[^;\n]*)', re.IGNORECASE),
+    re.compile(r'(ca_chain\s*=\s*".*?")', re.IGNORECASE),
+    re.compile(r'(certificate\s*=\s*".*?")', re.IGNORECASE),
+    re.compile(r'(issuing_ca\s*=\s*".*?")', re.IGNORECASE),
+    re.compile(r'(service_account_key\s*=\s*".*?")', re.IGNORECASE),
+    re.compile(r'(client-certificate-data\s*:\s*".*?")', re.IGNORECASE),
+    re.compile(r'(client-key-data\s*:\s*".*?")', re.IGNORECASE),
+    re.compile(r'(certificate-authority-data\s*:\s*".*?")', re.IGNORECASE),
+    re.compile(r'(ETCD_INITIAL_CLUSTER_TOKEN\s*=\s*".*?")', re.IGNORECASE),
+    re.compile(r'(DOCKERHUB_PASSWORD\s*=\s*".*?")', re.IGNORECASE),
+    re.compile(r'(OS_PASSWORD\s*=\s*".*?")', re.IGNORECASE),
+    re.compile(r'(VAULT_TOKEN\s*=\s*".*?")', re.IGNORECASE),
+    re.compile(r'(CUSTOM_REGISTRY_PASSWORD\s*:\s*".*?")', re.IGNORECASE),
+    re.compile(r'(certificate-authority-data\s*:\s*[A-Za-z0-9+/=]+)', re.IGNORECASE),
+    re.compile(r'(client-certificate-data\s*:\s*[A-Za-z0-9+/=]+)', re.IGNORECASE),
+    re.compile(r'(client-key-data\s*:\s*[A-Za-z0-9+/=]+)', re.IGNORECASE),
+    re.compile(r'(hashed certificate data:\s*[A-Za-z0-9+/=]+)', re.IGNORECASE),
+]
+
+sensitive_patterns_for_yaml_json = [
+    re.compile(r'client-key-data', re.IGNORECASE),
+    re.compile(r'client-certificate-data', re.IGNORECASE),
+    re.compile(r'certificate-authority-data', re.IGNORECASE),
+
     re.compile(r'ca_chain', re.IGNORECASE),
     re.compile(r'certificate', re.IGNORECASE),
     re.compile(r'issuing_ca', re.IGNORECASE),
@@ -45,16 +69,26 @@ sensitive_patterns = [
     re.compile(r'client-certificate-data', re.IGNORECASE),
     re.compile(r'client-key-data', re.IGNORECASE),
     re.compile(r'certificate-authority-data', re.IGNORECASE),
-    re.compile(r'ETCD_INITIAL_CLUSTER_TOKEN\s*=\s*".*?"', re.IGNORECASE),
-    re.compile(r'DOCKERHUB_PASSWORD\s*=\s*".*?"', re.IGNORECASE),
-    re.compile(r'OS_PASSWORD\s*=\s*".*?"', re.IGNORECASE),
-    re.compile(r'VAULT_TOKEN\s*=\s*".*?"', re.IGNORECASE),
-    re.compile(r'CUSTOM_REGISTRY_PASSWORD\s*:\s*".*?"', re.IGNORECASE),
-    re.compile(r'certificate-authority-data\s*:\s*[A-Za-z0-9+/=]+\s*', re.IGNORECASE),
-    re.compile(r'client-certificate-data\s*:\s*[A-Za-z0-9+/=]+\s*', re.IGNORECASE),
-    re.compile(r'client-key-data\s*:\s*[A-Za-z0-9+/=]+\s*', re.IGNORECASE),
-    re.compile(r'hashed certificate data:\s*[A-Za-z0-9+/=]+\s*', re.IGNORECASE)
+
+    re.compile(r'VAULT_TOKEN', re.IGNORECASE),
+    re.compile(r'ETCD_INITIAL_CLUSTER_TOKEN', re.IGNORECASE),
 ]
+
+# sensitive_patterns_for_yaml_json = [
+#     re.compile(r'client-key-data\s*=\s*.*', re.IGNORECASE),
+#     re.compile(r'client-certificate-data\s*=\s*.*', re.IGNORECASE),
+#     re.compile(r'certificate-authority-data\s*=\s*.*', re.IGNORECASE),
+#     re.compile(r'token\s*=\s*.*', re.IGNORECASE),
+#     re.compile(r'vault-token\s*=\s*.*', re.IGNORECASE)
+# ]
+
+# Specific keys to redact within strings
+# sensitive_keys_within_strings = {
+#     "ETCD_INITIAL_CLUSTER_TOKEN": re.compile(r'(ETCD_INITIAL_CLUSTER_TOKEN\s*=\s*).*', re.IGNORECASE)
+# }
+sensitive_keys_within_strings = {
+    "ETCD_INITIAL_CLUSTER_TOKEN": re.compile(r'(ETCD_INITIAL_CLUSTER_TOKEN\s*=\s*)[^\n\\]+', re.IGNORECASE)
+}
 
 def setup_logger():
     logger = logging.getLogger('SupportBundleLogger')
@@ -67,38 +101,105 @@ def setup_logger():
     ch.setLevel(logging.DEBUG)
     # Create formatter and add it to the handlers
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fh.setFormatter(formatter)
+    # fh.setFormatter(formatter)
     ch.setFormatter(formatter)
     # Add the handlers to the logger
-    logger.addHandler(fh)
+    # logger.addHandler(fh)
     logger.addHandler(ch)
     return logger
 
+
+def redact_cert_requests(log_file_path, logger):
+    cert_request_pattern = re.compile(
+        r'(-----BEGIN CERTIFICATE REQUEST-----.*?-----END CERTIFICATE REQUEST-----)',
+        re.DOTALL
+    )
+    try:
+        with open(log_file_path, 'r') as file:
+            content = file.read()
+
+        redacted_content = cert_request_pattern.sub(
+            '-----BEGIN REDACTED REQUEST-----\nREDACTED\n-----END REDACTED REQUEST-----',
+            content
+        )
+
+        redacted_file_path = f"{log_file_path}.redacted"
+        with open(redacted_file_path, 'w') as file:
+            file.write(redacted_content)
+
+        logger.debug(f"Redacted certificate requests in: {log_file_path}, created {redacted_file_path}")
+        return redacted_file_path
+    except Exception as e:
+        logger.warning(f"Error redacting certificate requests in {log_file_path}: {e}")
+        return None
+
+def redact_sensitive_key_values(content):
+    """
+    Redact values of sensitive keys in the configuration file content.
+    """
+    redacted_content = content
+    for pattern in sensitive_patterns:
+        redacted_content = pattern.sub(lambda m: m.group(1).split('=')[0] + '=REDACTED', redacted_content)
+
+    def redact_line(line):
+        for key, pattern in sensitive_keys_within_strings.items():
+            if pattern.search(line):
+                line = pattern.sub(r'\1REDACTED', line)
+        return line
+
+    redacted_lines = []
+    in_multiline_string = False
+    multiline_buffer = []
+
+    for line in redacted_content.split('\n'):
+        if '="' in line and not in_multiline_string:
+            in_multiline_string = True
+            multiline_buffer.append(line)
+        elif in_multiline_string:
+            multiline_buffer.append(line)
+            if line.endswith('"'):
+                in_multiline_string = False
+                multiline_content = '\n'.join(multiline_buffer)
+                redacted_multiline_content = redact_line(multiline_content)
+                redacted_lines.append(redacted_multiline_content)
+                multiline_buffer = []
+        else:
+            redacted_lines.append(redact_line(line))
+
+    return '\n'.join(redacted_lines)
+
 def redact_files(file, common_base_dir, logger=logging):
     try:
+        if file.endswith('.log'):
+            redacted_file = redact_cert_requests(file, logger)
+            if redacted_file:
+                return redacted_file
+
         redacted_file = f"{file}.redacted"
         sensitive_found = False
+
         with open(file, 'r') as f:
             if file.endswith('.json'):
                 content = json.load(f)
-                if redact_sensitive(content):
+                redacted_content = redact_sensitive(content)
+                if redacted_content:
                     sensitive_found = True
                     with open(os.path.join(common_base_dir, redacted_file), 'w') as fw:
-                        json.dump(content, fw, indent=2)
-            else:
-                lines = f.readlines()
-                redacted_lines = []
-                for line in lines:
-                    redacted_line = line
-                    for pattern in sensitive_patterns:
-                        if pattern.search(line):
-                            sensitive_found = True
-                            redacted_line = pattern.sub('REDACTED', redacted_line)
-                    redacted_lines.append(redacted_line)
-
-                if sensitive_found:
+                        json.dump(redacted_content, fw, indent=2)
+            elif file.endswith('.yaml') or file.endswith('.yml'):
+                content = yaml.safe_load(f)
+                redacted_content = redact_sensitive(content)
+                if redacted_content:
+                    sensitive_found = True
                     with open(os.path.join(common_base_dir, redacted_file), 'w') as fw:
-                        fw.writelines(redacted_lines)
+                        yaml.safe_dump(redacted_content, fw, default_flow_style=False)
+            else:
+                content = f.read()
+                redacted_content = redact_sensitive_key_values(content)
+                if redacted_content != content:
+                    sensitive_found = True
+                    with open(os.path.join(common_base_dir, redacted_file), 'w') as fw:
+                        fw.write(redacted_content)
 
         if sensitive_found:
             logger.debug(f"Redacted sensitive information in: {file}, created redacted copy: {redacted_file}")
@@ -111,30 +212,29 @@ def redact_files(file, common_base_dir, logger=logging):
         return None
 
 def redact_sensitive(content):
-    sensitive_found = False
     if isinstance(content, dict):
+        redacted_content = {}
         for key, value in content.items():
-            for pattern in sensitive_patterns:
-                if pattern.search(key):
-                    sensitive_found = True
-                    if isinstance(value, str):
-                        content[key] = "REDACTED"
-                    elif isinstance(value, list):
-                        content[key] = ["REDACTED" for _ in value]
-            if isinstance(value, (dict, list)):
-                if redact_sensitive(value):
-                    sensitive_found = True
-    elif isinstance(content, list):
-        for index, item in enumerate(content):
-            if isinstance(item, str):
-                for pattern in sensitive_patterns:
-                    if pattern.search(item):
-                        sensitive_found = True
-                        content[index] = "REDACTED"
+            if any(pattern.search(key) for pattern in sensitive_patterns_for_yaml_json):
+                redacted_content[key] = 'REDACTED'
             else:
-                if redact_sensitive(item):
-                    sensitive_found = True
-    return sensitive_found
+                redacted_content[key] = redact_sensitive(value)
+        return redacted_content
+    elif isinstance(content, list):
+        return [redact_sensitive(item) for item in content]
+    elif isinstance(content, str):
+        lines = content.split('\n')
+        redacted_lines = []
+        for line in lines:
+            for pattern in sensitive_patterns_for_yaml_json:
+                if pattern.search(line):
+                    key, sep, val = line.partition('=')
+                    if sep:  # Ensure we have a key=value pair
+                        line = f"{key}=REDACTED"
+            redacted_lines.append(line)
+        return '\n'.join(redacted_lines)
+    else:
+        return content
 
 def extract_certificate_dates(cert_path):
     try:
@@ -201,7 +301,7 @@ def should_exclude(file, logger):
         return True
 
     # Exclude .crt files but allow .crt.hash files
-    if file.endswith('.crt') and not file.endswith('.crt.hash'):
+    if file.endswith('.crt'):
         logger.debug(f"Excluding because of file extension: {file}")
         return True
 
