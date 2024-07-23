@@ -216,7 +216,7 @@ def redact_sensitive(content):
     else:
         return content
 
-def extract_certificate_dates(cert_path):
+def extract_certificate_info(cert_path):
     try:
         # Extract the start date
         start_date_command = ["openssl", "x509", "-in", cert_path, "-noout", "-startdate"]
@@ -228,14 +228,19 @@ def extract_certificate_dates(cert_path):
         end_date_output = subprocess.check_output(end_date_command, text=True)
         end_date = end_date_output.strip().split('=')[1]
 
-        return start_date, end_date
+        # Extract the serial number
+        serial_number_command = ["openssl", "x509", "-in", cert_path, "-noout", "-serial"]
+        serial_number_output = subprocess.check_output(serial_number_command, text=True)
+        serial_number = serial_number_output.strip().split('=')[1]
+
+        return start_date, end_date, serial_number
     except subprocess.CalledProcessError:
         return None, None
 
 def generate_cert_dates(cert_path):
     try:
-        start_date, end_date = extract_certificate_dates(cert_path)
-        cert_info = f"start_date={start_date}, end_date={end_date}\n"
+        start_date, end_date, serial_number = extract_certificate_info(cert_path)
+        cert_info = f"start_date={start_date}, end_date={end_date}, serial_number={serial_number}\n"
         cert_info_file = f"{cert_path}.hash"
 
         with open(cert_info_file, 'w') as f:
