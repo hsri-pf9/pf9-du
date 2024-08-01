@@ -17,6 +17,7 @@ import tarfile
 import tempfile
 from subprocess import CalledProcessError, check_call
 import subprocess
+import logging
 
 """
 Want to be able to do the following eventually:
@@ -84,23 +85,26 @@ sensitive_keys_within_strings = {
 
 def redact_cert_requests(log_file_path):
     cert_request_pattern = re.compile(
-        r'(-----BEGIN CERTIFICATE REQUEST-----.*?-----END CERTIFICATE REQUEST-----)',
+        r'(?P<begin>-----BEGIN CERTIFICATE REQUEST-----)(?P<content>.*?)(?P<end>-----END CERTIFICATE REQUEST-----)',
         re.DOTALL
     )
     try:
         with open(log_file_path, 'r') as file:
             content = file.read()
 
-        redacted_content = cert_request_pattern.sub(
-            '-----BEGIN REDACTED REQUEST-----\nREDACTED\n-----END REDACTED REQUEST-----',
-            content
-        )
+        def redact_match(match):
+            return f"{match.group('begin')}\nREDACTED\n{match.group('end')}"
 
-        redacted_file_path = f"{log_file_path}.redacted"
-        with open(redacted_file_path, 'w') as file:
-            file.write(redacted_content)
-        return redacted_file_path
-    except Exception:
+        redacted_content = cert_request_pattern.sub(redact_match, content)
+
+        if content != redacted_content:
+            redacted_file_path = f"{log_file_path}.redacted"
+            with open(redacted_file_path, 'w') as file:
+                file.write(redacted_content)
+            return redacted_file_path
+        else:
+            return None
+    except Exception as e:
         return None
 
 def redact_sensitive_key_values(content):
