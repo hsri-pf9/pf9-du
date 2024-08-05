@@ -155,10 +155,10 @@ def redact_yaml_content(content):
         redacted_docs.append(redacted_doc)
     return redacted_docs
 
-def redact_files(file, common_base_dir, logger=logging):
+def redact_files(file, common_base_dir):
     try:
         if file.endswith('.log'):
-            redacted_file = redact_cert_requests(file, logger)
+            redacted_file = redact_cert_requests(file)
             if redacted_file:
                 return redacted_file
 
