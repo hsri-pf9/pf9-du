@@ -235,6 +235,7 @@ class bbone_provider_pf9(bbone_provider_memory):
                 with open(outfile_temp, 'wb') as f:
                     f.write(base64.b64decode(msg['data']['contents']))
                 os.rename(outfile_temp, outfile)
+                # Stop the upload to s3, for #incident351
                 # self.log.info('Received upload flag value as %s', msg['data']['upload'])
                 # if msg['data']['upload'].lower() == "true":
                 #     self.log.info('Uploading up the support bundle.')
