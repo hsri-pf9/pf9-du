@@ -17,7 +17,6 @@ import tarfile
 import tempfile
 from subprocess import CalledProcessError, check_call
 import subprocess
-import logging
 
 """
 Want to be able to do the following eventually:
