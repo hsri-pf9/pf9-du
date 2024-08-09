@@ -303,7 +303,7 @@ def generate_support_bundle(out_tgz_file, logger=logging):
 
     try:
         with tarfile.open(out_tgz_file, 'w:gz') as tgzfile:
-            for pattern in file_list:
+            for pattern in default_file_list:
                 expanded_pattern = os.path.expandvars(os.path.expanduser(pattern))
 
                 for file in glob.iglob(expanded_pattern, recursive=True):
@@ -344,17 +344,5 @@ def generate_support_bundle(out_tgz_file, logger=logging):
         logger.exception(f"Failed to generate support bundle: {e}")
 
 if __name__ == '__main__':
-    file_list = []
-
-    # Prompt the user for each entry in the default file list
-    for item in default_file_list:
-        confirm = input(f"Do you want to include {item} in the support bundle? (yes/no): ").strip().lower()
-        if confirm in ['yes', 'y', 'ye', '']:
-            file_list.append(item)
-        elif confirm in ['no', 'n']:
-            continue
-        else:
-            print(f"Invalid response '{confirm}' received. Defaulting to 'no'.")
-
     output_file = '/tmp/pf9-support.tgz'
     generate_support_bundle(output_file)
