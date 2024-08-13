@@ -17,6 +17,9 @@ import tarfile
 import tempfile
 from subprocess import CalledProcessError, check_call
 import subprocess
+import gnupg
+import requests
+from bbslave.util import fingerprint_path
 
 """
 Want to be able to do the following eventually:
@@ -297,7 +300,10 @@ def generate_support_bundle(out_tgz_file, logger=logging):
         support_logfile = os.path.join(support_logging_dir, 'support.txt')
         with open(support_logfile, 'w') as f:
             f.write("Support logs:\n")
-            check_call([support_script, support_logging_dir], stdout=f, stderr=f)
+            try:
+                check_call([support_script, support_logging_dir], stdout=f, stderr=f)
+            except subprocess.CalledProcessError as e:
+                logging.error(f"Command failed with return code {e.returncode}")
     except Exception as e:
         logger.exception("Failed to run the support scripts: %s", e)
 
@@ -328,9 +334,10 @@ def generate_support_bundle(out_tgz_file, logger=logging):
                                     temp_redact_filename = temp_redact_file.name
                                     with open(redacted_file, 'r') as src, open(temp_redact_filename, 'w') as dst:
                                         dst.write(src.read())
-                                os.remove(redacted_file)
                                 tgzfile.add(temp_redact_filename, arcname=os.path.relpath(file, start='/'))
                                 os.remove(temp_redact_filename)
+                                if redacted_file != file:
+                                    os.remove(redacted_file)
                             else:
                                 tgzfile.add(file, arcname=os.path.relpath(file, start='/'))
 
@@ -343,6 +350,70 @@ def generate_support_bundle(out_tgz_file, logger=logging):
     except Exception as e:
         logger.exception(f"Failed to generate support bundle: {e}")
 
+def write_fingerprint(fingerprint_file_path, fingerprint):
+    with open(fingerprint_file_path, 'w') as f:
+        f.write(fingerprint)
+
 if __name__ == '__main__':
-    output_file = '/tmp/pf9-support.tgz'
-    generate_support_bundle(output_file)
+    files_to_delete = glob.glob('/tmp/pf9-support.*')
+    for file in files_to_delete:
+        try:
+            os.remove(file)
+            logger.info(f"Deleted old support bundle file: {file}")
+        except OSError as e:
+            logger.error(f"Error deleting file {file}: {str(e)}")
+
+
+    file_to_encrypt = '/tmp/pf9-support.tgz'
+    key_url = 'http://localhost:9080/private/publickey.txt'
+    public_key_path = '/etc/pf9/public_key.asc'
+
+    generate_support_bundle(file_to_encrypt)
+
+    gpg = gnupg.GPG()
+
+    try:
+        response = requests.get(key_url)
+        response.raise_for_status()
+        new_public_key = response.text
+
+        import_result = gpg.import_keys(new_public_key)
+        if import_result.fingerprints:
+            new_fingerprint = import_result.fingerprints[0]
+            logger.debug(f"New Fingerprint: {new_fingerprint}")
+
+            with open(public_key_path, 'w') as f:
+                f.write(new_public_key)
+            write_fingerprint(fingerprint_path, new_fingerprint)
+        else:
+            logger.error("Failed to import the new public key.")
+    except requests.RequestException as e:
+        logger.error(f"Failed to download public key.")
+        logger.warning("Continuing without updating the public key.")
+
+    try:
+        with open(public_key_path, 'r') as f:
+            public_key_data = f.read()
+
+        import_result = gpg.import_keys(public_key_data)
+
+        if import_result.fingerprints:
+            recipient_fingerprint = import_result.fingerprints[0]
+            logger.debug(f"Using Fingerprint: {recipient_fingerprint}")
+            encrypted_file = f"{file_to_encrypt}.{recipient_fingerprint}.gpg"
+
+            with open(file_to_encrypt, 'rb') as f:
+                encrypted_data = gpg.encrypt_file(
+                    f, recipients=[recipient_fingerprint], output=encrypted_file,
+                    always_trust=True
+                )
+
+            if encrypted_data.ok:
+                logger.info("Support bundle file was encrypted successfully.")
+            else:
+                logger.error(f"Encryption failed: {encrypted_data.status}")
+        else:
+            logger.error("No valid public key was found.")
+
+    except FileNotFoundError:
+        logger.error(f"Public key file not found at {public_key_path}. Proceeding without encryption.")
