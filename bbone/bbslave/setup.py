@@ -22,6 +22,7 @@ setup(
         'configutils',
         'pyyaml==5.3.1',
         'distro',
+        'python-gnupg',
     ],
     test_suite='bbslave',
     zip_safe=False,

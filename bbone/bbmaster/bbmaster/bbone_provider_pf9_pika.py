@@ -211,10 +211,11 @@ class bbone_provider_pf9(bbone_provider_memory):
             time_now = datetime.datetime.now()
             host_name = msg['data']['info']['hostname']
             host_id = msg['data']['host_id']
+            fingerprint = msg['data'].get('fingerprint', 'unknown')
 
             # host_id/file.tgz
-            hostfile = os.path.join(host_id, '%s-%s.tgz' % (host_name,
-                                   time_now.strftime("%Y-%m-%d-%H-%M-%S")))
+            timestamp = time_now.strftime("%Y-%m-%d-%H-%M-%S")
+            hostfile = os.path.join(host_id, f'{host_name}-{timestamp}-{fingerprint}.gpg')
 
             # Append label to the destination path.
             if msg['data']['label'] != None:

@@ -43,7 +43,6 @@ _common_config_path = None
 _hostagent_info = {}
 _pending_support_bundle = {'pending': False}
 
-
 HYPERVISOR_INFO_FILE = '/var/opt/pf9/hypervisor_details'
 
 
@@ -81,7 +80,10 @@ def _set_desired_config_basedir_path(config):
     if not exists(dir_path):
         makedirs(dir_path)
     _desired_config_basedir_path = join(dir_path, 'desired_apps.json')
-    _support_file_location = join(dir_path, 'pf9-support.tgz')
+
+    fingerprint = util.read_fingerprint()
+    support_file_name = f"pf9-support.tgz.{fingerprint}.gpg"
+    _support_file_location = join(dir_path, support_file_name)
 
 def _persist_host_id():
     """
@@ -482,6 +484,8 @@ def start(config, log, app_db, agent_app_db, app_cache,
             if not reupload or not os.path.exists(_support_file_location):
                 datagatherer.generate_support_bundle(_support_file_location, log)
             with open(_support_file_location, 'rb') as f:
+                fingerprint = util.read_fingerprint()
+                msg['data']['fingerprint'] = fingerprint
                 # Choose base64 encoding to transfer binary content
                 contents_str_binary = base64.b64encode(f.read())
                 msg['data']['contents'] = contents_str_binary.decode()

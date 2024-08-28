@@ -1,4 +1,5 @@
 import threading
+import os
 from six.moves import queue as Queue
 from bbslave import certs
 
@@ -17,6 +18,8 @@ CERT_REFRESH_STATUS_INITIATED = 'initiated'
 CERT_REFRESH_STATUS_NOT_REFRESHED = 'not-refreshed'
 CERT_REFRESH_STATUS_RESTORED = 'failed-restored'
 CERT_REFRESH_STATUS_FAILED = 'failed'
+
+fingerprint_path = '/etc/pf9/fingerprint.txt'
 
 cert_info = {}
 vouch_present = False
@@ -80,3 +83,10 @@ def check_for_cert_data(log):
 def check_vouch_connection(vouch_url):
     global vouch_present
     vouch_present = certs.check_connection(vouch_url)
+
+def read_fingerprint():
+    if os.path.exists(fingerprint_path):
+        with open(fingerprint_path, 'r') as f:
+            return f.read().strip()
+    else:
+        return None
