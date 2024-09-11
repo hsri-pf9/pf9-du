@@ -3,7 +3,6 @@ import os
 from six.moves import queue as Queue
 from bbslave import certs
 
-
 PRIVATE_KEY_PEM_FILE = '/etc/pf9/certs/hostagent/key.pem'
 CERT_PEM_FILE = '/etc/pf9/certs/hostagent/cert.pem'
 CA_PEM_FILE = '/etc/pf9/certs/ca/cert.pem'

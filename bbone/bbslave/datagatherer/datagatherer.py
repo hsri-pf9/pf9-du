@@ -368,6 +368,7 @@ if __name__ == '__main__':
     key_url = 'http://localhost:9080/private/publickey.txt'
     public_key_path = '/etc/pf9/public_key.asc'
 
+    logger.info("Generating support bundle...")
     generate_support_bundle(file_to_encrypt)
 
     gpg = gnupg.GPG()
@@ -381,9 +382,6 @@ if __name__ == '__main__':
         if import_result.fingerprints:
             new_fingerprint = import_result.fingerprints[0]
             logger.debug(f"New Fingerprint: {new_fingerprint}")
-
-            with open(public_key_path, 'w') as f:
-                f.write(new_public_key)
             write_fingerprint(fingerprint_path, new_fingerprint)
         else:
             logger.error("Failed to import the new public key.")
@@ -392,28 +390,30 @@ if __name__ == '__main__':
         logger.warning("Continuing without updating the public key.")
 
     try:
-        with open(public_key_path, 'r') as f:
-            public_key_data = f.read()
+        recipient_fingerprint = import_result.fingerprints[0]
+        logger.debug(f"Using Fingerprint: {recipient_fingerprint}")
+        encrypted_file = f"{file_to_encrypt}.{recipient_fingerprint}.gpg"
 
-        import_result = gpg.import_keys(public_key_data)
+        logger.info("Encrypting support bundle...")
+        with open(file_to_encrypt, 'rb') as f:
+            encrypted_data = gpg.encrypt_file(
+                f, recipients=[recipient_fingerprint], output=encrypted_file,
+                always_trust=True
+            )
 
-        if import_result.fingerprints:
-            recipient_fingerprint = import_result.fingerprints[0]
-            logger.debug(f"Using Fingerprint: {recipient_fingerprint}")
-            encrypted_file = f"{file_to_encrypt}.{recipient_fingerprint}.gpg"
-
-            with open(file_to_encrypt, 'rb') as f:
-                encrypted_data = gpg.encrypt_file(
-                    f, recipients=[recipient_fingerprint], output=encrypted_file,
-                    always_trust=True
-                )
-
-            if encrypted_data.ok:
-                logger.info("Support bundle file was encrypted successfully.")
-            else:
-                logger.error(f"Encryption failed: {encrypted_data.status}")
+        if encrypted_data.ok:
+            logger.info("Support bundle file was encrypted successfully.")
         else:
-            logger.error("No valid public key was found.")
+            logger.error(f"Encryption of support bundle failed: {encrypted_data.status}")
 
     except FileNotFoundError:
-        logger.error(f"Public key file not found at {public_key_path}. Proceeding without encryption.")
+        logger.error(f"Support bundle tar file not found at {file_to_encrypt}.")
+    except OSError as e:
+        logger.error(f"File operation failed: {e}. Could not process {file_to_encrypt} or {encrypted_file}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during encryption: {e}")
+    finally:
+        # Ensure the tar file is always deleted
+        if os.path.isfile(file_to_encrypt):
+            os.remove(file_to_encrypt)
+            logger.info(f"Deleted unencrypted support bundle tar file: {file_to_encrypt}")
