@@ -374,6 +374,7 @@ if __name__ == '__main__':
     gpg = gnupg.GPG()
 
     try:
+        public_key_found = True
         response = requests.get(key_url)
         response.raise_for_status()
         new_public_key = response.text
@@ -386,6 +387,7 @@ if __name__ == '__main__':
         else:
             logger.error("Failed to import the new public key.")
     except requests.RequestException as e:
+        public_key_found = False
         logger.error(f"Failed to download public key.")
         logger.warning("Continuing without updating the public key.")
 
@@ -413,7 +415,10 @@ if __name__ == '__main__':
     except Exception as e:
         logger.error(f"An unexpected error occurred during encryption: {e}")
     finally:
-        # Ensure the tar file is always deleted
+        # Ensure the unencrypted tar is kept if public key is not found
         if os.path.isfile(file_to_encrypt):
-            os.remove(file_to_encrypt)
-            logger.info(f"Deleted unencrypted support bundle tar file: {file_to_encrypt}")
+            if public_key_found:
+                os.remove(file_to_encrypt)
+                logger.info(f"Deleted unencrypted support bundle tar file: {file_to_encrypt}")
+            else:
+                logger.info(f"saved unencrypted support bundle tar file: {file_to_encrypt}")
