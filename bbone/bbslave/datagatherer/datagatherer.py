@@ -53,7 +53,7 @@ sensitive_patterns = [
     re.compile(r'(client-certificate-data\s*:\s*".*?")', re.IGNORECASE),
     re.compile(r'(client-key-data\s*:\s*".*?")', re.IGNORECASE),
     re.compile(r'(certificate-authority-data\s*:\s*".*?")', re.IGNORECASE),
-    re.compile(r'(ETCD_INITIAL_CLUSTER_TOKEN\s*=\s*".*?")', re.IGNORECASE),
+    re.compile(r'(\bETCD_INITIAL_CLUSTER_TOKEN\b\s*[:=]\s*(?:"[^"]*"|\S+))', re.IGNORECASE),
     re.compile(r'(DOCKERHUB_PASSWORD\s*=\s*".*?")', re.IGNORECASE),
     re.compile(r'(OS_PASSWORD\s*=\s*".*?")', re.IGNORECASE),
     re.compile(r'(VAULT_TOKEN\s*=\s*(?:"[^"]*"|[^;\n]*))', re.IGNORECASE),
@@ -115,7 +115,7 @@ def redact_sensitive_key_values(content):
     """
     redacted_content = content
     for pattern in sensitive_patterns:
-        redacted_content = pattern.sub(lambda m: m.group(1).split('=')[0] + '=REDACTED', redacted_content)
+        redacted_content = pattern.sub(lambda m: re.split(r'[:=]\s*', m.group(1), maxsplit=1)[0] + '=REDACTED', redacted_content)
 
     def redact_line(line):
         for key, pattern in sensitive_keys_within_strings.items():
