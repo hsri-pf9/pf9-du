@@ -1,0 +1,179 @@
+# name: Python Security & Linting
+
+# on:
+#   push:
+#     branches: [ harsh ]
+#   pull_request:
+#     branches: [ harsh ]
+#   schedule:
+#     - cron: '0 0 * * 0'  # Every Monday at 12 PM UTC
+
+# jobs:
+#   setup:
+#     name: Shared Setup
+#     runs-on: ubuntu-latest
+#     outputs:
+#       python-version: '3.10'
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v3
+
+#   bandit_scan:
+#     name: Bandit Security Scan (Medium & High)
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v3
+
+#       - name: Set up Python
+#         uses: actions/setup-python@v4
+#         with:
+#           python-version: '3.10'
+
+#       - name: Install Bandit
+#         run: pip install bandit
+
+#       - name: Run Bandit (MEDIUM & HIGH only)
+#         run: |
+#           echo "🚨 Running Bandit for medium and high severity issues..."
+#           bandit -r . --severity-level high || echo "⚠️ Bandit scan completed with issues. See above."
+
+#   safety_scan:
+#     name: Safety Dependency Scan
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v3
+
+#       - name: Set up Python
+#         uses: actions/setup-python@v4
+#         with:
+#           python-version: '3.10'
+
+#       - name: Install Safety
+#         run: |
+#           pip install -r requirements.txt || true
+#           pip install safety
+
+#       - name: Run Safety (Dependency Vulnerabilities)
+#         env:
+        #   SAFETY_API_KEY: #
+#         run: |
+#           echo "🔒 Running Safety vulnerability scan..."
+#           safety scan --full-report --ci || echo "⚠️ Vulnerabilities found. See report above."
+
+#   ruff_lint:
+#     name: Ruff Major Lint Check
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v3
+
+#       - name: Set up Python
+#         uses: actions/setup-python@v4
+#         with:
+#           python-version: '3.10'
+
+#       - name: Install Ruff
+#         run: pip install ruff
+
+#       - name: Run Ruff (Major Errors Only)
+#         run: |
+#           echo "🧹 Running Ruff for major lint issues (E, F, I)..."
+#           ruff check . --select E,F,I --ignore ALL || echo "⚠️ Ruff found issues, continuing..."
+
+name: Python Security & Linting
+
+on:
+  push:
+    branches: [ harsh ]
+  pull_request:
+    branches: [ harsh ]
+  schedule:
+    - cron: '0 0 * * 0'  # Every Monday at 12 PM UTC
+
+jobs:
+  setup:
+    name: Shared Setup
+    runs-on: ubuntu-latest
+    outputs:
+      python-version: '3.10'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+  bandit_scan:
+    name: Bandit Security Scan (Medium & High)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Bandit (MEDIUM & HIGH only)
+        run: |
+          echo "🚨 Running Bandit for medium and high severity issues..."
+          bandit -r . --severity-level high || echo "⚠️ Bandit scan completed with issues. See above."
+
+  ruff_lint:
+    name: Ruff Major Lint Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Run Ruff (Major Errors Only)
+        run: |
+          echo "🧹 Running Ruff for major lint issues (E, F, I)..."
+          ruff check . --select E,F,I --ignore ALL || echo "⚠️ Ruff found issues, continuing..."
+
+  semgrep_scan:
+    name: Semgrep SAST Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Run Semgrep (default rules)
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: "p/ci"  # Use public default ruleset
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+  codeql_scan:
+    name: CodeQL Static Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write  # Required for CodeQL results
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: python
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2

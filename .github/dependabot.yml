@@ -1,27 +1,112 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+# # To get started with Dependabot version updates, you'll need to specify which
+# # package ecosystems to update and where the package manifests are located.
+# # Please see the documentation for all configuration options:
+# # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+# version: 2
+# updates:
+#   - package-ecosystem: "pip" # See documentation for possible values
+#     directory: "/" # Location of package manifests
+#     schedule:
+#       interval: "weekly"
+#     open-pull-requests-limit: 0
+#   - package-ecosystem: "pip" # See documentation for possible values
+#     directory: "/resmgr" # Location of package manifests
+#     schedule:
+#       interval: "weekly"
+#     open-pull-requests-limit: 0
+#   - package-ecosystem: "pip" # See documentation for possible values
+#     directory: "/bbone/bbmaster" # Location of package manifests
+#     schedule:
+#       interval: "weekly"
+#     open-pull-requests-limit: 0
+#   - package-ecosystem: "pip" # See documentation for possible values
+#     directory: "/bbone/bbslave" # Location of package manifests
+#     schedule:
+#       interval: "weekly"
+#     open-pull-requests-limit: 0
 
 version: 2
 updates:
-  - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # Python dependencies (weekly updates)
+  - package-ecosystem: "pip"
+    directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 0
-  - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/resmgr" # Location of package manifests
+    target-branch: "harsh"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "hsri-pf9"
+  
+  - package-ecosystem: "pip"
+    directory: "/resmgr"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 0
-  - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/bbone/bbmaster" # Location of package manifests
+    target-branch: "harsh"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "hsri-pf9"
+
+  - package-ecosystem: "pip"
+    directory: "/bbone/bbmaster"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 0
-  - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/bbone/bbslave" # Location of package manifests
+    target-branch: "harsh"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "hsri-pf9"
+
+  - package-ecosystem: "pip"
+    directory: "/bbone/bbslave"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 0
+    target-branch: "harsh"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "hsri-pf9"
+
+  # Go dependencies (weekly updates)
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "harsh"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "hsri-pf9"
+
+  # GitHub Actions dependencies (weekly updates)
+  - package-ecosystem: "github-actions"
+    directory: "/.github/workflows"
+    schedule:
+      interval: "weekly"
+    target-branch: "harsh"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "hsri-pf9"
+
+  # Security updates (daily for Python & Go)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    target-branch: "harsh"
+    open-pull-requests-limit: 5
+    labels:
+      - "security"
+    reviewers:
+      - "hsri-pf9"
+    ignore:
+      - dependency-name: "example-package"
+        versions: [ ">=2.0.0" ]
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    target-branch: "harsh"
+    open-pull-requests-limit: 5
+    labels:
+      - "security"
+    reviewers:
+      - "hsri-pf9"
