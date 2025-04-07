@@ -16,7 +16,7 @@ setup(
         "typing-extensions==4.1.1",
         "pecan==1.5.0",
         "WebTest==2.0.35",
-        "requests==2.31.0",
+        "requests==2.32.0",
         "urllib3==1.26.19",
         "pika==0.13.1",
         "cryptography==44.0.1",
