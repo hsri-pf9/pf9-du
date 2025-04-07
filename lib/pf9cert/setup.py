@@ -14,7 +14,7 @@ setup(
     author_email='',
     install_requires=[
         "pyOpenSSL==20.0.1",
-        "cryptography==44.0.1"
+        "cryptography==44.0.2"
     ],
     test_suite='pf9cert',
     zip_safe=False,
