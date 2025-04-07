@@ -153,8 +153,8 @@ jobs:
         uses: returntocorp/semgrep-action@v1
         with:
           config: "p/ci"  # Use public default ruleset
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        # env:
+        #   SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
 
   codeql_scan:
     name: CodeQL Static Analysis
