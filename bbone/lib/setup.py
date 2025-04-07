@@ -13,8 +13,8 @@ setup(
     author='',
     author_email='',
     install_requires=[
-        'requests==2.31.0',
-        'urllib3==1.24.2',
+        'requests==2.32.2',
+        'urllib3==1.26.19',
         'six==1.16.0'
     ],
     test_suite='bbcommon',
