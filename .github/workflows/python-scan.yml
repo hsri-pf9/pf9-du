@@ -173,13 +173,19 @@ jobs:
       - name: Install Ruff
         run: pip install ruff
 
-      - name: Run Ruff (Major Errors Only)
+      - name: Run Ruff Check (E, F, I)
+        id: check
         run: |
-          echo "🧹 Running Ruff..."
-          ruff check . --select E,F,I --exit-zero | tee ruff_output.txt
-          if grep -qE ".*" ruff_output.txt; then
-            echo "❌ Ruff found issues. Failing build."
+          echo "🧹 Running Ruff for major lint issues..."
+          ruff check . --select E,F,I --exit-zero > ruff_output.txt
+          cat ruff_output.txt
+          if grep -qE "." ruff_output.txt; then
+            echo "failed=true" >> $GITHUB_OUTPUT
+            echo "❌ Ruff found issues. Failing job."
             exit 1
+          else
+            echo "failed=false" >> $GITHUB_OUTPUT
+            echo "✅ No major lint issues found."
           fi
 
   autofix_pr:
