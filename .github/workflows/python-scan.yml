@@ -86,9 +86,9 @@ name: Python Security & Linting
 
 on:
   push:
-    branches: [ harsh ]
+    branches: [ main ]
   pull_request:
-    branches: [ harsh ]
+    branches: [ main ]
   schedule:
     - cron: '0 0 * * 0'  # Every Monday at 12 PM UTC
 

@@ -2,9 +2,9 @@ name: Trivy Security Scan
 
 on:
   push:
-    branches: [ harsh ]
+    branches: [ main ]
   pull_request:
-    branches: [ harsh ]
+    branches: [ main ]
   schedule:
     - cron: '0 0 * * 0' # Runs every Sunday at midnight UTC (weekly)
 
