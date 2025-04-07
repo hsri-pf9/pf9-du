@@ -20,7 +20,7 @@ setup(
         'pf9app',
         'bbcommon',
         'configutils',
-        'pyyaml==5.3.1',
+        'pyyaml==5.4',
         'distro',
         'python-gnupg',
     ],

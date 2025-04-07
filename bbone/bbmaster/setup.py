@@ -17,10 +17,10 @@ setup(
         "pecan==1.5.0",
         "WebTest==2.0.35",
         "requests==2.31.0",
-        "urllib3==1.24.2",
+        "urllib3==1.26.19",
         "pika==0.13.1",
-        "cryptography==42.0.4",
-        "webob==1.8.7",
+        "cryptography==44.0.1",
+        "webob==1.8.8",
         "MarkupSafe==2.0.1",
         "boto3==1.15.18",
         "botocore==1.18.18"
