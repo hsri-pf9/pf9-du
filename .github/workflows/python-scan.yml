@@ -1,110 +1,19 @@
-# name: Python Security & Linting
-
-# on:
-#   push:
-#     branches: [ harsh ]
-#   pull_request:
-#     branches: [ harsh ]
-#   schedule:
-#     - cron: '0 0 * * 0'  # Every Monday at 12 PM UTC
-
-# jobs:
-#   setup:
-#     name: Shared Setup
-#     runs-on: ubuntu-latest
-#     outputs:
-#       python-version: '3.10'
-#     steps:
-#       - name: Checkout Code
-#         uses: actions/checkout@v3
-
-#   bandit_scan:
-#     name: Bandit Security Scan (Medium & High)
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout Code
-#         uses: actions/checkout@v3
-
-#       - name: Set up Python
-#         uses: actions/setup-python@v4
-#         with:
-#           python-version: '3.10'
-
-#       - name: Install Bandit
-#         run: pip install bandit
-
-#       - name: Run Bandit (MEDIUM & HIGH only)
-#         run: |
-#           echo "🚨 Running Bandit for medium and high severity issues..."
-#           bandit -r . --severity-level high || echo "⚠️ Bandit scan completed with issues. See above."
-
-#   safety_scan:
-#     name: Safety Dependency Scan
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout Code
-#         uses: actions/checkout@v3
-
-#       - name: Set up Python
-#         uses: actions/setup-python@v4
-#         with:
-#           python-version: '3.10'
-
-#       - name: Install Safety
-#         run: |
-#           pip install -r requirements.txt || true
-#           pip install safety
-
-#       - name: Run Safety (Dependency Vulnerabilities)
-#         env:
-        #   SAFETY_API_KEY: #
-#         run: |
-#           echo "🔒 Running Safety vulnerability scan..."
-#           safety scan --full-report --ci || echo "⚠️ Vulnerabilities found. See report above."
-
-#   ruff_lint:
-#     name: Ruff Major Lint Check
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout Code
-#         uses: actions/checkout@v3
-
-#       - name: Set up Python
-#         uses: actions/setup-python@v4
-#         with:
-#           python-version: '3.10'
-
-#       - name: Install Ruff
-#         run: pip install ruff
-
-#       - name: Run Ruff (Major Errors Only)
-#         run: |
-#           echo "🧹 Running Ruff for major lint issues (E, F, I)..."
-#           ruff check . --select E,F,I --ignore ALL || echo "⚠️ Ruff found issues, continuing..."
-
-name: Python Security & Linting
+name: Python Security Scans & Linting
 
 on:
   push:
-    branches: [ main ]
+    branches: [test]
   pull_request:
-    branches: [ main ]
+    branches: [test]
   schedule:
     - cron: '0 0 * * 0'  # Every Monday at 12 PM UTC
 
 jobs:
-  setup:
-    name: Shared Setup
+  bandit_scan:
+    name: Bandit Security Scan (High/Critical)
     runs-on: ubuntu-latest
     outputs:
-      python-version: '3.10'
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-  bandit_scan:
-    name: Bandit Security Scan (High)
-    runs-on: ubuntu-latest
+      bandit-high-found: ${{ steps.check.outputs.bandit-high-found }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -117,10 +26,47 @@ jobs:
       - name: Install Bandit
         run: pip install bandit
 
-      - name: Run Bandit (MEDIUM & HIGH only)
+      - name: Run Bandit & Save Report
         run: |
-          echo "🚨 Running Bandit for medium and high severity issues..."
-          bandit -r . --severity-level high
+          bandit -r . --format json --severity-level high -o bandit-report.json
+
+      - name: Check for High/Critical Issues
+        id: check
+        run: |
+          count=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json)
+          echo "bandit-high-found=$([[ $count -gt 0 ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+          cat bandit-report.json
+
+  create-pr-bandit:
+    name: Create PR if Bandit Found High Vulns
+    needs: [bandit_scan]
+    if: needs.bandit_scan.outputs.bandit-high-found == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Add Bandit Alert Log
+        run: |
+          echo "High vulnerabilities found by Bandit at $(date)" >> .bandit-security-alert.log
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .bandit-security-alert.log
+          git commit -m "chore: bandit high severity alert log"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: "chore: High/Critical vulnerabilities detected by Bandit 🚨"
+          title: "chore: Bandit high severity scan triggered PR"
+          body: |
+            Bandit detected high severity security issues.
+            This PR was created automatically to track remediation.
+          branch: "auto/high-severity-bandit-scan"
+          base: "main"
 
   semgrep_scan:
     name: Semgrep SAST Scan
@@ -129,7 +75,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Run Semgrep (default rules)
+      - name: Run Semgrep
         uses: returntocorp/semgrep-action@v1
         with:
           config: "p/ci"
@@ -140,7 +86,7 @@ jobs:
     permissions:
       actions: read
       contents: read
-      security-events: write  # Required for CodeQL results
+      security-events: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -153,14 +99,28 @@ jobs:
       - name: Autobuild
         uses: github/codeql-action/autobuild@v2
 
-      - name: Perform CodeQL Analysis
+      - name: Analyze
         uses: github/codeql-action/analyze@v2
 
-  ruff_lint:
-    name: Ruff Major Lint Check
+  gitleaks:
+    name: Secret Scan (Gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --no-git -v
+
+  ruff_lint:
+    name: Ruff Lint (E, F, I)
+    runs-on: ubuntu-latest
+    outputs:
+      ruff-failed: ${{ steps.check.outputs.ruff-failed }}
+    steps:
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Python
@@ -171,26 +131,23 @@ jobs:
       - name: Install Ruff
         run: pip install ruff
 
-      - name: Run Ruff Check (E, F, I)
+      - name: Run Ruff Lint
         id: check
         run: |
-          echo "🧹 Running Ruff for major lint issues..."
           ruff check . --select E,F,I --exit-zero > ruff_output.txt
           cat ruff_output.txt
           if grep -qE "." ruff_output.txt; then
-            echo "failed=true" >> $GITHUB_OUTPUT
-            echo "❌ Ruff found issues. Failing job."
+            echo "ruff-failed=true" >> $GITHUB_OUTPUT
             exit 1
           else
-            echo "failed=false" >> $GITHUB_OUTPUT
-            echo "✅ No major lint issues found."
+            echo "ruff-failed=false" >> $GITHUB_OUTPUT
           fi
 
   autofix_pr:
-    name: Auto Fix and Create PR
-    runs-on: ubuntu-latest
+    name: Auto PR for Ruff Fixes
     needs: [ruff_lint]
-    if: always()  # Always run to check for possible autofixes
+    if: always()
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -202,7 +159,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Ruff (for autofix)
+      - name: Install Ruff
         run: pip install ruff
 
       - name: Run Ruff Autofix
@@ -215,13 +172,13 @@ jobs:
           git checkout -b autofix/ruff-fixes || git checkout autofix/ruff-fixes
           git add .
           if git diff --cached --quiet; then
-            echo "✅ No fixes needed."
+            echo "✅ No autofixes required."
           else
             git commit -m "fix: Apply Ruff autofixes"
             git push origin HEAD
           fi
 
-      - name: Create PR for Fixes
+      - name: Create PR for Ruff Fixes
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
