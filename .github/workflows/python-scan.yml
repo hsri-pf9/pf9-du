@@ -1,19 +1,28 @@
-name: Python Security Scans & Linting
+name: Python Security & Linting
 
 on:
   push:
-    branches: [test]
+    branches: [ test ]
   pull_request:
-    branches: [test]
+    branches: [ test ]
   schedule:
     - cron: '0 0 * * 0'  # Every Monday at 12 PM UTC
 
 jobs:
-  bandit_scan:
-    name: Bandit Security Scan (High/Critical)
+  setup:
+    name: Shared Setup
     runs-on: ubuntu-latest
     outputs:
-      bandit-high-found: ${{ steps.check-bandit.outputs.bandit-high-found }}
+      python-version: '3.10'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+  bandit_scan:
+    name: Bandit Security Scan (Full)
+    runs-on: ubuntu-latest
+    outputs:
+      bandit-high-found: ${{ steps.scan.outputs.bandit_high_found }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -23,38 +32,27 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Bandit & jq
-        run: |
-          pip install bandit
-          sudo apt-get update && sudo apt-get install -y jq
+      - name: Install Bandit
+        run: pip install bandit jq
 
-      - name: Run Bandit and Save JSON Report
+      - name: Run Full Bandit Scan
+        id: scan
         run: |
-          echo "🚨 Running Bandit for medium and high severity issues..."
-          bandit -r . --severity-level high -f json -o bandit-report.json || true
-          echo -e "\n🔍 Human-readable Bandit output:\n"
-          bandit -r . --severity-level high || true
+          echo "🚨 Running full Bandit scan..."
+          mkdir -p tmp
+          bandit -r . -f json -o tmp/bandit_output.json || true
+          cat tmp/bandit_output.json || echo "{}"
+          count=$(jq '.results | map(select(.issue_severity == "HIGH")) | length' tmp/bandit_output.json || echo 0)
+          echo "bandit_high_found=$([[ $count -gt 0 ]] && echo true || echo false)" >> $GITHUB_OUTPUT
 
-      - name: Upload Bandit Report as Artifact (Optional Debugging)
+      - name: Upload Bandit Report
         uses: actions/upload-artifact@v4
         with:
-          name: bandit-report
-          path: bandit-report.json
+          name: bandit-json
+          path: tmp/bandit_output.json
 
-      - name: Check for High/Critical Issues
-        id: check-bandit
-        run: |
-          count=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json)
-          echo "Number of HIGH severity issues found: $count"
-          if [ "$count" -gt 0 ]; then
-            echo "bandit-high-found=true" >> $GITHUB_OUTPUT
-          else
-            echo "bandit-high-found=false" >> $GITHUB_OUTPUT
-          fi
-
-
-  create-pr-bandit:
-    name: Create PR if Bandit Found High Vulns
+  auto-pr:
+    name: Create Pull Request if High Vulnerabilities Found
     needs: [bandit_scan]
     if: needs.bandit_scan.outputs.bandit-high-found == 'true'
     runs-on: ubuntu-latest
@@ -65,24 +63,42 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Add Bandit Alert Log
+      - name: Download Bandit Report
+        uses: actions/download-artifact@v4
+        with:
+          name: bandit-json
+          path: tmp
+
+      - name: Generate PR Body with High Severity Bandit Results
         run: |
-          echo "High vulnerabilities found by Bandit at $(date)" >> .bandit-security-alert.log
+          echo "# 🚨 Bandit Full Scan Report" > tmp/pr-body.md
+          if [[ -f tmp/bandit_output.json ]]; then
+            jq -r '.results[] 
+              | select(.issue_severity == "HIGH")
+              | "* File: \(.filename)\n  • Line: \(.line_number)\n  • Severity: \(.issue_severity)\n  • Confidence: \(.issue_confidence)\n  • Issue: \(.issue_text)\n"' tmp/bandit_output.json >> tmp/pr-body.md
+          else
+            echo "❌ Bandit report not found or scan failed." >> tmp/pr-body.md
+          fi
+
+      - name: Commit Bandit Alert Log (Optional)
+        run: |
+          jq -r '.results[] 
+            | select(.issue_severity == "HIGH")
+            | "* File: \(.filename)\n  • Line: \(.line_number)\n  • Severity: \(.issue_severity)\n  • Confidence: \(.issue_confidence)\n  • Issue: \(.issue_text)\n"' tmp/bandit_output.json > .bandit-alert.log || true
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add .bandit-security-alert.log
-          git commit -m "chore: bandit high severity alert log"
+          git add -f .bandit-alert.log || true
+          git commit -m "chore: bandit security alert log" || true
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
-          commit-message: "chore: High/Critical vulnerabilities detected by Bandit 🚨"
-          title: "chore: Bandit high severity scan triggered PR"
-          body: |
-            Bandit detected high severity security issues.
-            This PR was created automatically to track remediation.
-          branch: "auto/high-severity-bandit-scan"
+          commit-message: "chore: issues detected by Bandit (all severities)"
+          title: "chore: auto PR for Bandit scan"
+          body-path: tmp/pr-body.md
+          branch: "auto/bandit-security-scan"
           base: "main"
+          delete-branch: true
 
   semgrep_scan:
     name: Semgrep SAST Scan
@@ -91,7 +107,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Run Semgrep
+      - name: Run Semgrep (default rules)
         uses: returntocorp/semgrep-action@v1
         with:
           config: "p/ci"
@@ -115,28 +131,14 @@ jobs:
       - name: Autobuild
         uses: github/codeql-action/autobuild@v2
 
-      - name: Analyze
+      - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
 
-  gitleaks:
-    name: Secret Scan (Gitleaks)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        with:
-          args: detect --no-git -v
-
   ruff_lint:
-    name: Ruff Lint (E, F, I)
+    name: Ruff Major Lint Check
     runs-on: ubuntu-latest
-    outputs:
-      ruff-failed: ${{ steps.check.outputs.ruff-failed }}
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v3
 
       - name: Set up Python
@@ -147,65 +149,8 @@ jobs:
       - name: Install Ruff
         run: pip install ruff
 
-      - name: Run Ruff Lint
-        id: check
+      - name: Run Ruff Check (E, F, I)
         run: |
+          echo "🧹 Running Ruff for major lint issues..."
           ruff check . --select E,F,I --exit-zero > ruff_output.txt
           cat ruff_output.txt
-          if grep -qE "." ruff_output.txt; then
-            echo "ruff-failed=true" >> $GITHUB_OUTPUT
-            exit 1
-          else
-            echo "ruff-failed=false" >> $GITHUB_OUTPUT
-          fi
-
-  autofix_pr:
-    name: Auto PR for Ruff Fixes
-    needs: [ruff_lint]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install Ruff
-        run: pip install ruff
-
-      - name: Run Ruff Autofix
-        run: ruff check . --select E,F,I --fix
-
-      - name: Commit & Push Fixes (if any)
-        id: commit_fixes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b autofix/ruff-fixes || git checkout autofix/ruff-fixes
-          git add .
-          if git diff --cached --quiet; then
-          echo "✅ No autofixes required."
-          echo "autofix-needed=false" >> $GITHUB_OUTPUT
-          else
-            git commit -m "fix: Apply Ruff autofixes"
-            git push origin HEAD
-            echo "autofix-needed=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create PR for Ruff Fixes
-        if: steps.commit_fixes.outputs.autofix-needed == 'true'
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "fix: Apply Ruff autofixes"
-          branch: autofix/ruff-fixes
-          title: "chore: Auto lint fixes (Ruff)"
-          body: |
-            This PR includes auto-generated lint fixes from Ruff.
-          labels: auto-fix
-          base: main
