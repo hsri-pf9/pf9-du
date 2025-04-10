@@ -13,7 +13,7 @@ jobs:
     name: Bandit Security Scan (High/Critical)
     runs-on: ubuntu-latest
     outputs:
-      bandit-high-found: ${{ steps.set-output.outputs.bandit-high-found }}
+      bandit-high-found: ${{ steps.check-bandit.outputs.bandit-high-found }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -30,8 +30,10 @@ jobs:
 
       - name: Run Bandit and Save JSON Report
         run: |
-          bandit -r . --format json --severity-level high -o bandit-report.json || true
-          cat bandit-report.json
+          echo "🚨 Running Bandit for medium and high severity issues..."
+          bandit -r . --severity-level high -f json -o bandit-report.json || true
+          echo -e "\n🔍 Human-readable Bandit output:\n"
+          bandit -r . --severity-level high || true
 
       - name: Upload Bandit Report as Artifact (Optional Debugging)
         uses: actions/upload-artifact@v4
@@ -40,7 +42,7 @@ jobs:
           path: bandit-report.json
 
       - name: Check for High/Critical Issues
-        id: set-output
+        id: check-bandit
         run: |
           count=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json)
           echo "Number of HIGH severity issues found: $count"
@@ -180,19 +182,23 @@ jobs:
         run: ruff check . --select E,F,I --fix
 
       - name: Commit & Push Fixes (if any)
+        id: commit_fixes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b autofix/ruff-fixes || git checkout autofix/ruff-fixes
           git add .
           if git diff --cached --quiet; then
-            echo "✅ No autofixes required."
+          echo "✅ No autofixes required."
+          echo "autofix-needed=false" >> $GITHUB_OUTPUT
           else
             git commit -m "fix: Apply Ruff autofixes"
             git push origin HEAD
+            echo "autofix-needed=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Create PR for Ruff Fixes
+        if: steps.commit_fixes.outputs.autofix-needed == 'true'
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -202,3 +208,4 @@ jobs:
           body: |
             This PR includes auto-generated lint fixes from Ruff.
           labels: auto-fix
+          base: main
