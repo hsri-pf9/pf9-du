@@ -13,7 +13,7 @@ jobs:
     name: Bandit Security Scan (High/Critical)
     runs-on: ubuntu-latest
     outputs:
-      bandit-high-found: ${{ steps.check.outputs.bandit-high-found }}
+      bandit-high-found: ${{ steps.set-output.outputs.bandit-high-found }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -23,19 +23,33 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Bandit
-        run: pip install bandit
-
-      - name: Run Bandit & Save Report
+      - name: Install Bandit & jq
         run: |
-          bandit -r . --format json --severity-level high -o bandit-report.json
+          pip install bandit
+          sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run Bandit and Save JSON Report
+        run: |
+          bandit -r . --format json --severity-level high -o bandit-report.json || true
+          cat bandit-report.json
+
+      - name: Upload Bandit Report as Artifact (Optional Debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
 
       - name: Check for High/Critical Issues
-        id: check
+        id: set-output
         run: |
           count=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json)
-          echo "bandit-high-found=$([[ $count -gt 0 ]] && echo true || echo false)" >> $GITHUB_OUTPUT
-          cat bandit-report.json
+          echo "Number of HIGH severity issues found: $count"
+          if [ "$count" -gt 0 ]; then
+            echo "bandit-high-found=true" >> $GITHUB_OUTPUT
+          else
+            echo "bandit-high-found=false" >> $GITHUB_OUTPUT
+          fi
+
 
   create-pr-bandit:
     name: Create PR if Bandit Found High Vulns
